@@ -1,0 +1,32 @@
+{
+  "name": "extension",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@workspace/components": "workspace:*",
+    "@workspace/ui": "workspace:*",
+    "react": "catalog:react",
+    "react-dom": "catalog:react"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.3.0",
+    "@tailwindcss/vite": "catalog:tailwind",
+    "@types/chrome": "^0.1.36",
+    "@types/node": "catalog:node",
+    "@types/react": "catalog:react",
+    "@types/react-dom": "catalog:react",
+    "@vitejs/plugin-react-swc": "catalog:vite",
+    "@workspace/eslint-config": "workspace:*",
+    "tailwindcss": "catalog:tailwind",
+    "typescript": "catalog:typescript",
+    "vite": "catalog:vite",
+    "vite-plugin-zip-pack": "^1.2.4"
+  }
+}

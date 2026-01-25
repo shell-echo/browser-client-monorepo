@@ -1,0 +1,21 @@
+{
+  "name": "browser-client-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "format": "prettier --write .",
+    "lint": "turbo run lint",
+    "spellcheck": "cspell lint --config .cspell.json \"**/*\""
+  },
+  "devDependencies": {
+    "cspell": "^9.6.0",
+    "eslint": "^9.39.2",
+    "prettier": "^3.8.0",
+    "turbo": "^2.7.5"
+  },
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=18"
+  }
+}
