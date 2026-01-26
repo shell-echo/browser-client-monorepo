@@ -18,12 +18,12 @@
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.3.0",
     "@tailwindcss/vite": "catalog:tailwind",
-    "@types/chrome": "^0.1.36",
     "@types/node": "catalog:node",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
     "@vitejs/plugin-react-swc": "catalog:vite",
     "@workspace/eslint-config": "workspace:*",
+    "@workspace/types": "workspace:*",
     "tailwindcss": "catalog:tailwind",
     "typescript": "catalog:typescript",
     "vite": "catalog:vite",

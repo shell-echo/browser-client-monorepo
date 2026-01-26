@@ -98,6 +98,9 @@ importers:
       '@workspace/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@workspace/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       tailwindcss:
         specifier: catalog:tailwind
         version: 4.1.18
@@ -129,9 +132,6 @@ importers:
       '@tailwindcss/vite':
         specifier: catalog:tailwind
         version: 4.1.18(vite@7.2.4(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.2))
-      '@types/chrome':
-        specifier: ^0.1.36
-        version: 0.1.36
       '@types/node':
         specifier: catalog:node
         version: 24.10.1
@@ -147,6 +147,9 @@ importers:
       '@workspace/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@workspace/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       tailwindcss:
         specifier: catalog:tailwind
         version: 4.1.18
@@ -193,6 +196,9 @@ importers:
       '@workspace/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@workspace/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       tailwindcss:
         specifier: catalog:tailwind
         version: 4.1.18
@@ -269,6 +275,19 @@ importers:
       typescript-eslint:
         specifier: ^8.53.0
         version: 8.53.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+
+  packages/types:
+    dependencies:
+      '@types/chrome':
+        specifier: ^0.1.36
+        version: 0.1.36
+    devDependencies:
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: catalog:typescript
+        version: 5.9.3
 
   packages/typescript-config: {}
 

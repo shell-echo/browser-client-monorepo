@@ -22,7 +22,8 @@
       "~/*": ["./*"],
       "@workspace/ui/*": ["../../packages/ui/src/*"],
       "@workspace/components/*": ["../../packages/components/src/*"]
-    }
+    },
+    "types": ["@workspace/types/web"]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts", "**/*.mts"],
   "exclude": ["node_modules"]

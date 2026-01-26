@@ -21,6 +21,7 @@
     "@types/react-dom": "catalog:react",
     "@vitejs/plugin-react-swc": "catalog:vite",
     "@workspace/eslint-config": "workspace:*",
+    "@workspace/types": "workspace:*",
     "@tailwindcss/vite": "catalog:tailwind",
     "tailwindcss": "catalog:tailwind",
     "typescript": "catalog:typescript",

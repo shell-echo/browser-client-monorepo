@@ -24,6 +24,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["@workspace/ui", "@workspace/components"],
+    exclude: ["@workspace/ui", "@workspace/components", "@workspace/types"],
   },
 });

@@ -1,0 +1,31 @@
+{
+  "name": "@workspace/types",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@types/chrome": "^0.1.36"
+  },
+  "devDependencies": {
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "catalog:typescript"
+  },
+  "exports": {
+    "./admin": "./src/admin.d.ts",
+    "./extension": "./src/extension.d.ts",
+    "./web": "./src/web.d.ts"
+  },
+  "typesVersions": {
+    "*": {
+      "admin": [
+        "src/admin.d.ts"
+      ],
+      "extension": [
+        "src/extension.d.ts"
+      ],
+      "web": [
+        "src/web.d.ts"
+      ]
+    }
+  }
+}
