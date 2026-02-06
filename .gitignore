@@ -26,3 +26,4 @@ dist
 next-env.d.ts
 
 .turbo
+release
