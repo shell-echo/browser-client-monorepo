@@ -1,7 +1,14 @@
+import logger from "@workspace/logger";
+
+import internal from "~/internal";
+
 class ApplicationContentScript {
   constructor() {
-    console.log("application content-script init.");
+    logger.debug("application content-script init.");
+    internal.invoke("chrome:tab:current").then((tab) => {
+      if (tab) internal.event.emit("content-script:application:init", { tab });
+    });
   }
 }
 
-new ApplicationContentScript();
+internal.init({ platform: "content-script", service: "application" }).then(() => new ApplicationContentScript());

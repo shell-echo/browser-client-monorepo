@@ -6,9 +6,12 @@
   "exports": {
     "./admin": "./admin.js",
     "./extension": "./extension.js",
+    "./types": "./types.js",
     "./web": "./web.js",
     "./ui": "./ui.js",
-    "./format": "./format.js"
+    "./format": "./format.js",
+    "./constant": "./constant.js",
+    "./logger": "./logger.js"
   },
   "scripts": {
     "lint": "eslint ."

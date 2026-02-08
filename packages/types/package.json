@@ -7,11 +7,13 @@
     "@types/chrome": "^0.1.36"
   },
   "devDependencies": {
+    "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "typescript": "catalog:typescript"
   },
   "exports": {
     "./admin": "./src/admin.d.ts",
+    "./common": "./src/common.d.ts",
     "./extension": "./src/extension.d.ts",
     "./web": "./src/web.d.ts"
   },
@@ -25,6 +27,9 @@
       ],
       "web": [
         "src/web.d.ts"
+      ],
+      "common": [
+        "src/common.d.ts"
       ]
     }
   }

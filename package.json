@@ -8,6 +8,10 @@
     "lint": "turbo run lint",
     "spellcheck": "cspell lint --config .cspell.json \"**/*\""
   },
+  "dependencies": {
+    "@workspace/constant": "workspace:*",
+    "@workspace/logger": "workspace:*"
+  },
   "devDependencies": {
     "cspell": "^9.6.4",
     "eslint": "^9.39.2",

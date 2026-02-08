@@ -1,7 +1,11 @@
+import logger from "@workspace/logger";
+
+import internal from "~/internal";
+
 class ServiceWorker {
   constructor() {
-    console.log("service-worker init.");
+    logger.debug("service-worker init.");
   }
 }
 
-new ServiceWorker();
+internal.init({ platform: "service-worker" }).then(() => new ServiceWorker());

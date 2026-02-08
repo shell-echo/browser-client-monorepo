@@ -1,0 +1,17 @@
+{
+  "name": "@workspace/logger",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "packageManager": "pnpm@10.20.0",
+  "devDependencies": {
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/types": "workspace:*"
+  }
+}

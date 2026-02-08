@@ -1,11 +1,12 @@
 import { defineManifest } from "@crxjs/vite-plugin";
+import constant from "@workspace/constant";
 
 import pkg from "./package.json";
 
 export default defineManifest(({ mode }) => ({
   manifest_version: 3,
-  name: `${mode === "development" ? "[DEV] " : ""}extension`,
-  description: "chrome extension",
+  name: `${mode === "development" ? "[DEV] " : ""}${constant.extension.name}`,
+  description: constant.extension.description,
   version: pkg.version,
   action: {
     default_popup: "src/action-popup/index.html",
@@ -23,5 +24,5 @@ export default defineManifest(({ mode }) => ({
   side_panel: {
     default_path: "src/side-panel/index.html",
   },
-  permissions: ["sidePanel"],
+  permissions: ["sidePanel", "tabs"],
 }));

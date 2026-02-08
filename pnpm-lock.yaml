@@ -51,6 +51,13 @@ catalogs:
 importers:
 
   .:
+    dependencies:
+      '@workspace/constant':
+        specifier: workspace:*
+        version: link:packages/constant
+      '@workspace/logger':
+        specifier: workspace:*
+        version: link:packages/logger
     devDependencies:
       cspell:
         specifier: ^9.6.4
@@ -237,6 +244,12 @@ importers:
         specifier: catalog:typescript
         version: 5.9.3
 
+  packages/constant:
+    devDependencies:
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+
   packages/eslint-config:
     devDependencies:
       '@eslint/js':
@@ -276,12 +289,24 @@ importers:
         specifier: ^8.54.0
         version: 8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
 
+  packages/logger:
+    devDependencies:
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@workspace/types':
+        specifier: workspace:*
+        version: link:../types
+
   packages/types:
     dependencies:
       '@types/chrome':
         specifier: ^0.1.36
         version: 0.1.36
     devDependencies:
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
