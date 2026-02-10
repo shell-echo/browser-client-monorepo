@@ -55,6 +55,9 @@ importers:
       '@workspace/constant':
         specifier: workspace:*
         version: link:packages/constant
+      '@workspace/helper':
+        specifier: workspace:*
+        version: link:packages/helper
       '@workspace/logger':
         specifier: workspace:*
         version: link:packages/logger
@@ -288,6 +291,18 @@ importers:
       typescript-eslint:
         specifier: ^8.54.0
         version: 8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+
+  packages/helper:
+    devDependencies:
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: catalog:typescript
+        version: 5.9.3
 
   packages/logger:
     devDependencies:

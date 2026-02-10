@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@workspace/constant": "workspace:*",
-    "@workspace/logger": "workspace:*"
+    "@workspace/logger": "workspace:*",
+    "@workspace/helper": "workspace:*"
   },
   "devDependencies": {
     "cspell": "^9.6.4",

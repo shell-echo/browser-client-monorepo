@@ -69,13 +69,13 @@ class Event {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onMessage(message: any) {
+  onMessage(message: any, sender: chrome.runtime.MessageSender) {
     if (typeof message !== "object") return;
     const type = message.type;
     if (type !== constant.extension.event.transport.message.type) return;
 
     const { event, params } = message as EventTransportMessage<Extension.Event.Type>;
-    this.dispatch(event, params);
+    this.dispatch(event, { ...params, from: { ...params.from, sender } });
   }
 }
 

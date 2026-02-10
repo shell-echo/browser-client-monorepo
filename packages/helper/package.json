@@ -1,0 +1,17 @@
+{
+  "name": "@workspace/helper",
+  "version": "0.0.0",
+  "description": "",
+  "private": true,
+  "main": "./src/index.ts",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "packageManager": "pnpm@10.28.1",
+  "devDependencies": {
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "catalog:typescript"
+  }
+}

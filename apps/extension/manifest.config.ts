@@ -20,9 +20,24 @@ export default defineManifest(({ mode }) => ({
       js: ["src/content-script/application.ts"],
       run_at: "document_start",
     },
+    {
+      matches: ["<all_urls>"],
+      js: ["src/content-script/inject.ts"],
+      run_at: "document_start",
+    },
   ],
   side_panel: {
     default_path: "src/side-panel/index.html",
   },
   permissions: ["sidePanel", "tabs"],
+  host_permissions: ["<all_urls>"],
+  externally_connectable: {
+    matches: ["<all_urls>"],
+  },
+  web_accessible_resources: [
+    {
+      resources: ["src/content-script/library/inject.js"],
+      matches: ["<all_urls>"],
+    },
+  ],
 }));

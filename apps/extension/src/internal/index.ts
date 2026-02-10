@@ -8,6 +8,7 @@ import pkg from "../../package.json";
 
 class Internal {
   static #instance: Internal;
+
   name = constant.extension.name;
   version = pkg.version;
 
@@ -71,7 +72,7 @@ class Internal {
       }
 
       if (this.runtime.platform !== "service-worker") {
-        const tab = await this.invoke("chrome:tab:current");
+        const tab = await this.invoke("chrome:tabs:current");
         if (this.runtime.platform === "content-script") {
           this._runtime.tabId = tab?.id;
         }
@@ -96,7 +97,7 @@ class Internal {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private onMessage(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) {
     if (typeof message !== "object") return;
-    const event = this._event.onMessage(message);
+    const event = this._event.onMessage(message, sender);
     const invoke = this._invoke.onMessage(message, sender, sendResponse);
 
     return Boolean(invoke || event);

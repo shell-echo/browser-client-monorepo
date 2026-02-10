@@ -11,7 +11,8 @@
     "./ui": "./ui.js",
     "./format": "./format.js",
     "./constant": "./constant.js",
-    "./logger": "./logger.js"
+    "./logger": "./logger.js",
+    "./helper": "./helper.js"
   },
   "scripts": {
     "lint": "eslint ."
