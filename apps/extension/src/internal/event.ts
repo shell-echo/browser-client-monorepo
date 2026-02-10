@@ -1,4 +1,5 @@
 import constant from "@workspace/constant";
+import helper from "@workspace/helper";
 import logger from "@workspace/logger";
 
 import internal from "~/internal";
@@ -64,8 +65,45 @@ class Event {
       tab,
     ];
 
-    // service-worker <--> action-popup <--> side-panel
-    chrome.runtime?.sendMessage(message).catch((reason) => logger.null(...errmsg("other service platform", reason)));
+    // service-worker <--> action-popup <--> side-panel <--> content-script
+    chrome.runtime.sendMessage(message).catch((reason) => logger.null(...errmsg("other service platform", reason)));
+
+    // service-worker、side-panel、action-popup
+    if (!["service-worker", "side-panel", "action-popup"].includes(internal.runtime.platform)) return;
+
+    const send2contentscript = (tab: chrome.tabs.Tab) => {
+      chrome.tabs.sendMessage(tab.id!, message).catch((reason) => logger.null(...errmsg("content-script", reason, tab)));
+    };
+    const send2web = (tab: chrome.tabs.Tab) => {
+      const webargs = { name: internal.name, message, constant };
+      const func = (args: typeof webargs) => {
+        const { name, message, constant } = args;
+        const eventname = `${name}-${constant.extension.event.transport.message.type}-event`;
+        const event = new CustomEvent(eventname, { detail: { message } });
+        document.dispatchEvent(event);
+      };
+      chrome.scripting
+        .executeScript({
+          world: "MAIN",
+          target: { tabId: tab.id! },
+          args: [webargs],
+          func,
+        })
+        .catch((reason) => logger.error(...errmsg("web", reason, tab)));
+    };
+
+    // service-worker/side-panel/action-popup -> content-script/web
+    chrome.tabs.query({}, (tabs) =>
+      tabs
+        .filter((tab) => internal.trust.isTrustTab(tab) && !helper.utils.isRestrictedUrl(tab.url || ""))
+        .forEach((tab) => {
+          // content-script
+          send2contentscript(tab);
+
+          // web (src/service-worker/inject)
+          send2web(tab);
+        }),
+    );
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -10,15 +10,15 @@ class InjectContentScript {
 
   private insert() {
     const script = document.createElement("script");
-    script.src = chrome.runtime.getURL("internal/library/inject.js");
+    script.src = chrome.runtime.getURL("src/content-script/library/inject.js");
     document.head.insertBefore(script, document.head.firstChild);
-    script.remove();
 
-    window.addEventListener("__EXTENSION_INJECT_READY__", () =>
+    window.addEventListener("__EXTENSION_INJECT_READY__", () => {
+      script.remove();
       internal.invoke("chrome:tabs:current").then((tab) => {
         if (tab) internal.event.emit("content-script:inject", { tab });
-      }),
-    );
+      });
+    });
   }
 }
 

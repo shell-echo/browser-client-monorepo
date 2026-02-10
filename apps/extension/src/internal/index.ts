@@ -3,6 +3,7 @@ import logger from "@workspace/logger";
 
 import Event from "~/internal/event";
 import Invoke from "~/internal/invoke";
+import Trust from "~/internal/trust";
 
 import pkg from "../../package.json";
 
@@ -53,6 +54,10 @@ class Internal {
   get invoke() {
     return this._invoke.dispatch.bind(this._invoke);
   }
+  private _trust!: Trust;
+  get trust() {
+    return this._trust;
+  }
 
   public async init(runtime: Extension.Runtime): Promise<void> {
     this._state = "initializing";
@@ -62,6 +67,7 @@ class Internal {
 
       this._event = new Event();
       this._invoke = new Invoke();
+      this._trust = new Trust();
       this.event.emit("internal:init:state:change", { state: this.state });
 
       chrome.runtime?.onMessage.addListener((message, sender, sendResponse) => this.onMessage(message, sender, sendResponse));

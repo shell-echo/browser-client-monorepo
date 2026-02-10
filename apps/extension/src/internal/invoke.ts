@@ -21,7 +21,19 @@ const chrometabs: { [T in keyof Extension.Invoke.ChromeTabs]: Extension.Invoke.H
 
     return chrome.tabs.captureVisibleTab();
   },
-  "chrome:tabs:create": (params) => chrome.tabs.create(params.createProperties),
+  "chrome:tabs:create": async (params) => {
+    const { url, ...createProps } = params.createProperties;
+    if (params.createProperties.openerTabId) {
+      const opener = await chrome.tabs.get(params.createProperties.openerTabId);
+      const emptyTab = await chrome.tabs.create(createProps);
+      if (internal.trust.isTrustTab(opener)) internal.trust.addTab(emptyTab);
+      const tab = await chrome.tabs.update(emptyTab.id, { url });
+
+      return tab || emptyTab;
+    }
+
+    return await chrome.tabs.create(params.createProperties);
+  },
   "chrome:tabs:detectLanguage": (params) => chrome.tabs.detectLanguage(params?.tabId),
   "chrome:tabs:discard": (params) => chrome.tabs.discard(params?.tabId),
   "chrome:tabs:duplicate": (params) => chrome.tabs.duplicate(params.tabId),
@@ -80,6 +92,8 @@ class Invoke {
             resolve(resp.data);
           },
         );
+
+        return;
       }
 
       // deal
@@ -106,6 +120,7 @@ class Invoke {
     if (internal.runtime.platform !== "service-worker" || typeof message !== "object") return;
     const type = message.type;
     if (type !== constant.extension.invoke.transport.message.type) return;
+    if (sender.tab && !internal.trust.isTrustTab(sender.tab)) return;
 
     const { invoke, params } = message as InvokeTransportMessage<Extension.Invoke.Type>;
     this.dispatch(invoke, params, sender)

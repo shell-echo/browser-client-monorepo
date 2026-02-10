@@ -110,7 +110,7 @@ class InjectServiceWorker {
   };
 
   private setApplicationInteractive(tab: chrome.tabs.Tab) {
-    if (!tab.id || helper.utils.isRestrictedUrl(tab.url || "")) return;
+    if (!tab.id || helper.utils.isRestrictedUrl(tab.url || "") || !internal.trust.isTrustTab(tab)) return;
 
     chrome.scripting
       .executeScript({
