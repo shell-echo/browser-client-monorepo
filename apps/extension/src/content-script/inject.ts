@@ -15,7 +15,7 @@ class InjectContentScript {
     script.remove();
 
     window.addEventListener("__EXTENSION_INJECT_READY__", () =>
-      internal.invoke("chrome:tab:current").then((tab) => {
+      internal.invoke("chrome:tabs:current").then((tab) => {
         if (tab) internal.event.emit("content-script:inject", { tab });
       }),
     );

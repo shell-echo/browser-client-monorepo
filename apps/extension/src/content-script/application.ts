@@ -5,7 +5,7 @@ import internal from "~/internal";
 class ApplicationContentScript {
   constructor() {
     logger.debug("application content-script init.");
-    internal.invoke("chrome:tab:current").then((tab) => {
+    internal.invoke("chrome:tabs:current").then((tab) => {
       if (tab) internal.event.emit("content-script:application:init", { tab });
     });
   }

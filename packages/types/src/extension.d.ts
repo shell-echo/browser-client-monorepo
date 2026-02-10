@@ -32,7 +32,7 @@ declare namespace Extension {
     type ChromeTabsPayload = {
       "chrome:tabs:onActivated": { activeInfo: chrome.tabs.OnActivatedInfo };
       "chrome:tabs:onAttached": { tabId: number; attachInfo: chrome.tabs.OnAttachedInfo };
-      "chrome:tabs:onCreated": { tab: chrome.tabs.tab };
+      "chrome:tabs:onCreated": { tab: chrome.tabs.Tab };
       "chrome:tabs:onDetached": { tabId: number; detachInfo: chrome.tabs.OnDetachedInfo };
       "chrome:tabs:onHighlighted": { highlightInfo: chrome.tabs.OnHighlightedInfo };
       "chrome:tabs:onMoved": { tabId: number; moveInfo: chrome.tabs.OnMovedInfo };

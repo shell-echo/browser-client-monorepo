@@ -1,7 +1,9 @@
 import constant from "@workspace/constant";
 
-const LEVEL: Record<Logger.Level, number> = { debug: 1, info: 2, warn: 3, error: 4, null: 0 };
-const COLOR: Record<Logger.Level | "reset", string> = {
+type LogLevel = "debug" | "info" | "warn" | "error" | "null";
+
+const LEVEL: Record<LogLevel, number> = { debug: 1, info: 2, warn: 3, error: 4, null: 0 };
+const COLOR: Record<LogLevel | "reset", string> = {
   debug: "\x1b[34m",
   info: "\x1b[32m",
   warn: "\x1b[33m",
@@ -9,7 +11,7 @@ const COLOR: Record<Logger.Level | "reset", string> = {
   reset: "\x1b[0m",
   null: "",
 };
-const label = (name: string, level: Logger.Level) => `${COLOR[level]}[${name} ${level}]${COLOR.reset}`;
+const label = (name: string, level: LogLevel) => `${COLOR[level]}[${name} ${level}]${COLOR.reset}`;
 
 class Logger {
   name: string = constant.name;
@@ -34,7 +36,7 @@ class Logger {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private log(level: Logger.Level, ...data: any[]) {
+  private log(level: LogLevel, ...data: any[]) {
     const now = new Date();
     if (this.level > LEVEL[level]) return;
 
@@ -54,17 +56,17 @@ class Logger {
       console.log(prefix, first, ...rest);
     }
   }
-  public setLevel(level: Logger.Level) {
+  public setLevel(level: LogLevel) {
     this.level = LEVEL[level];
   }
-  public getLevel(): Logger.Level {
+  public getLevel(): LogLevel {
     const reverseLevel = Object.entries(LEVEL).reduce(
       (acc, [key, value]) => {
-        acc[value] = key as Logger.Level;
+        acc[value] = key as LogLevel;
 
         return acc;
       },
-      {} as Record<number, Logger.Level>,
+      {} as Record<number, LogLevel>,
     );
 
     return reverseLevel[this.level];
