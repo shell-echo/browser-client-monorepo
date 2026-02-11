@@ -1,4 +1,5 @@
 import constant from "@workspace/constant";
+import helper from "@workspace/helper";
 
 import internal from "~/internal";
 
@@ -69,6 +70,74 @@ const chrometabs: { [T in keyof Extension.Invoke.ChromeTabs]: Extension.Invoke.H
   "chrome:tabs:update": (params) => chrome.tabs.update(params.tabId, params.updateProperties),
 };
 
+const chrometabgroups: { [T in keyof Extension.Invoke.ChromeTabGroups]: Extension.Invoke.Handler<T> } = {
+  "chrome:tabGroups:get": (params) => chrome.tabGroups.get(params.groupId),
+  "chrome:tabGroups:move": (params) => chrome.tabGroups.move(params.groupId, params.moveProperties),
+  "chrome:tabGroups:query": (params) => chrome.tabGroups.query(params.queryInfo),
+  "chrome:tabGroups:update": (params) => chrome.tabGroups.update(params.groupId, params.updateProperties),
+};
+
+const chromedebugger: { [T in keyof Extension.Invoke.ChromeDebugger]: Extension.Invoke.Handler<T> } = {
+  "chrome:debugger:attach": (params) => chrome.debugger.attach(params.target, params.requiredVersion),
+  "chrome:debugger:detach": (params) => chrome.debugger.detach(params),
+  "chrome:debugger:getTargets": () => chrome.debugger.getTargets(),
+  "chrome:debugger:sendCommand": (params) => chrome.debugger.sendCommand(params.target, params.method, params.commandParams),
+};
+
+const serviceWorker: { [T in keyof Extension.Invoke.ServiceWorker]: Extension.Invoke.Handler<T> } = {
+  "service-worker:fetch": async (args) => {
+    const url = new URL(args.url);
+    const { query, ...init } = args.init ?? {};
+    Object.keys(query || {}).forEach((key) => {
+      const param = (args.init?.query || {})[key];
+      if (Array.isArray(param)) {
+        param.forEach((value) => {
+          url.searchParams.append(key, value);
+        });
+      } else {
+        url.searchParams.append(key, `${(args.init?.query || {})[key]}`);
+      }
+    });
+
+    const resp = await fetch(url, { ...init, method: args.method });
+    const headers = Object.fromEntries(resp.headers.entries());
+    const body = helper.utils.arrayBufferToBase64(await resp.arrayBuffer());
+
+    return {
+      status: resp.status,
+      statusText: resp.statusText,
+      ok: resp.ok,
+      redirected: resp.redirected,
+      type: resp.type,
+      url: resp.url,
+      headers,
+      body,
+    };
+  },
+};
+
+const web: { [T in keyof Extension.Invoke.Web]: Extension.Invoke.Handler<T> } = {
+  "web:runtime:evaluate": (params) =>
+    chrome.scripting.executeScript({
+      world: "MAIN",
+      target: { tabId: params.tabId },
+      args: [{ args: params.args, code: params.code }],
+      func: async (args) => {
+        const cr = new Function(`return ${args.code}`)();
+        if (typeof cr === "function") {
+          try {
+            return { success: true, data: await cr(...(args.args || [])), message: "ok" };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } catch (error: any) {
+            return { success: false, data: null, message: error.toString() };
+          }
+        }
+
+        return { success: true, data: cr, message: "ok" };
+      },
+    }),
+};
+
 export type InvokeTransportMessage<T extends Extension.Invoke.Type> = {
   type: typeof constant.extension.invoke.transport.message.type;
   invoke: T;
@@ -76,7 +145,13 @@ export type InvokeTransportMessage<T extends Extension.Invoke.Type> = {
 };
 
 class Invoke {
-  private handler: { [T in Extension.Invoke.Type]: Extension.Invoke.Handler<T> } = chrometabs;
+  private handler: { [T in Extension.Invoke.Type]: Extension.Invoke.Handler<T> } = {
+    ...chrometabs,
+    ...chrometabgroups,
+    ...chromedebugger,
+    ...serviceWorker,
+    ...web,
+  };
 
   constructor() {}
 

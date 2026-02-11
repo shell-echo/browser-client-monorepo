@@ -1,9 +1,9 @@
-import { ThemeProvider } from "@workspace/components/theme/vite-provider";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import "@workspace/ui/globals.css";
 import Root from "~/action-popup/root";
+import ThemeProvider from "~/components/provider/theme";
 import internal from "~/internal";
 
 internal.init({ platform: "action-popup" });

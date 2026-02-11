@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /// <reference types="chrome" />
 /// <reference path="./common.d.ts" />
 
@@ -42,7 +43,19 @@ declare namespace Extension {
       "chrome:tabs:onZoomChange": { ZoomChangeInfo: chrome.tabs.OnZoomChangeInfo };
     };
 
-    type ChromeEventPayload = ChromeTabsPayload;
+    type ChromeTabGroupsPayload = {
+      "chrome:tabGroups:onCreated": { group: chrome.tabGroups.TabGroup };
+      "chrome:tabGroups:onMoved": { group: chrome.tabGroups.TabGroup };
+      "chrome:tabGroups:onRemoved": { group: chrome.tabGroups.TabGroup };
+      "chrome:tabGroups:onUpdated": { group: chrome.tabGroups.TabGroup };
+    };
+
+    type ChromeDebuggerPayload = {
+      "chrome:debugger:onDetach": { source: chrome.debugger.Debuggee; reason: `${chrome.debugger.DetachReason}` };
+      "chrome:debugger:onEvent": { source: chrome.debugger.DebuggerSession; method: string; params?: object };
+    };
+
+    type ChromeEventPayload = ChromeTabsPayload & ChromeTabGroupsPayload & ChromeDebuggerPayload;
 
     type Payload = InternalPayload & ContentScriptPayload & ServiceWorkerPayload & ChromeEventPayload;
 
@@ -92,7 +105,55 @@ declare namespace Extension {
       };
     };
 
-    type Definition = ChromeTabs;
+    type ChromeTabGroups = {
+      "chrome:tabGroups:get": { params: { groupId: number }; resp: chrome.tabGroups.TabGroup };
+      "chrome:tabGroups:move": {
+        params: { groupId: number; moveProperties: chrome.tabGroups.MoveProperties };
+        resp?: chrome.tabGroups.TabGroup;
+      };
+      "chrome:tabGroups:query": { params: { queryInfo: chrome.tabGroups.QueryInfo }; resp: chrome.tabGroups.TabGroup[] };
+      "chrome:tabGroups:update": {
+        params: { groupId: number; updateProperties: chrome.tabGroups.UpdateProperties };
+        resp?: chrome.tabGroups.TabGroup;
+      };
+    };
+
+    type ChromeDebugger = {
+      "chrome:debugger:attach": { params: { target: chrome.debugger.Debuggee; requiredVersion: string }; resp: void };
+      "chrome:debugger:detach": { params: chrome.debugger.Debuggee; resp: void };
+      "chrome:debugger:getTargets": { params: undefined; resp: chrome.debugger.TargetInfo[] };
+      "chrome:debugger:sendCommand": {
+        params: { target: chrome.debugger.DebuggerSession; method: string; commandParams?: { [key: string]: unknown } };
+        resp?: object;
+      };
+    };
+
+    type ServiceWorkerFetchResponse = {
+      status: number;
+      statusText: string;
+      ok: boolean;
+      redirected: boolean;
+      type: ResponseType;
+      url: string;
+      headers: Record<string, string>;
+      body: string; // base64
+    };
+
+    type ServiceWorker = {
+      "service-worker:fetch": {
+        params: { url: string; method: RequestMethod; init?: RequestInit & { query?: { [key: string]: any } } };
+        resp: ServiceWorkerFetchResponse;
+      };
+    };
+
+    type Web = {
+      "web:runtime:evaluate": {
+        params: { tabId: number; args?: any[]; code: string };
+        resp: chrome.scripting.InjectionResult<{ success: boolean; data: any; message: string }>[];
+      };
+    };
+
+    type Definition = ChromeTabs & ChromeTabGroups & ChromeDebugger & ServiceWorker & Web;
 
     type Type = keyof Definition;
     type Params<K extends Type> = Definition[K]["params"];

@@ -1,8 +1,8 @@
-import { ThemeProvider } from "@workspace/components/theme/vite-provider";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import "@workspace/ui/globals.css";
+import ThemeProvider from "~/components/provider/theme";
 import internal from "~/internal";
 import Root from "~/side-panel/root";
 

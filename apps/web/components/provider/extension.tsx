@@ -56,7 +56,7 @@ const ExtensionProvider: React.FC<ExtensionProviderProps> = ({ children }) => {
   }, [interfacename]);
 
   React.useEffect(() => {
-    extension?.invoke("chrome:tab:current").then((tab) => setTab(tab));
+    extension?.invoke("chrome:tabs:current").then((tab) => setTab(tab));
   }, [extension]);
 
   return <Context.Provider value={{ tab, setTab, extension, setExtension }}>{children}</Context.Provider>;

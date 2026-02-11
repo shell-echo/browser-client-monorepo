@@ -3,6 +3,8 @@ import internal from "~/internal";
 class ChromeEventServiceWorker {
   constructor() {
     this.registerTabsEvent();
+    this.registerTabGroupsEvent();
+    this.registerDebuggerEvent();
   }
 
   private registerTabsEvent = () => {
@@ -22,6 +24,26 @@ class ChromeEventServiceWorker {
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => emit("chrome:tabs:onUpdated", { tabId, changeInfo, tab }));
     chrome.tabs.onZoomChange.addListener((ZoomChangeInfo) => emit("chrome:tabs:onZoomChange", { ZoomChangeInfo }));
   };
+
+  private registerTabGroupsEvent() {
+    const emit = internal.event.emit.bind(internal.event);
+
+    // chrome.tabGroups.on**
+    chrome.tabGroups.onCreated.addListener((group) => emit("chrome:tabGroups:onCreated", { group }));
+    chrome.tabGroups.onMoved.addListener((group) => emit("chrome:tabGroups:onMoved", { group }));
+    chrome.tabGroups.onRemoved.addListener((group) => emit("chrome:tabGroups:onRemoved", { group }));
+    chrome.tabGroups.onUpdated.addListener((group) => emit("chrome:tabGroups:onUpdated", { group }));
+  }
+
+  private registerDebuggerEvent() {
+    const emit = internal.event.emit.bind(internal.event);
+
+    // chrome.debugger.on**
+    chrome.debugger.onDetach.addListener((source, reason) => emit("chrome:debugger:onDetach", { source, reason }));
+    chrome.debugger.onEvent.addListener((source, method, params) =>
+      emit("chrome:debugger:onEvent", { source, method, params }),
+    );
+  }
 }
 
 export default ChromeEventServiceWorker;

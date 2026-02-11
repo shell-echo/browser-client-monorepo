@@ -29,7 +29,7 @@ export default defineManifest(({ mode }) => ({
   side_panel: {
     default_path: "src/side-panel/index.html",
   },
-  permissions: ["sidePanel", "tabs", "activeTab", "scripting"],
+  permissions: ["sidePanel", "tabs", "activeTab", "tabGroups", "scripting", "debugger"],
   host_permissions: ["<all_urls>"],
   externally_connectable: {
     matches: ["<all_urls>"],

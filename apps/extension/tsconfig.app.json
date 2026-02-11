@@ -24,11 +24,12 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
+      "~/components/*": ["./components/*"],
       "~/*": ["./src/*"],
       "@workspace/ui/*": ["../../packages/ui/src/*"],
       "@workspace/components/*": ["../../packages/components/src/*"],
       "@workspace/types/*": ["../../packages/types/src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "components"]
 }
