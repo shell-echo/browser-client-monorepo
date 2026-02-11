@@ -190,12 +190,20 @@ class Invoke {
     });
   }
 
+  private isTrustedSender(sender: chrome.runtime.MessageSender) {
+    if (sender.id && sender.id === chrome.runtime.id) return true;
+    if (sender.tab) return internal.trust.isTrustTab(sender.tab);
+    const senderUrl = sender.url || sender.origin;
+
+    return Boolean(senderUrl);
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onMessage(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) {
-    if (internal.runtime.platform !== "service-worker" || typeof message !== "object") return;
+    if (internal.runtime.platform !== "service-worker" || typeof message !== "object") return false;
     const type = message.type;
-    if (type !== constant.extension.invoke.transport.message.type) return;
-    if (sender.tab && !internal.trust.isTrustTab(sender.tab)) return;
+    if (type !== constant.extension.invoke.transport.message.type) return false;
+    if (!this.isTrustedSender(sender)) return false;
 
     const { invoke, params } = message as InvokeTransportMessage<Extension.Invoke.Type>;
     this.dispatch(invoke, params, sender)

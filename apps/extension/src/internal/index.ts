@@ -103,10 +103,10 @@ class Internal {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private onMessage(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) {
     if (typeof message !== "object") return;
-    const event = this._event.onMessage(message, sender);
+    this._event.onMessage(message, sender);
     const invoke = this._invoke.onMessage(message, sender, sendResponse);
 
-    return Boolean(invoke || event);
+    return invoke;
   }
 }
 

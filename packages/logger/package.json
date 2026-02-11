@@ -9,7 +9,7 @@
   "scripts": {
     "lint": "eslint ."
   },
-  "packageManager": "pnpm@10.20.0",
+  "packageManager": "pnpm@10.28.2",
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",
     "@workspace/types": "workspace:*"

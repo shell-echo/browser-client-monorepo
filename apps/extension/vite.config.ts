@@ -20,8 +20,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), crx({ manifest }), zip({ outDir: "release", outFileName: `crx-${name}-${version}.zip` })],
   resolve: {
     alias: {
-      "~": path.resolve(__dirname, "./src"),
       "~/components": path.resolve(__dirname, "./components"),
+      "~": path.resolve(__dirname, "./src"),
     },
   },
   optimizeDeps: {
