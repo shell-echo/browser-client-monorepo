@@ -38,6 +38,8 @@ class UtilsHelper {
 
     return bytes.buffer;
   };
+
+  public sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 export default UtilsHelper;

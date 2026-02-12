@@ -59,6 +59,17 @@ const ExtensionProvider: React.FC<ExtensionProviderProps> = ({ children }) => {
     extension?.invoke("chrome:tabs:current").then((tab) => setTab(tab));
   }, [extension]);
 
+  React.useEffect(() => {
+    if (!extension || !tab?.id) return;
+    const deal = (params: Extension.Event.Params<"chrome:tabs:onUpdated">) => {
+      if (params.payload.tabId !== tab.id) return;
+      setTab((tab) => ({ ...(tab || {}), ...params.payload.tab }));
+    };
+    extension.event.on("chrome:tabs:onUpdated", deal);
+
+    return () => extension.event.off("chrome:tabs:onUpdated", deal);
+  }, [extension, tab?.id]);
+
   return <Context.Provider value={{ tab, setTab, extension, setExtension }}>{children}</Context.Provider>;
 };
 

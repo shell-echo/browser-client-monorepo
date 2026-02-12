@@ -208,7 +208,9 @@ class Invoke {
     const { invoke, params } = message as InvokeTransportMessage<Extension.Invoke.Type>;
     this.dispatch(invoke, params, sender)
       .then((resp) => sendResponse({ success: true, data: resp, sender, message: "ok" }))
-      .catch((reason) => sendResponse({ success: false, data: reason, message: reason.msg || reason.toString() }));
+      .catch((reason) =>
+        sendResponse({ success: false, data: reason, message: `(${invoke}):${reason.msg || reason.toString()}` }),
+      );
 
     return true;
   }

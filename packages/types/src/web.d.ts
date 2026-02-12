@@ -28,6 +28,7 @@ declare namespace Web {
           request: {
             on: (name: string, func: (input: RequestInfo | URL, init: RequestInit | undefined) => void) => void;
             off: (name: string) => void;
+            hook: { [key: string]: any };
           };
           response: {
             on: (
@@ -35,6 +36,7 @@ declare namespace Web {
               func: (input: RequestInfo | URL, init: RequestInit | undefined, response: Response) => void,
             ) => void;
             off: (name: string) => void;
+            hook: { [key: string]: any };
           };
         };
         xhr: {
@@ -55,6 +57,7 @@ declare namespace Web {
               ) => void,
             ) => void;
             off: (name: string) => void;
+            hook: { [key: string]: any };
           };
         };
       };

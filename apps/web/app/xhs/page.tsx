@@ -1,48 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { error } from "node:console";
-
 import helper from "@workspace/helper";
 import logger from "@workspace/logger";
 import { Button } from "@workspace/ui/components/button";
 import React from "react";
 
+import ChromeTabSnapshot from "~/components/chrome/chrome-tab-snapshot";
 import { useExtension } from "~/components/provider/extension";
 
-const WORKER_TAB_STORAGE_KEY = "xhs-worker-tab-id";
-
-const asMessage = (reason: unknown) => {
-  if (reason instanceof Error) return reason.message;
-  if (typeof reason === "string") return reason;
-  try {
-    return JSON.stringify(reason);
-  } catch {
-    return String(reason);
-  }
-};
-
-export default function Home() {
+export default function Page() {
   const { extension, tab } = useExtension();
   const [keyword, setKeyword] = React.useState<string>("");
   const [userData, setUserData] = React.useState<{ [key: string]: any }>({});
-  const [workerTabId, setWorkerTabId] = React.useState<number>();
-  const [debugStatus, setDebugStatus] = React.useState<string>("idle");
+  const [loading] = React.useState<boolean>(false);
+  const [workerTab, setWorkerTab] = React.useState<Web.Tab>();
+  const [allowAutoCreateWorkerTab, setAllowAutoCreateWorkerTab] = React.useState<boolean>(true);
+  const [data, setData] = React.useState<any[]>([]);
 
-  const canvasRef = React.useRef<HTMLCanvasElement>(null);
-
-  const removeWorkerTab = React.useCallback(
-    async (tabId?: number) => {
-      if (!tabId) return;
-      try {
-        await extension?.invoke("chrome:tabs:remove", { tabIds: [tabId] });
-      } catch (reason) {
-        logger.error(reason);
-      }
-    },
-    [extension],
-  );
-
+  // prefetch
   React.useEffect(() => {
     extension
       ?.invoke("service-worker:fetch", { url: "https://edith.xiaohongshu.com/api/sns/web/v2/user/me", method: "GET" })
@@ -54,279 +30,231 @@ export default function Home() {
       });
   }, [extension]);
 
+  // create worker tab
+  const createworkertab = React.useCallback(async () => {
+    if (!extension || !tab || workerTab) return;
+
+    const createProperties: chrome.tabs.CreateProperties = {
+      url: "https://www.xiaohongshu.com/explore",
+      openerTabId: tab.id,
+      active: false,
+    };
+    const createdTab = await extension.invoke("chrome:tabs:create", { createProperties });
+    setWorkerTab(createdTab);
+  }, [extension, tab, workerTab]);
   React.useEffect(() => {
-    if (!extension || !tab?.id) return;
-    let disposed = false;
-    let createdTabId: number | undefined;
+    if (!allowAutoCreateWorkerTab || workerTab) return;
+    createworkertab().catch((reason) => logger.null(reason));
+  }, [allowAutoCreateWorkerTab, createworkertab, workerTab]);
 
-    const createWorkerTab = async () => {
-      const storedTabId = Number(window.sessionStorage.getItem(WORKER_TAB_STORAGE_KEY) || "0");
-      if (storedTabId > 0) {
-        await removeWorkerTab(storedTabId);
-        window.sessionStorage.removeItem(WORKER_TAB_STORAGE_KEY);
-      }
-      if (disposed) return;
-
-      const createProperties: chrome.tabs.CreateProperties = {
-        url: "https://www.xiaohongshu.com/explore",
-        openerTabId: tab.id,
-        active: false,
-      };
-      const newTab = await extension.invoke("chrome:tabs:create", { createProperties });
-
-      if (!newTab?.id) return;
-      if (disposed) {
-        await removeWorkerTab(newTab.id);
-
-        return;
-      }
-
-      createdTabId = newTab.id;
-      setWorkerTabId(newTab.id);
-      window.sessionStorage.setItem(WORKER_TAB_STORAGE_KEY, String(newTab.id));
-    };
-
-    void createWorkerTab();
-
-    return () => {
-      disposed = true;
-      const tabId = createdTabId ?? Number(window.sessionStorage.getItem(WORKER_TAB_STORAGE_KEY) || "0");
-      if (tabId > 0) {
-        window.sessionStorage.removeItem(WORKER_TAB_STORAGE_KEY);
-        void removeWorkerTab(tabId);
-      }
-      setWorkerTabId(undefined);
-    };
-  }, [extension, removeWorkerTab, tab?.id]);
-
+  // update worker tab
   React.useEffect(() => {
-    if (!extension || !workerTabId) return;
-
-    const tabTarget: chrome.debugger.DebuggerSession = { tabId: workerTabId };
-    let disposed = false;
-    let timerId: number | undefined;
-    let drawing = false;
-    let attachedTarget: chrome.debugger.DebuggerSession | undefined;
-
-    const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
-
-    const resolveAttachTarget = async (): Promise<chrome.debugger.DebuggerSession> => {
-      const targets = await extension.invoke("chrome:debugger:getTargets", undefined);
-      const pageTarget = targets.find((item) => item.tabId === workerTabId && item.type === "page");
-      if (pageTarget?.id) {
-        return { targetId: pageTarget.id };
-      }
-
-      return tabTarget;
-    };
-
-    const ensureAttachedTarget = async () => {
-      let lastError: unknown;
-      for (let attempt = 0; attempt < 8; attempt++) {
-        if (disposed) return;
-        const target = await resolveAttachTarget();
-        try {
-          await extension.invoke("chrome:debugger:attach", { target, requiredVersion: "1.3" });
-          attachedTarget = target;
-
-          return;
-        } catch (reason) {
-          const message = asMessage(reason);
-          if (message.includes("already attached")) {
-            attachedTarget = target;
-
-            return;
-          }
-          lastError = reason;
-          if (message.includes("Cannot attach to this target")) {
-            await sleep(300);
-            continue;
-          }
-
-          throw reason;
-        }
-      }
-      throw lastError ?? new Error("attach target failed");
-    };
-
-    const getCommandTarget = () => attachedTarget ?? tabTarget;
-
-    const drawByBase64 = (base64: string) => {
-      const canvas = canvasRef.current;
-      const context = canvas?.getContext("2d");
-      if (!canvas || !context) return;
-
-      const drawContainSource = (source: HTMLImageElement) => {
-        const sourceWidth = source.naturalWidth || source.width;
-        const sourceHeight = source.naturalHeight || source.height;
-        const canvasRatio = canvas.width / canvas.height;
-        const imageRatio = sourceWidth / sourceHeight || 1;
-
-        let drawWidth = canvas.width;
-        let drawHeight = canvas.height;
-
-        if (imageRatio > canvasRatio) {
-          drawHeight = canvas.width / imageRatio;
-        } else {
-          drawWidth = canvas.height * imageRatio;
-        }
-
-        const offsetX = (canvas.width - drawWidth) / 2;
-        const offsetY = (canvas.height - drawHeight) / 2;
-
-        context.drawImage(source, offsetX, offsetY, drawWidth, drawHeight);
-      };
-
-      const image = new Image();
-      image.onload = () => {
-        if (disposed) return;
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.fillStyle = "#000";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        drawContainSource(image);
-      };
-      image.src = `data:image/jpeg;base64,${base64}`;
-    };
-
-    const captureFrame = async () => {
-      if (disposed || drawing) return;
-      drawing = true;
-      try {
-        const resp = (await extension.invoke("chrome:debugger:sendCommand", {
-          target: getCommandTarget(),
-          method: "Page.captureScreenshot",
-          commandParams: { format: "jpeg", quality: 70, fromSurface: true },
-        })) as { data?: string };
-        if (resp?.data) {
-          drawByBase64(resp.data);
-        }
-      } catch (reason) {
-        logger.null(reason);
-      } finally {
-        drawing = false;
-      }
-    };
-
-    const startScreencast = async () => {
-      setDebugStatus("connecting");
-      await ensureAttachedTarget();
-      if (disposed) return;
-
-      await extension.invoke("chrome:debugger:sendCommand", { target: getCommandTarget(), method: "Page.enable" });
-      await captureFrame();
-      timerId = window.setInterval(() => {
-        void captureFrame();
-      }, 250);
-      if (disposed) return;
-      setDebugStatus("recording");
-    };
-
-    void startScreencast().catch((reason) => {
-      logger.error(reason);
-      if (!disposed) setDebugStatus("error");
-    });
-
-    return () => {
-      disposed = true;
-      if (timerId) {
-        window.clearInterval(timerId);
-      }
-      void extension.invoke("chrome:debugger:detach", attachedTarget ?? tabTarget).catch((reason) => logger.null(reason));
-      setDebugStatus("idle");
-    };
-  }, [extension, workerTabId]);
-
-  const proxy = (name: string, tabId: number) => {
-    const extension = (window as any)[name] as Web.Extension | undefined;
     if (!extension) return;
-
-    extension.network.hook.xhr.send.on("llm-xhr-worker-proxy", (meta, xhr) => {
-      xhr.addEventListener("load", () => {
-        const url = meta.url.toString();
-        if (!["//edith.xiaohongshu.com/api/sns/web/v2/user/me"].includes(url)) return;
-        const ctype = xhr.getResponseHeader("content-type") || "";
-        if (!ctype.includes("application/json")) return;
-        const resp = xhr.responseText;
-
-        const event = (url: string, resp: string) => {
-          const event = new CustomEvent("xhs-api", { detail: { url, resp } });
-          document.dispatchEvent(event);
-        };
-        extension
-          .invoke("web:runtime:evaluate", { tabId, args: [url, resp], code: event.toString() })
-          .then((resp) => console.log(resp));
-      });
-    });
-
-    console.log({ extension });
-  };
-  const xhsApi = (event: Event & { detail?: { url: string; resp: string } }) => {
-    console.log();
-    if (!event.detail) return;
-    const { url, resp } = event.detail;
-    if (url === "//edith.xiaohongshu.com/api/sns/web/v2/user/me") {
-      setUserData(JSON.parse(resp).data);
-    }
-  };
-
-  React.useEffect(() => {
-    if (workerTabId && extension) {
-      extension
-        .invoke("web:runtime:evaluate", {
-          tabId: workerTabId,
-          args: [extension.name, workerTabId],
-          code: proxy.toString(),
-        })
-        .catch((error) => logger.error(error));
-    }
-
-    const deal: Extension.Event.Handler<"chrome:tabs:onUpdated"> = ({ payload }) => {
-      if (workerTabId !== payload.tabId || !tab) return;
-      extension
-        ?.invoke("web:runtime:evaluate", {
-          tabId: workerTabId,
-          args: [extension.name, tab.id],
-          code: proxy.toString(),
-        })
-        .catch((error) => logger.error(error));
+    const update = (params: Extension.Event.Params<"chrome:tabs:onUpdated">) => {
+      if (params.payload.tabId !== workerTab?.id) return;
+      setWorkerTab(params.payload.tab);
+    };
+    const remove = (params: Extension.Event.Params<"chrome:tabs:onRemoved">) => {
+      if (params.payload.tabId !== workerTab?.id) return;
+      setWorkerTab(undefined);
+      setAllowAutoCreateWorkerTab(false);
     };
 
-    extension?.event.on("chrome:tabs:onUpdated", deal);
+    extension.event.on("chrome:tabs:onUpdated", update);
+    extension.event.on("chrome:tabs:onRemoved", remove);
 
-    document.removeEventListener("xhs-api", xhsApi);
-    document.addEventListener("xhs-api", xhsApi);
+    return () => {
+      extension.event.off("chrome:tabs:onUpdated", update);
+      extension.event.off("chrome:tabs:onRemoved", remove);
+    };
+  }, [extension, workerTab?.id]);
 
-    return () => extension?.event.off("chrome:tabs:onUpdated", deal);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [extension, workerTabId]);
+  // remove worker tab when refresh/leave page
+  React.useEffect(() => {
+    if (!extension || workerTab?.id === undefined) return;
 
-  if (!extension || !tab) return <div>loading...</div>;
+    const tabId = workerTab.id;
+
+    const deal = () => {
+      extension.invoke("chrome:tabs:remove", { tabIds: [tabId] }).catch((error) => logger.null(error));
+    };
+
+    window.addEventListener("beforeunload", deal);
+
+    return () => window.removeEventListener("beforeunload", deal);
+  }, [extension, workerTab?.id]);
+
+  // register proxy
+  React.useEffect(() => {
+    if (!extension || tab?.id === undefined || workerTab?.id === undefined) return;
+    const workerTabId = workerTab.id;
+    const currentTabId = tab.id;
+    const proxy = (name: string, tabId: number) => {
+      const extension = (window as any)[name] as Web.Extension | undefined;
+      if (!extension || extension.network.hook.xhr.send.hook["xhs-api"]) return;
+
+      const allowUrls = [
+        "//edith.xiaohongshu.com/api/sns/web/v2/user/me",
+        "//edith.xiaohongshu.com/api/sns/web/v1/search/notes",
+      ];
+
+      extension.network.hook.xhr.send.on("xhs-api", (meta, xhr) => {
+        xhr.addEventListener("load", () => {
+          const url = meta.url.toString();
+
+          if (!allowUrls.includes(url)) return;
+          const ctype = xhr.getResponseHeader("content-type") || "";
+          if (!ctype.includes("application/json")) return;
+          const resp = xhr.responseText;
+
+          const event = (url: string, method: string, body: any, resp: any) => {
+            const event = new CustomEvent("xhs-api", { detail: { url, method, body, resp } });
+            document.dispatchEvent(event);
+          };
+          extension
+            .invoke("web:runtime:evaluate", {
+              tabId,
+              args: [url, meta.method, JSON.parse(meta.body?.toString() || "{}"), JSON.parse(resp)],
+              code: event.toString(),
+            })
+            .catch((error) => console.error(error));
+        });
+      });
+    };
+    extension
+      .invoke("web:runtime:evaluate", {
+        tabId: workerTabId,
+        args: [extension.name, currentTabId],
+        code: proxy.toString(),
+      })
+      .catch((error) => logger.error(error));
+  }, [extension, tab, workerTab]);
+
+  // xhs api hook
+  React.useEffect(() => {
+    const apihook = (event: Event & { detail?: { url: string; method: string; body: any; resp: any } }) => {
+      if (!event.detail) return;
+      console.log(event.detail);
+      if (event.detail.url === "//edith.xiaohongshu.com/api/sns/web/v1/search/notes") {
+        setData((data) => [...data, ...(event.detail?.resp.data.items || [])]);
+      }
+    };
+
+    document.addEventListener("xhs-api", apihook);
+
+    return () => document.removeEventListener("xhs-api", apihook);
+  }, []);
+
+  // scroll to .note-item:last-of-type
+  React.useEffect(() => {
+    if (!extension || workerTab?.id === undefined || keyword.length === 0 || data.length === 0) return;
+    const workerTabId = workerTab.id;
+
+    let running = false;
+    const scroll = () => {
+      const hasEndContainer = document.querySelectorAll(".end-container").length > 0;
+      if (hasEndContainer) {
+        document.querySelector(".end-container")?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        return true;
+      }
+      document.querySelector(".note-item:last-of-type")?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      return false;
+    };
+
+    const timer = window.setInterval(() => {
+      if (running) return;
+      running = true;
+      extension
+        .invoke("web:runtime:evaluate", { tabId: workerTabId, args: [], code: scroll.toString() })
+        .then((resp) => {
+          const hasEndContainer = Boolean((resp?.[0] as any)?.result?.data);
+          if (hasEndContainer) {
+            window.clearInterval(timer);
+          }
+        })
+        .catch((reason) => logger.null(reason))
+        .finally(() => {
+          running = false;
+        });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [data, extension, keyword.length, workerTab?.id]);
+
+  // set search value
+  const setsearchvalue = (keyword: string) => {
+    const searchInput = document.querySelector("#search-input");
+    if (!searchInput) return;
+    (searchInput as HTMLInputElement).value = keyword;
+    const searchInputEvent = new Event("input", { bubbles: true, cancelable: true });
+    searchInput.dispatchEvent(searchInputEvent);
+  };
+  React.useEffect(() => {
+    if (!extension || workerTab?.id === undefined) return;
+    const workerTabId = workerTab.id;
+    extension
+      .invoke("web:runtime:evaluate", { tabId: workerTabId, args: [keyword], code: setsearchvalue.toString() })
+      .catch((error) => logger.debug(error));
+  }, [extension, keyword, workerTab]);
+
+  const clicksearch = () => (document.querySelector(".search-icon") as HTMLDivElement).click();
+  const search = React.useCallback(async () => {
+    if (!extension || workerTab?.id === undefined) return;
+    const workerTabId = workerTab.id;
+    await extension.invoke("web:runtime:evaluate", { tabId: workerTabId, args: [keyword], code: setsearchvalue.toString() });
+    setData([]);
+    await extension.invoke("web:runtime:evaluate", { tabId: workerTabId, args: [], code: clicksearch.toString() });
+  }, [extension, keyword, workerTab]);
+  const handleKeywordKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter" && keyword.length > 0 && !loading) {
+        search().catch((error) => logger.error(error));
+      }
+    },
+    [keyword.length, loading, search],
+  );
 
   return (
     <div className="w-screen h-screen flex">
       <div className="w-1/2 h-full border-r flex justify-center items-center p-6">
         <div className="w-full max-w-lg space-y-3">
+          <div className="text-sm text-muted-foreground">current tab: {tab?.id}</div>
           <div>{userData.guest ? "未登录" : userData.user_id}</div>
           <div className="flex gap-2 items-center">
             <input
               name="keyword"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
+              onKeyDown={handleKeywordKeyDown}
               className="border rounded-lg p-1"
+              disabled={loading}
             />
-            <Button disabled={keyword.length === 0}>search</Button>
+            <Button disabled={keyword.length === 0 || loading} onClick={search}>
+              search
+            </Button>
           </div>
-          <div className="text-sm text-muted-foreground">worker tab: {workerTabId ?? "-"}</div>
-          <div className="text-sm text-muted-foreground">debugger: {debugStatus}</div>
-          <div>{tab?.id}</div>
+          <div className="text-sm text-muted-foreground">
+            worker tab: {workerTab?.id}
+            {!workerTab && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setAllowAutoCreateWorkerTab(false);
+                  createworkertab().catch((reason) => logger.null(reason));
+                }}
+              >
+                create
+              </Button>
+            )}
+          </div>
+          <div className="text-sm text-muted-foreground">notes: {data.length}</div>
         </div>
       </div>
 
       <div className="w-2/3 h-full flex justify-center items-center p-6 bg-black/5">
-        <div className="w-full max-w-4xl space-y-2">
-          <div className="text-sm text-muted-foreground">worker tab snapshot video</div>
-          <canvas ref={canvasRef} width={1280} height={720} className="w-full aspect-video rounded-lg border bg-black" />
-        </div>
+        <ChromeTabSnapshot extension={extension} workerTab={workerTab} />
       </div>
     </div>
   );
