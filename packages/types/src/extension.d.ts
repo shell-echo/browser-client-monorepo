@@ -55,7 +55,14 @@ declare namespace Extension {
       "chrome:debugger:onEvent": { source: chrome.debugger.DebuggerSession; method: string; params?: object };
     };
 
-    type ChromeEventPayload = ChromeTabsPayload & ChromeTabGroupsPayload & ChromeDebuggerPayload;
+    type ChromeDownloadsPayload = {
+      "chrome:downloads:onChanged": { downloadDelta: chrome.downloads.DownloadDelta };
+      "chrome:downloads:onCreated": { downloadItem: chrome.downloads.DownloadItem };
+      // "chrome:downloads:onDeterminingFilename": { downloadItem: chrome.downloads.DownloadItem };
+      "chrome:downloads:onErased": { downloadId: number };
+    };
+
+    type ChromeEventPayload = ChromeTabsPayload & ChromeTabGroupsPayload & ChromeDebuggerPayload & ChromeDownloadsPayload;
 
     type Payload = InternalPayload & ContentScriptPayload & ServiceWorkerPayload & ChromeEventPayload;
 
@@ -128,6 +135,25 @@ declare namespace Extension {
       };
     };
 
+    type ChromeDownloads = {
+      "chrome:downloads:acceptDanger": { params: { downloadId }; resp: void };
+      "chrome:downloads:cancel": { params: { downloadId }; resp: void };
+      "chrome:downloads:download": { params: { options: chrome.downloads.DownloadOptions }; resp: number };
+      "chrome:downloads:erase": { params: { query: chrome.downloads.DownloadQuery }; resp: number[] };
+      "chrome:downloads:getFileIcon": {
+        params: { downloadId: number; options?: chrome.downloads.GetFileIconOptions };
+        resp?: string;
+      };
+      "chrome:downloads:open": { params: { downloadId: number }; resp: void };
+      "chrome:downloads:pause": { params: { downloadId: number }; resp: void };
+      "chrome:downloads:removeFile": { params: { downloadId: number }; resp: void };
+      "chrome:downloads:resume": { params: { downloadId: number }; resp: void };
+      "chrome:downloads:search": { params: { query: chrome.downloads.DownloadQuery }; resp: chrome.downloads.DownloadItem[] };
+      "chrome:downloads:setUiOptions": { params: { options: chrome.downloads.UiOptions }; resp: void };
+      "chrome:downloads:show": { params: { downloadId: number }; resp: void };
+      "chrome:downloads:showDefaultFolder": { params: undefined; resp: void };
+    };
+
     type ServiceWorkerFetchResponse = {
       status: number;
       statusText: string;
@@ -153,7 +179,7 @@ declare namespace Extension {
       };
     };
 
-    type Definition = ChromeTabs & ChromeTabGroups & ChromeDebugger & ServiceWorker & Web;
+    type Definition = ChromeTabs & ChromeTabGroups & ChromeDebugger & ChromeDownloads & ServiceWorker & Web;
 
     type Type = keyof Definition;
     type Params<K extends Type> = Definition[K]["params"];
