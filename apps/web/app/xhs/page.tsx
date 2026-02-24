@@ -51,14 +51,17 @@ export default function Page() {
   const [allowAutoCreateWorkerTab, setAllowAutoCreateWorkerTab] = React.useState<boolean>(true);
   const [publishTab, setPublishTab] = React.useState<Web.Tab>();
   const [allowAutoCreatePublishTab, setAllowAutoCreatePublishTab] = React.useState<boolean>(true);
+  const [tabGroupId, setTabGroupId] = React.useState<number | null>(null);
   const [data, setData] = React.useState<XhsSearchNoteItem[]>([]);
   const [searchDone, setSearchDone] = React.useState<boolean>(false);
   const [searchStarted, setSearchStarted] = React.useState<boolean>(false);
+  const [searchRunning, setSearchRunning] = React.useState<boolean>(false);
   const [detailDone, setDetailDone] = React.useState<boolean>(false);
   const [detailError, setDetailError] = React.useState<string | null>(null);
   const [detailProgress, setDetailProgress] = React.useState<number>(0);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [detailData, setDetailData] = React.useState<Record<string, any>>({});
+  const [detailRunning, setDetailRunning] = React.useState<boolean>(false);
   const [plan1Logs, setPlan1Logs] = React.useState<Array<{ ts: number; msg: string }>>([]);
   const [plan2Logs, setPlan2Logs] = React.useState<Array<{ ts: number; msg: string }>>([]);
   const [plan3Logs, setPlan3Logs] = React.useState<Array<{ ts: number; msg: string }>>([]);
@@ -74,8 +77,11 @@ export default function Page() {
   const [plan3AutoScroll, setPlan3AutoScroll] = React.useState<boolean>(true);
   const [publishFiles, setPublishFiles] = React.useState<File[]>([]);
   const [publishImageUrls, setPublishImageUrls] = React.useState<string>("");
+  const [publishTitle, setPublishTitle] = React.useState<string>("");
   const [publishContent, setPublishContent] = React.useState<string>("");
   const [publishFilePreviews, setPublishFilePreviews] = React.useState<string[]>([]);
+  const [publishInjectLogs, setPublishInjectLogs] = React.useState<Array<{ ts: number; msg: string }>>([]);
+  const [publishInjecting, setPublishInjecting] = React.useState<boolean>(false);
   const publishRemoteUrls = React.useMemo(() => {
     return publishImageUrls
       .split("\n")
@@ -93,13 +99,203 @@ export default function Page() {
     return el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
   };
 
+  const ensureTabGroup = React.useCallback(
+    async (tabIds: number[]) => {
+      if (!extension) return null;
+      const options: chrome.tabs.GroupOptions = { tabIds };
+      if (tabGroupId !== null) {
+        options.groupId = tabGroupId;
+      }
+      const groupId = await extension.invoke("chrome:tabs:group", { options });
+      if (tabGroupId === null || tabGroupId !== groupId) {
+        setTabGroupId(groupId);
+        await extension.invoke("chrome:tabGroups:update", {
+          groupId,
+          updateProperties: { title: "XHS Tools", color: "blue", collapsed: true },
+        });
+      }
+
+      return groupId;
+    },
+    [extension, tabGroupId],
+  );
+
   React.useEffect(() => {
     const urls = publishFiles.map((file) => URL.createObjectURL(file));
     setPublishFilePreviews(urls);
+
     return () => {
       urls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [publishFiles]);
+
+  const injectPublishImages = React.useCallback(async () => {
+    if (!extension || !publishTab?.id || publishInjecting) return;
+    if (publishFiles.length === 0 && publishRemoteUrls.length === 0) return;
+    setPublishInjecting(true);
+    setPublishInjectLogs((logs) => [...logs, { ts: Date.now(), msg: "开始构建图片列表" }]);
+    const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+    try {
+      const payload: Array<{ name: string; type: string; base64: string }> = [];
+
+      for (const file of publishFiles) {
+        const buffer = await file.arrayBuffer();
+        payload.push({
+          name: file.name,
+          type: file.type || "image/*",
+          base64: helper.utils.arrayBufferToBase64(buffer),
+        });
+      }
+
+      for (const rawUrl of publishRemoteUrls) {
+        const safeUrl = rawUrl.trim();
+        if (!safeUrl) continue;
+        const url = new URL(safeUrl);
+        const resp = await extension.invoke("service-worker:fetch", { url: safeUrl, method: "GET" });
+        const mime = resp.headers["content-type"] || "image/*";
+        const baseName = url.pathname.split("/").filter(Boolean).pop() || "image";
+        payload.push({ name: baseName, type: mime, base64: resp.body });
+        setPublishInjectLogs((logs) => [...logs, { ts: Date.now(), msg: `已获取: ${safeUrl}` }]);
+        await delay(300);
+      }
+
+      const code = async (files: Array<{ name: string; type: string; base64: string }>) => {
+        const input = document.querySelector("input[type='file']") as HTMLInputElement | null;
+        if (!input) {
+          return { success: false, message: "未找到文件输入框" };
+        }
+        const toArrayBuffer = (base64: string) => {
+          const comma = base64.indexOf(",");
+          const cleaned = (comma >= 0 ? base64.slice(comma + 1) : base64).trim().replace(/-/g, "+").replace(/_/g, "/");
+          const pad = cleaned.length % 4;
+          const padded = pad ? cleaned + "=".repeat(4 - pad) : cleaned;
+          const binary = atob(padded);
+          const len = binary.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+
+          return bytes.buffer;
+        };
+        const dt = new DataTransfer();
+        files.forEach((file) => {
+          const buffer = toArrayBuffer(file.base64);
+          const blob = new Blob([buffer], { type: file.type || "image/*" });
+          const f = new File([blob], file.name, { type: file.type || "image/*" });
+          dt.items.add(f);
+        });
+        input.files = dt.files;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        const waitForUpload = () =>
+          new Promise<boolean>((resolve) => {
+            const startedAt = Date.now();
+            const tick = () => {
+              const uploading = document.querySelectorAll(".img-preview-area .pr .uploading").length;
+              if (uploading === 0) {
+                resolve(true);
+
+                return;
+              }
+              if (Date.now() - startedAt > 60000) {
+                resolve(false);
+
+                return;
+              }
+              window.setTimeout(tick, 500);
+            };
+            tick();
+          });
+        // wait a bit to observe upload state changes
+        await new Promise((resolve) => window.setTimeout(resolve, 1500));
+        const done = await waitForUpload();
+
+        return done
+          ? { success: true, message: `已注入 ${files.length} 张图片，上传完成` }
+          : { success: false, message: "等待上传超时" };
+      };
+
+      const resp = await extension.invoke("web:runtime:evaluate", {
+        tabId: publishTab.id,
+        args: [payload],
+        code: code.toString(),
+      });
+      const result = resp?.[0]?.result?.data;
+      if (result?.success) {
+        setPublishInjectLogs((logs) => [...logs, { ts: Date.now(), msg: result.message }]);
+        const setTextCode = async (title: string, content: string) => {
+          const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+          const setText = (selector: string, value: string) => {
+            const el = document.querySelector(selector) as HTMLElement | null;
+            console.log(selector, value, el);
+            if (!el) return false;
+            el.focus();
+            document.execCommand("selectAll", false);
+            document.execCommand("insertText", false, value);
+
+            return true;
+          };
+          await delay(500);
+          const titleOk = setText("div.d-input input", title);
+          const titleEl = document.querySelector("div.d-input input") as HTMLInputElement | null;
+          await delay(500);
+          const contentOk = setText('.editor-container [role="textbox"]', content);
+          const contentEl = document.querySelector('.editor-container [role="textbox"]') as HTMLElement | null;
+
+          return {
+            success: titleOk && contentOk,
+            message: titleOk && contentOk ? "标题/内容已填充" : "标题/内容填充失败",
+            debug: {
+              titleOk,
+              contentOk,
+              titleValue: titleEl ? titleEl.value : null,
+              contentLength: contentEl ? contentEl.textContent?.length || 0 : 0,
+            },
+          };
+        };
+        const setResp = await extension.invoke("web:runtime:evaluate", {
+          tabId: publishTab.id,
+          args: [publishTitle, publishContent],
+          code: setTextCode.toString(),
+        });
+        const setResult = setResp?.[0]?.result?.data;
+        setPublishInjectLogs((logs) => [...logs, { ts: Date.now(), msg: setResult?.message || "标题/内容填充失败" }]);
+        if (setResult?.debug) {
+          setPublishInjectLogs((logs) => [
+            ...logs,
+            { ts: Date.now(), msg: `debug: titleOk=${setResult.debug.titleOk} contentOk=${setResult.debug.contentOk}` },
+            { ts: Date.now(), msg: `debug: titleValue=${setResult.debug.titleValue ?? "null"}` },
+            { ts: Date.now(), msg: `debug: contentLength=${setResult.debug.contentLength ?? 0}` },
+          ]);
+        }
+        if (setResult?.success) {
+          const clickPublishCode = () => {
+            const btn = document.querySelector(".publish-page-publish-btn button.bg-red") as HTMLButtonElement | null;
+            if (!btn) return { success: false, message: "未找到发布按钮" };
+            btn.click();
+
+            return { success: true, message: "已点击发布按钮" };
+          };
+          const clickResp = await extension.invoke("web:runtime:evaluate", {
+            tabId: publishTab.id,
+            args: [],
+            code: clickPublishCode.toString(),
+          });
+          const clickResult = clickResp?.[0]?.result?.data;
+          setPublishInjectLogs((logs) => [...logs, { ts: Date.now(), msg: clickResult?.message || "点击发布按钮失败" }]);
+        }
+      } else {
+        setPublishInjectLogs((logs) => [...logs, { ts: Date.now(), msg: result?.message || "注入失败" }]);
+      }
+    } catch (error) {
+      setPublishInjectLogs((logs) => [
+        ...logs,
+        { ts: Date.now(), msg: `注入失败: ${error instanceof Error ? error.message : String(error)}` },
+      ]);
+    } finally {
+      setPublishInjecting(false);
+    }
+  }, [extension, publishContent, publishFiles, publishInjecting, publishRemoteUrls, publishTab?.id, publishTitle]);
 
   // prefetch
   React.useEffect(() => {
@@ -124,7 +320,9 @@ export default function Page() {
     };
     const createdTab = await extension.invoke("chrome:tabs:create", { createProperties });
     setWorkerTab(createdTab);
-  }, [extension, tab, workerTab]);
+    const groupTabIds = [createdTab.id, publishTab?.id].filter((value): value is number => value !== undefined);
+    await ensureTabGroup(groupTabIds);
+  }, [ensureTabGroup, extension, publishTab?.id, tab, workerTab]);
   React.useEffect(() => {
     if (mode !== "crawl") return;
     if (!allowAutoCreateWorkerTab || workerTab) return;
@@ -141,7 +339,9 @@ export default function Page() {
     };
     const createdTab = await extension.invoke("chrome:tabs:create", { createProperties });
     setPublishTab(createdTab);
-  }, [extension, tab, publishTab]);
+    const groupTabIds = [createdTab.id, workerTab?.id].filter((value): value is number => value !== undefined);
+    await ensureTabGroup(groupTabIds);
+  }, [ensureTabGroup, extension, tab, publishTab, workerTab?.id]);
   React.useEffect(() => {
     if (mode !== "publish") return;
     if (!allowAutoCreatePublishTab || publishTab) return;
@@ -207,6 +407,12 @@ export default function Page() {
 
     return () => window.removeEventListener("beforeunload", deal);
   }, [extension, publishTab?.id]);
+
+  React.useEffect(() => {
+    if (!workerTab && !publishTab) {
+      setTabGroupId(null);
+    }
+  }, [publishTab, workerTab]);
 
   // register proxy
   React.useEffect(() => {
@@ -310,6 +516,7 @@ export default function Page() {
             window.clearInterval(timer);
             scrollTimerRef.current = null;
             setSearchDone(true);
+            setSearchRunning(false);
             setPlan1Logs((logs) => [...logs, { ts: Date.now(), msg: "search/notes 已完成" }]);
           }
         })
@@ -348,6 +555,7 @@ export default function Page() {
     await extension.invoke("web:runtime:evaluate", { tabId: workerTabId, args: [keyword], code: setsearchvalue.toString() });
     setData([]);
     setSearchStarted(true);
+    setSearchRunning(true);
     setSearchDone(false);
     setDetailDone(false);
     setDetailError(null);
@@ -373,6 +581,7 @@ export default function Page() {
   const interrupt = React.useCallback(() => {
     detailAbortRef.current = true;
     searchAbortRef.current = true;
+    setSearchRunning(false);
     if (scrollTimerRef.current !== null) {
       window.clearInterval(scrollTimerRef.current);
       scrollTimerRef.current = null;
@@ -409,6 +618,7 @@ export default function Page() {
     if (detailRunningRef.current) return;
 
     detailRunningRef.current = true;
+    setDetailRunning(true);
     detailAbortRef.current = false;
     setDetailDone(false);
     setDetailError(null);
@@ -452,6 +662,7 @@ export default function Page() {
         setDetailError(error instanceof Error ? error.message : String(error));
       } finally {
         detailRunningRef.current = false;
+        setDetailRunning(false);
       }
     };
 
@@ -464,8 +675,8 @@ export default function Page() {
 
   return (
     <div className="w-screen h-screen flex">
-      <div className="w-1/2 h-full border-r flex justify-center items-center p-6">
-        <div className="w-full max-w-lg space-y-3">
+      <div className="w-1/2 h-full border-r flex justify-center items-start p-6 overflow-y-auto">
+        <div className="w-full max-w-lg space-y-3 pb-6">
           <div className="text-sm text-muted-foreground">current tab: {tab?.id}</div>
           <div>{userData.guest ? "未登录" : userData.user_id}</div>
           <Tabs value={mode} onValueChange={(value) => setMode(value as "crawl" | "publish")}>
@@ -477,106 +688,105 @@ export default function Page() {
           <div className="min-h-[360px]">
             {mode === "crawl" ? (
               <>
-              <div className="flex gap-2 items-center">
-                <input
-                  name="keyword"
-                  value={keyword}
-                  onChange={(e) => setKeyword(e.target.value)}
-                  onKeyDown={handleKeywordKeyDown}
-                  className="border rounded-lg p-1"
-                  disabled={loading}
-                />
-                <Button disabled={keyword.length === 0 || loading} onClick={search}>
-                  search
-                </Button>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                worker tab: {workerTab?.id}
-                {!workerTab && (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setAllowAutoCreateWorkerTab(false);
-                      createworkertab().catch((reason) => logger.null(reason));
-                    }}
-                  >
-                    create
+                <div className="flex gap-2 items-center">
+                  <input
+                    name="keyword"
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    onKeyDown={handleKeywordKeyDown}
+                    className="border rounded-lg p-1"
+                    disabled={loading}
+                  />
+                  <Button disabled={keyword.length === 0 || searchRunning || detailRunning} onClick={search}>
+                    search
                   </Button>
-                )}
-              </div>
-              <div className="text-sm text-muted-foreground">notes: {data.length}</div>
-              <div className="text-sm text-muted-foreground space-y-1">
-                <div>Plan</div>
-                <div>1. search/notes: {searchDone ? "已完成" : searchStarted ? "进行中" : "未开始"}</div>
-                <details className="text-xs text-muted-foreground">
-                  <summary>步骤1日志</summary>
-                  <div
-                    className="mt-2 max-h-16 overflow-y-auto rounded-md border bg-muted/50 px-2 py-1 text-[11px] leading-5 shadow-sm"
-                    ref={plan1LogRef}
-                    onScroll={(e) => setPlan1AutoScroll(isAtBottom(e.currentTarget))}
-                  >
-                    {plan1Logs.length === 0 ? (
-                      <div className="text-muted-foreground/80">无</div>
-                    ) : (
-                      plan1Logs.map((log, idx) => (
-                        <div key={`p1-${idx}`} className="flex gap-2">
-                          <span className="tabular-nums text-muted-foreground/80">{formatTime(log.ts)}</span>
-                          <span className="text-foreground/80">{log.msg}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </details>
-                <div>
-                  2. fetch detail html:{" "}
-                  {detailDone ? "已完成" : detailError ? "失败" : searchDone ? "进行中" : "未开始"} ({detailProgress}/
-                  {data.length})
+                  {(searchRunning || detailRunning) && (
+                    <Button size="sm" variant="outline" onClick={interrupt}>
+                      interrupt
+                    </Button>
+                  )}
                 </div>
-                <details className="text-xs text-muted-foreground">
-                  <summary>步骤2日志</summary>
-                  <div
-                    className="mt-2 max-h-16 overflow-y-auto rounded-md border bg-muted/50 px-2 py-1 text-[11px] leading-5 shadow-sm"
-                    ref={plan2LogRef}
-                    onScroll={(e) => setPlan2AutoScroll(isAtBottom(e.currentTarget))}
-                  >
-                    {plan2Logs.length === 0 ? (
-                      <div className="text-muted-foreground/80">无</div>
-                    ) : (
-                      plan2Logs.map((log, idx) => (
-                        <div key={`p2-${idx}`} className="flex gap-2">
-                          <span className="tabular-nums text-muted-foreground/80">{formatTime(log.ts)}</span>
-                          <span className="text-foreground/80">{log.msg}</span>
-                        </div>
-                      ))
-                    )}
+                <div className="text-sm text-muted-foreground">
+                  worker tab: {workerTab?.id}
+                  {!workerTab && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setAllowAutoCreateWorkerTab(false);
+                        createworkertab().catch((reason) => logger.null(reason));
+                      }}
+                    >
+                      create
+                    </Button>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground">notes: {data.length}</div>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <div>Plan</div>
+                  <div>1. search/notes: {searchDone ? "已完成" : searchStarted ? "进行中" : "未开始"}</div>
+                  <details className="text-xs text-muted-foreground">
+                    <summary>步骤1日志</summary>
+                    <div
+                      className="mt-2 max-h-16 overflow-y-auto rounded-md border bg-muted/50 px-2 py-1 text-[11px] leading-5 shadow-sm"
+                      ref={plan1LogRef}
+                      onScroll={(e) => setPlan1AutoScroll(isAtBottom(e.currentTarget))}
+                    >
+                      {plan1Logs.length === 0 ? (
+                        <div className="text-muted-foreground/80">无</div>
+                      ) : (
+                        plan1Logs.map((log, idx) => (
+                          <div key={`p1-${idx}`} className="flex gap-2">
+                            <span className="tabular-nums text-muted-foreground/80">{formatTime(log.ts)}</span>
+                            <span className="text-foreground/80">{log.msg}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </details>
+                  <div>
+                    2. fetch detail html: {detailDone ? "已完成" : detailError ? "失败" : searchDone ? "进行中" : "未开始"} (
+                    {detailProgress}/{data.length})
                   </div>
-                </details>
-                <div>3. 任务完成: {detailDone ? "是" : "否"}</div>
-                <details className="text-xs text-muted-foreground">
-                  <summary>步骤3日志</summary>
-                  <div
-                    className="mt-2 max-h-16 overflow-y-auto rounded-md border bg-muted/50 px-2 py-1 text-[11px] leading-5 shadow-sm"
-                    ref={plan3LogRef}
-                    onScroll={(e) => setPlan3AutoScroll(isAtBottom(e.currentTarget))}
-                  >
-                    {plan3Logs.length === 0 ? (
-                      <div className="text-muted-foreground/80">无</div>
-                    ) : (
-                      plan3Logs.map((log, idx) => (
-                        <div key={`p3-${idx}`} className="flex gap-2">
-                          <span className="tabular-nums text-muted-foreground/80">{formatTime(log.ts)}</span>
-                          <span className="text-foreground/80">{log.msg}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </details>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={interrupt} disabled={!searchStarted || detailDone}>
-                  interrupt
-                </Button>
-              </div>
+                  <details className="text-xs text-muted-foreground">
+                    <summary>步骤2日志</summary>
+                    <div
+                      className="mt-2 max-h-16 overflow-y-auto rounded-md border bg-muted/50 px-2 py-1 text-[11px] leading-5 shadow-sm"
+                      ref={plan2LogRef}
+                      onScroll={(e) => setPlan2AutoScroll(isAtBottom(e.currentTarget))}
+                    >
+                      {plan2Logs.length === 0 ? (
+                        <div className="text-muted-foreground/80">无</div>
+                      ) : (
+                        plan2Logs.map((log, idx) => (
+                          <div key={`p2-${idx}`} className="flex gap-2">
+                            <span className="tabular-nums text-muted-foreground/80">{formatTime(log.ts)}</span>
+                            <span className="text-foreground/80">{log.msg}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </details>
+                  <div>3. 任务完成: {detailDone ? "是" : "否"}</div>
+                  <details className="text-xs text-muted-foreground">
+                    <summary>步骤3日志</summary>
+                    <div
+                      className="mt-2 max-h-16 overflow-y-auto rounded-md border bg-muted/50 px-2 py-1 text-[11px] leading-5 shadow-sm"
+                      ref={plan3LogRef}
+                      onScroll={(e) => setPlan3AutoScroll(isAtBottom(e.currentTarget))}
+                    >
+                      {plan3Logs.length === 0 ? (
+                        <div className="text-muted-foreground/80">无</div>
+                      ) : (
+                        plan3Logs.map((log, idx) => (
+                          <div key={`p3-${idx}`} className="flex gap-2">
+                            <span className="tabular-nums text-muted-foreground/80">{formatTime(log.ts)}</span>
+                            <span className="text-foreground/80">{log.msg}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </details>
+                </div>
               </>
             ) : (
               <>
@@ -584,30 +794,33 @@ export default function Page() {
                   publish tab: {publishTab?.id}
                   {!publishTab && (
                     <Button
-                    size="sm"
-                    onClick={() => {
-                      setAllowAutoCreatePublishTab(false);
-                      createPublishTab().catch((reason) => logger.null(reason));
-                    }}
-                  >
-                    create
-                  </Button>
-                    )}
-                  </div>
-                <div className="text-xs text-muted-foreground">
-                  发布页面已在独立 tab 打开，避免与爬虫模式冲突。
+                      size="sm"
+                      onClick={() => {
+                        setAllowAutoCreatePublishTab(false);
+                        createPublishTab().catch((reason) => logger.null(reason));
+                      }}
+                    >
+                      create
+                    </Button>
+                  )}
                 </div>
+                <div className="text-xs text-muted-foreground">发布页面已在独立 tab 打开，避免与爬虫模式冲突。</div>
                 <div className="space-y-3 pt-2">
                   <div className="space-y-1">
                     <div className="text-sm">本地图片</div>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      className="text-xs"
-                      onChange={(e) => setPublishFiles(Array.from(e.target.files || []))}
-                    />
-                    <div className="text-xs text-muted-foreground">已选: {publishFiles.length} 张</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex items-center rounded-md border bg-background px-3 py-2 text-xs font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+                        选择图片
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(e) => setPublishFiles(Array.from(e.target.files || []))}
+                        />
+                      </label>
+                      <div className="text-xs text-muted-foreground">已选: {publishFiles.length} 张</div>
+                    </div>
                     {publishFilePreviews.length > 0 && (
                       <div className="mt-2 grid grid-cols-4 gap-2">
                         {publishFilePreviews.map((src, idx) => (
@@ -622,7 +835,7 @@ export default function Page() {
                   <div className="space-y-1">
                     <div className="text-sm">在线图片地址</div>
                     <textarea
-                      className="w-full min-h-[96px] rounded-md border bg-transparent p-2 text-xs"
+                      className="w-full min-h-[64px] rounded-md border bg-transparent p-2 text-xs"
                       placeholder="每行一个 URL"
                       value={publishImageUrls}
                       onChange={(e) => setPublishImageUrls(e.target.value)}
@@ -637,15 +850,47 @@ export default function Page() {
                         ))}
                       </div>
                     )}
+                    {publishInjectLogs.length > 0 && (
+                      <div className="mt-2 max-h-24 overflow-y-auto rounded-md border bg-muted/50 px-2 py-1 text-[11px] leading-5 shadow-sm">
+                        {publishInjectLogs.map((log, idx) => (
+                          <div key={`dl-${idx}`} className="flex gap-2">
+                            <span className="tabular-nums text-muted-foreground/80">{formatTime(log.ts)}</span>
+                            <span className="text-foreground/80">{log.msg}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1">
-                    <div className="text-sm">长文本</div>
+                    <div className="text-sm">标题</div>
+                    <input
+                      className="w-full rounded-md border bg-transparent p-2 text-sm"
+                      placeholder="请输入标题"
+                      value={publishTitle}
+                      onChange={(e) => setPublishTitle(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-sm">内容</div>
                     <textarea
                       className="w-full min-h-[160px] rounded-md border bg-transparent p-2 text-sm"
                       placeholder="请输入内容"
                       value={publishContent}
                       onChange={(e) => setPublishContent(e.target.value)}
                     />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-2">
+                    <Button
+                      onClick={injectPublishImages}
+                      disabled={
+                        (publishRemoteUrls.length === 0 && publishFiles.length === 0) || publishInjecting || !publishTab
+                      }
+                    >
+                      发布
+                    </Button>
+                    <div className="text-xs text-muted-foreground">
+                      {publishInjecting ? "处理中..." : "将本地 + 在线图片注入，并填充标题/内容后发布"}
+                    </div>
                   </div>
                 </div>
               </>
