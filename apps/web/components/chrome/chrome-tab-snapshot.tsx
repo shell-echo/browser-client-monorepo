@@ -432,7 +432,7 @@ export default function ChromeTabSnapshot({ extension, workerTab }: ChromeTabSna
   return (
     <div className="w-full max-w-4xl space-y-2">
       <div className="text-sm text-muted-foreground truncate" title={workerTab?.url || "-"}>
-        worker tab url: {workerTab?.url || "-"}
+        worker tab url: {decodeURIComponent(decodeURIComponent(workerTab?.url || "-"))}
       </div>
       <div className="text-sm text-muted-foreground">worker tab snapshot video</div>
       {snapshotStatus === "loading" ? <div className="text-sm text-muted-foreground">snapshot loading...</div> : null}
