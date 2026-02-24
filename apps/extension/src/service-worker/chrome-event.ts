@@ -5,6 +5,7 @@ class ChromeEventServiceWorker {
     this.registerTabsEvent();
     this.registerTabGroupsEvent();
     this.registerDebuggerEvent();
+    this.registerDownloadsEvent();
   }
 
   private registerTabsEvent = () => {
@@ -43,6 +44,16 @@ class ChromeEventServiceWorker {
     chrome.debugger.onEvent.addListener((source, method, params) =>
       emit("chrome:debugger:onEvent", { source, method, params }),
     );
+  }
+
+  private registerDownloadsEvent() {
+    const emit = internal.event.emit.bind(internal.event);
+
+    // chrome.downloads.on**
+    chrome.downloads.onChanged.addListener((downloadDelta) => emit("chrome:downloads:onChanged", { downloadDelta }));
+    chrome.downloads.onCreated.addListener((downloadItem) => emit("chrome:downloads:onCreated", { downloadItem }));
+    // chrome.downloads.onDeterminingFilename.addListener
+    chrome.downloads.onErased.addListener((downloadId) => emit("chrome:downloads:onErased", { downloadId }));
   }
 }
 

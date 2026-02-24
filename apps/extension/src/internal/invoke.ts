@@ -84,6 +84,22 @@ const chromedebugger: { [T in keyof Extension.Invoke.ChromeDebugger]: Extension.
   "chrome:debugger:sendCommand": (params) => chrome.debugger.sendCommand(params.target, params.method, params.commandParams),
 };
 
+const chromedownloads: { [T in keyof Extension.Invoke.ChromeDownloads]: Extension.Invoke.Handler<T> } = {
+  "chrome:downloads:acceptDanger": (params) => chrome.downloads.acceptDanger(params.downloadId),
+  "chrome:downloads:cancel": (params) => chrome.downloads.cancel(params.downloadId),
+  "chrome:downloads:download": (params) => chrome.downloads.download(params.options),
+  "chrome:downloads:erase": (params) => chrome.downloads.erase(params.query),
+  "chrome:downloads:getFileIcon": (params) => chrome.downloads.getFileIcon(params.downloadId, params.options),
+  "chrome:downloads:open": (params) => chrome.downloads.open(params.downloadId),
+  "chrome:downloads:pause": (params) => chrome.downloads.pause(params.downloadId),
+  "chrome:downloads:removeFile": (params) => chrome.downloads.removeFile(params.downloadId),
+  "chrome:downloads:resume": (params) => chrome.downloads.resume(params.downloadId),
+  "chrome:downloads:search": (params) => chrome.downloads.search(params.query),
+  "chrome:downloads:setUiOptions": (params) => chrome.downloads.setUiOptions(params.options),
+  "chrome:downloads:show": async (params) => chrome.downloads.show(params.downloadId),
+  "chrome:downloads:showDefaultFolder": async () => chrome.downloads.showDefaultFolder(),
+};
+
 const serviceWorker: { [T in keyof Extension.Invoke.ServiceWorker]: Extension.Invoke.Handler<T> } = {
   "service-worker:fetch": async (args) => {
     const url = new URL(args.url);
@@ -149,6 +165,7 @@ class Invoke {
     ...chrometabs,
     ...chrometabgroups,
     ...chromedebugger,
+    ...chromedownloads,
     ...serviceWorker,
     ...web,
   };
