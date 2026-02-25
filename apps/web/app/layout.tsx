@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import "@workspace/ui/globals.css";
+import Notice from "@workspace/components/notice";
 import React from "react";
 
 import ExtensionProvider from "~/components/provider/extension";
@@ -15,6 +16,7 @@ function Provider({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <ExtensionProvider>{children}</ExtensionProvider>
+      <Notice.Toaster />
     </ThemeProvider>
   );
 }

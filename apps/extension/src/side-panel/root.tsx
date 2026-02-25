@@ -1,3 +1,4 @@
+import { notice } from "@workspace/components/notice";
 import { Button } from "@workspace/ui/components/button";
 import React from "react";
 
@@ -6,7 +7,7 @@ import internal from "~/internal";
 function App() {
   return (
     <div className="w-screen h-screen flex justify-center items-center">
-      <Button>apps/extension/side-panel</Button>
+      <Button onClick={() => notice.toast.success("apps/extension/side-panel")}>apps/extension/side-panel</Button>
     </div>
   );
 }

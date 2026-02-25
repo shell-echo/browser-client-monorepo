@@ -77,7 +77,7 @@ class Internal {
         );
       }
 
-      if (this.runtime.platform !== "service-worker") {
+      if (this.runtime.platform === "content-script") {
         const tab = await this.invoke("chrome:tabs:current");
         if (this.runtime.platform === "content-script") {
           this._runtime.tabId = tab?.id;

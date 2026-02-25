@@ -1,3 +1,4 @@
+import { notice } from "@workspace/components/notice";
 import { Button } from "@workspace/ui/components/button";
 import React from "react";
 
@@ -6,7 +7,7 @@ import internal from "~/internal";
 function App() {
   return (
     <div className="w-200 h-112.5 flex flex-col gap-2 justify-center items-center">
-      <Button>apps/extension/action-popup</Button>
+      <Button onClick={() => notice.toast.success("apps/extension/action-popup")}>apps/extension/action-popup</Button>
       <Button
         onClick={() =>
           chrome.windows.getCurrent().then((win) => {

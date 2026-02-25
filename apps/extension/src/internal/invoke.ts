@@ -159,6 +159,11 @@ export type InvokeTransportMessage<T extends Extension.Invoke.Type> = {
   invoke: T;
   params: Extension.Invoke.Params<T>;
 };
+type InvokeTransportResponse<T extends Extension.Invoke.Type> = {
+  success: boolean;
+  data: Extension.Invoke.Resp<T>;
+  message: string;
+};
 
 class Invoke {
   private handler: { [T in Extension.Invoke.Type]: Extension.Invoke.Handler<T> } = {
@@ -179,7 +184,18 @@ class Invoke {
       if (internal.runtime.platform !== "service-worker") {
         chrome.runtime?.sendMessage(
           { type: constant.extension.invoke.transport.message.type, invoke, params } as InvokeTransportMessage<T>,
-          (resp: { success: boolean; data: Promise<Extension.Invoke.Resp<T>>; message: string }) => {
+          (resp?: InvokeTransportResponse<T>) => {
+            const err = chrome.runtime.lastError;
+            if (err) {
+              reject(err.message);
+
+              return;
+            }
+            if (!resp) {
+              reject(`${invoke} response is empty.`);
+
+              return;
+            }
             if (!resp.success) return reject(resp.message);
             resolve(resp.data);
           },

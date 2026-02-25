@@ -1,3 +1,4 @@
+import Notice from "@workspace/components/notice";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -9,6 +10,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider storageKey="admin-ui-theme">
       <App />
+      <Notice.Toaster />
     </ThemeProvider>
   </StrictMode>,
 );
