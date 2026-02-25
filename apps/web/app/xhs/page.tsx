@@ -102,7 +102,10 @@ export default function Page() {
   const ensureTabGroup = React.useCallback(
     async (tabIds: number[]) => {
       if (!extension) return null;
-      const options: chrome.tabs.GroupOptions = { tabIds };
+      if (tabIds.length === 0) return null;
+      const normalizedTabIds: number | [number, ...number[]] =
+        tabIds.length === 1 ? tabIds[0] : (tabIds as [number, ...number[]]);
+      const options: chrome.tabs.GroupOptions = { tabIds: normalizedTabIds };
       if (tabGroupId !== null) {
         options.groupId = tabGroupId;
       }
@@ -685,7 +688,7 @@ export default function Page() {
               <TabsTrigger value="publish">publish</TabsTrigger>
             </TabsList>
           </Tabs>
-          <div className="min-h-[360px]">
+          <div className="min-h-90">
             {mode === "crawl" ? (
               <>
                 <div className="flex gap-2 items-center">
@@ -835,7 +838,7 @@ export default function Page() {
                   <div className="space-y-1">
                     <div className="text-sm">在线图片地址</div>
                     <textarea
-                      className="w-full min-h-[64px] rounded-md border bg-transparent p-2 text-xs"
+                      className="w-full min-h-16 rounded-md border bg-transparent p-2 text-xs"
                       placeholder="每行一个 URL"
                       value={publishImageUrls}
                       onChange={(e) => setPublishImageUrls(e.target.value)}
@@ -873,7 +876,7 @@ export default function Page() {
                   <div className="space-y-1">
                     <div className="text-sm">内容</div>
                     <textarea
-                      className="w-full min-h-[160px] rounded-md border bg-transparent p-2 text-sm"
+                      className="w-full min-h-40 rounded-md border bg-transparent p-2 text-sm"
                       placeholder="请输入内容"
                       value={publishContent}
                       onChange={(e) => setPublishContent(e.target.value)}
