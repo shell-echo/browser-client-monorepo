@@ -6,7 +6,9 @@
   "main": "./src/index.ts",
   "type": "module",
   "scripts": {
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --coverage"
   },
   "packageManager": "pnpm@10.28.2",
   "devDependencies": {

@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
+  "scripts": {
+    "check-types": "tsc --noEmit -p tsconfig.json"
+  },
   "dependencies": {
     "@types/chrome": "^0.1.36"
   },

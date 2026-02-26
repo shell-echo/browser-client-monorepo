@@ -6,10 +6,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --coverage"
   },
   "packageManager": "pnpm@10.28.2",
   "devDependencies": {
-    "@workspace/eslint-config": "workspace:*"
+    "@workspace/eslint-config": "workspace:*",
+    "typescript": "catalog:typescript"
   }
 }

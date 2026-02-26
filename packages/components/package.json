@@ -4,7 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --coverage"
   },
   "dependencies": {
     "@workspace/ui": "workspace:*",

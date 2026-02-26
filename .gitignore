@@ -28,3 +28,6 @@ next-env.d.ts
 
 .turbo
 release
+
+# Coverage directory used by tools like istanbul
+coverage

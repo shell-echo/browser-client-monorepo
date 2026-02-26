@@ -4,6 +4,6 @@
   "language": "en",
   "allowCompoundWords": true,
   "useGitignore": true,
-  "words": ["crxjs", "Turborepo", "ungroup", "ctype"],
+  "words": ["crxjs", "Turborepo", "ungroup", "ctype", "unstub", "atrule"],
   "ignorePaths": ["**/*.svg", "**/*.ico", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
 }
