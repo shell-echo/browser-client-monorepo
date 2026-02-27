@@ -1,0 +1,11 @@
+{
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["vitest/globals", "node"],
+    "noEmit": true
+  },
+  "include": ["./*.ts"],
+  "exclude": ["node_modules", "coverage", "dist"]
+}

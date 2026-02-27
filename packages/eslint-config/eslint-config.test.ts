@@ -71,9 +71,10 @@ describe("@workspace/eslint-config", () => {
   });
 
   it("turns off triple-slash-reference for d.ts files in types config", () => {
-    const declarationOverride = typesConfig.find(
-      (item): item is FlatConfig => Array.isArray((item as FlatConfig)?.files) && (item as FlatConfig).files?.includes("**/*.d.ts"),
-    );
+    const declarationOverride = typesConfig.find((item) => {
+      const files = (item as FlatConfig).files;
+      return Array.isArray(files) && files.includes("**/*.d.ts");
+    }) as FlatConfig | undefined;
 
     expect(declarationOverride).toBeDefined();
     expect(declarationOverride?.rules?.["@typescript-eslint/triple-slash-reference"]).toBe("off");

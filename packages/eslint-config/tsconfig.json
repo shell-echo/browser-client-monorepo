@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["vitest/globals", "node"],
+    "noEmit": true
+  },
+  "include": ["./*.test.ts"],
+  "exclude": ["node_modules", "coverage", "dist"]
+}

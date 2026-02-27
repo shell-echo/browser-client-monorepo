@@ -2,13 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import {
-  getOptionMismatches,
-  REQUIRED_BASE_LIB,
-  REQUIRED_BASE_OPTIONS,
-  TSCONFIG_SCHEMA_URL,
-  type TsConfig,
-} from "./contracts";
+import { getOptionMismatches, REQUIRED_BASE_LIB, REQUIRED_BASE_OPTIONS, TSCONFIG_SCHEMA_URL, type TsConfig } from "./contracts";
 
 function readJson(path: string) {
   return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8")) as TsConfig;
@@ -17,7 +11,9 @@ function readJson(path: string) {
 describe("@workspace/typescript-config", () => {
   it("reports missing or mismatched compiler options", () => {
     expect(getOptionMismatches(undefined, { strict: true, module: "NodeNext" })).toEqual(["strict", "module"]);
-    expect(getOptionMismatches({ strict: false, module: "NodeNext" }, { strict: true, module: "NodeNext" })).toEqual(["strict"]);
+    expect(getOptionMismatches({ strict: false, module: "NodeNext" }, { strict: true, module: "NodeNext" })).toEqual([
+      "strict",
+    ]);
   });
 
   it("defines strict baseline compiler options", () => {
