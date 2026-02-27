@@ -344,6 +344,9 @@ importers:
         specifier: ^0.1.36
         version: 0.1.36
     devDependencies:
+      '@types/node':
+        specifier: catalog:node
+        version: 25.2.1
       '@workspace/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config

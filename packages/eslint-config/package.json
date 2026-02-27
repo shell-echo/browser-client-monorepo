@@ -15,7 +15,8 @@
     "./helper": "./helper.js"
   },
   "scripts": {
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run --coverage"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["vitest/globals", "node"],
+    "noEmit": true
+  },
+  "include": ["**/*.test.ts", "**/*.test.tsx"],
+  "exclude": ["node_modules", "dist"]
+}

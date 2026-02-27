@@ -4,12 +4,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "check-types": "tsc --noEmit -p tsconfig.json"
+    "check-types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run --coverage"
   },
   "dependencies": {
     "@types/chrome": "^0.1.36"
   },
   "devDependencies": {
+    "@types/node": "catalog:node",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "typescript": "catalog:typescript"
