@@ -3,6 +3,7 @@ import internal from "~/internal";
 class ChromeEventServiceWorker {
   constructor() {
     this.registerTabsEvent();
+    this.registerWindowsEvent();
     this.registerTabGroupsEvent();
     this.registerDebuggerEvent();
   }
@@ -24,6 +25,16 @@ class ChromeEventServiceWorker {
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => emit("chrome:tabs:onUpdated", { tabId, changeInfo, tab }));
     chrome.tabs.onZoomChange.addListener((ZoomChangeInfo) => emit("chrome:tabs:onZoomChange", { ZoomChangeInfo }));
   };
+
+  private registerWindowsEvent() {
+    const emit = internal.event.emit.bind(internal.event);
+
+    // chrome.windows.on**
+    chrome.windows.onBoundsChanged.addListener((windows) => emit("chrome:windows:onBoundsChanged", { windows }));
+    chrome.windows.onCreated.addListener((windows) => emit("chrome:windows:onCreated", { windows }));
+    chrome.windows.onFocusChanged.addListener((windowId) => emit("chrome:windows:onFocusChanged", { windowId }));
+    chrome.windows.onRemoved.addListener((windowId) => emit("chrome:windows:onRemoved", { windowId }));
+  }
 
   private registerTabGroupsEvent() {
     const emit = internal.event.emit.bind(internal.event);

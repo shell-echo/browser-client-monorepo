@@ -43,6 +43,13 @@ declare namespace Extension {
       "chrome:tabs:onZoomChange": { ZoomChangeInfo: chrome.tabs.OnZoomChangeInfo };
     };
 
+    type ChromeWindowsPayload = {
+      "chrome:windows:onBoundsChanged": { windows: chrome.windows.Window };
+      "chrome:windows:onCreated": { windows: chrome.windows.Window };
+      "chrome:windows:onFocusChanged": { windowId: number };
+      "chrome:windows:onRemoved": { windowId: number };
+    };
+
     type ChromeTabGroupsPayload = {
       "chrome:tabGroups:onCreated": { group: chrome.tabGroups.TabGroup };
       "chrome:tabGroups:onMoved": { group: chrome.tabGroups.TabGroup };
@@ -55,7 +62,7 @@ declare namespace Extension {
       "chrome:debugger:onEvent": { source: chrome.debugger.DebuggerSession; method: string; params?: object };
     };
 
-    type ChromeEventPayload = ChromeTabsPayload & ChromeTabGroupsPayload & ChromeDebuggerPayload;
+    type ChromeEventPayload = ChromeTabsPayload & ChromeWindowsPayload & ChromeTabGroupsPayload & ChromeDebuggerPayload;
 
     type Payload = InternalPayload & ContentScriptPayload & ServiceWorkerPayload & ChromeEventPayload;
 
@@ -105,6 +112,22 @@ declare namespace Extension {
       };
     };
 
+    type ChromeWindows = {
+      "chrome:windows:create": { params: { createData: chrome.windows.CreateData }; resp?: chrome.windows.Window };
+      "chrome:windows:get": {
+        params: { windowId: number; queryOptions?: chrome.windows.QueryOptions };
+        resp: chrome.windows.Window;
+      };
+      "chrome:windows:getAll": { params: { queryOptions?: chrome.windows.QueryOptions }; resp: chrome.windows.Window[] };
+      "chrome:windows:getCurrent": { params: { queryOptions?: chrome.windows.QueryOptions }; resp: chrome.windows.Window };
+      "chrome:windows:getLastFocused": { params: { queryOptions?: chrome.windows.QueryOptions }; resp: chrome.windows.Window };
+      "chrome:windows:remove": { params: { windowId: number }; resp: void };
+      "chrome:windows:update": {
+        params: { windowId: number; updateInfo: chrome.windows.UpdateInfo };
+        resp: chrome.windows.Window;
+      };
+    };
+
     type ChromeTabGroups = {
       "chrome:tabGroups:get": { params: { groupId: number }; resp: chrome.tabGroups.TabGroup };
       "chrome:tabGroups:move": {
@@ -126,6 +149,12 @@ declare namespace Extension {
         params: { target: chrome.debugger.DebuggerSession; method: string; commandParams?: { [key: string]: unknown } };
         resp?: object;
       };
+    };
+
+    type ChromePower = {
+      "chrome:power:releaseKeepAwake": { params: undefined; resp: void };
+      "chrome:power:reportActivity": { params: undefined; resp: void };
+      "chrome:power:requestKeepAwake": { params: { level: chrome.power.Level }; resp: void };
     };
 
     type ServiceWorkerFetchResponse = {
@@ -153,7 +182,7 @@ declare namespace Extension {
       };
     };
 
-    type Definition = ChromeTabs & ChromeTabGroups & ChromeDebugger & ServiceWorker & Web;
+    type Definition = ChromeTabs & ChromeWindows & ChromeTabGroups & ChromeDebugger & ChromePower & ServiceWorker & Web;
 
     type Type = keyof Definition;
     type Params<K extends Type> = Definition[K]["params"];

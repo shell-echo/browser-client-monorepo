@@ -70,6 +70,16 @@ const chrometabs: { [T in keyof Extension.Invoke.ChromeTabs]: Extension.Invoke.H
   "chrome:tabs:update": (params) => chrome.tabs.update(params.tabId, params.updateProperties),
 };
 
+const chromewindows: { [T in keyof Extension.Invoke.ChromeWindows]: Extension.Invoke.Handler<T> } = {
+  "chrome:windows:create": (params) => chrome.windows.create(params.createData),
+  "chrome:windows:get": (params) => chrome.windows.get(params.windowId, params.queryOptions),
+  "chrome:windows:getAll": (params) => chrome.windows.getAll(params.queryOptions),
+  "chrome:windows:getCurrent": (params) => chrome.windows.getCurrent(params.queryOptions),
+  "chrome:windows:getLastFocused": (params) => chrome.windows.getLastFocused(params.queryOptions),
+  "chrome:windows:remove": (params) => chrome.windows.remove(params.windowId),
+  "chrome:windows:update": (params) => chrome.windows.update(params.windowId, params.updateInfo),
+};
+
 const chrometabgroups: { [T in keyof Extension.Invoke.ChromeTabGroups]: Extension.Invoke.Handler<T> } = {
   "chrome:tabGroups:get": (params) => chrome.tabGroups.get(params.groupId),
   "chrome:tabGroups:move": (params) => chrome.tabGroups.move(params.groupId, params.moveProperties),
@@ -82,6 +92,12 @@ const chromedebugger: { [T in keyof Extension.Invoke.ChromeDebugger]: Extension.
   "chrome:debugger:detach": (params) => chrome.debugger.detach(params),
   "chrome:debugger:getTargets": () => chrome.debugger.getTargets(),
   "chrome:debugger:sendCommand": (params) => chrome.debugger.sendCommand(params.target, params.method, params.commandParams),
+};
+
+const chromepower: { [T in keyof Extension.Invoke.ChromePower]: Extension.Invoke.Handler<T> } = {
+  "chrome:power:releaseKeepAwake": async () => chrome.power.releaseKeepAwake(),
+  "chrome:power:reportActivity": () => chrome.power.reportActivity(),
+  "chrome:power:requestKeepAwake": async (params) => chrome.power.requestKeepAwake(params.level),
 };
 
 const serviceWorker: { [T in keyof Extension.Invoke.ServiceWorker]: Extension.Invoke.Handler<T> } = {
@@ -152,8 +168,10 @@ type InvokeTransportResponse<T extends Extension.Invoke.Type> = {
 class Invoke {
   private handler: { [T in Extension.Invoke.Type]: Extension.Invoke.Handler<T> } = {
     ...chrometabs,
+    ...chromewindows,
     ...chrometabgroups,
     ...chromedebugger,
+    ...chromepower,
     ...serviceWorker,
     ...web,
   };
