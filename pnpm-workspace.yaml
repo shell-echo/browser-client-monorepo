@@ -7,13 +7,14 @@ catalogs:
     next: 16.1.6
   node:
     '@types/node': 25.2.1
+  postcss:
+    postcss: 8.5.6
   react:
     '@types/react': 19.2.13
     '@types/react-dom': 19.2.3
     react: 19.2.4
     react-dom: 19.2.4
-  postcss:
-    postcss: 8.5.6
+    react-router: 7.13.1
   tailwind:
     '@tailwindcss/postcss': 4.1.18
     '@tailwindcss/vite': 4.1.18

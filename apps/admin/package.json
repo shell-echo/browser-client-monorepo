@@ -14,16 +14,17 @@
     "@workspace/components": "workspace:*",
     "@workspace/ui": "workspace:*",
     "react": "catalog:react",
-    "react-dom": "catalog:react"
+    "react-dom": "catalog:react",
+    "react-router": "catalog:react"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "catalog:tailwind",
     "@types/node": "catalog:node",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
     "@vitejs/plugin-react-swc": "catalog:vite",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/types": "workspace:*",
-    "@tailwindcss/vite": "catalog:tailwind",
     "tailwindcss": "catalog:tailwind",
     "typescript": "catalog:typescript",
     "vite": "catalog:vite"
