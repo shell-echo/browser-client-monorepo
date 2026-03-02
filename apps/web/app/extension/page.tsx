@@ -1,6 +1,6 @@
 "use client";
 import { Button } from "@workspace/ui/components/button";
-import { UnplugIcon } from "@workspace/ui/components/lucide";
+import { UnplugIcon } from "@workspace/ui/components/icons";
 
 import { useExtension } from "~/components/provider/extension";
 
