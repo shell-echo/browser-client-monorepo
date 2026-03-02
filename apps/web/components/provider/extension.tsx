@@ -7,6 +7,8 @@ import React from "react";
 interface ExtensionProviderState {
   tab: Web.Tab | undefined;
   setTab: React.Dispatch<React.SetStateAction<Web.Tab | undefined>>;
+  tabs: Web.Tab[];
+  setTabs: React.Dispatch<React.SetStateAction<Web.Tab[]>>;
   extension: Web.Extension | undefined;
   setExtension: React.Dispatch<React.SetStateAction<Web.Extension | undefined>>;
 }
@@ -14,6 +16,8 @@ interface ExtensionProviderState {
 const initialState: ExtensionProviderState = {
   tab: undefined,
   setTab: () => null,
+  tabs: [],
+  setTabs: () => null,
   extension: undefined,
   setExtension: () => null,
 };
@@ -34,6 +38,7 @@ interface ExtensionProviderProps {
 
 const ExtensionProvider: React.FC<ExtensionProviderProps> = ({ children }) => {
   const [tab, setTab] = React.useState<Web.Tab>();
+  const [tabs, setTabs] = React.useState<Web.Tab[]>([]);
   const [extension, setExtension] = React.useState<Web.Extension>();
   const [interfacename] = React.useState<string>(constant.extension.name);
 
@@ -59,7 +64,39 @@ const ExtensionProvider: React.FC<ExtensionProviderProps> = ({ children }) => {
     extension?.invoke("chrome:tabs:current").then((tab) => setTab(tab));
   }, [extension]);
 
-  return <Context.Provider value={{ tab, setTab, extension, setExtension }}>{children}</Context.Provider>;
+  React.useEffect(() => {
+    extension?.invoke("chrome:tabs:query", { queryInfo: {} }).then((value) => setTabs(value));
+  }, [extension]);
+
+  React.useEffect(() => {
+    const onCreated = (params: Extension.Event.Params<"chrome:tabs:onCreated">) => {
+      const payload = params.payload;
+      setTabs((tabs) => (tabs.map((tab) => tab.id).includes(payload.tab.id) ? tabs : [...tabs, payload.tab]));
+    };
+
+    extension?.event.on("chrome:tabs:onCreated", onCreated);
+  }, [extension?.event, tab?.id]);
+
+  React.useEffect(() => {
+    const onRemoved = (params: Extension.Event.Params<"chrome:tabs:onRemoved">) => {
+      const { tabId } = params.payload;
+      setTabs((tabs) => tabs.filter((tab) => tab.id !== tabId));
+    };
+
+    extension?.event.on("chrome:tabs:onRemoved", onRemoved);
+  }, [extension?.event, tab?.id]);
+
+  React.useEffect(() => {
+    const onUpdated = (params: Extension.Event.Params<"chrome:tabs:onUpdated">) => {
+      const payload = params.payload;
+      if (payload.tabId === tab?.id) setTab(payload.tab);
+      setTabs((tabs) => tabs.map((tab) => (tab.id === payload.tabId ? payload.tab : tab)));
+    };
+
+    extension?.event.on("chrome:tabs:onUpdated", onUpdated);
+  }, [extension?.event, tab?.id]);
+
+  return <Context.Provider value={{ tab, setTab, tabs, setTabs, extension, setExtension }}>{children}</Context.Provider>;
 };
 
 export default ExtensionProvider;
