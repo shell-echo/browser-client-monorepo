@@ -2,6 +2,20 @@ import React from "react";
 
 const useTab = (extension?: Web.Extension, tabId?: number) => {
   const [tab, setTab] = React.useState<Web.Tab>();
+
+  React.useEffect(() => {
+    if (!extension || !tabId) {
+      setTab(undefined);
+
+      return;
+    }
+
+    extension
+      .invoke("chrome:tabs:get", { tabId })
+      .then((resp) => setTab(resp))
+      .catch(() => setTab(undefined));
+  }, [extension, tabId]);
+
   React.useEffect(() => {
     const onRemoved = (params: Extension.Event.Params<"chrome:tabs:onRemoved">) => {
       const payload = params.payload;
