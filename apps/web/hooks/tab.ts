@@ -1,3 +1,4 @@
+import logger from "@workspace/logger";
 import React from "react";
 
 const useTab = (extension?: Web.Extension, tabId?: number) => {
@@ -39,6 +40,18 @@ const useTab = (extension?: Web.Extension, tabId?: number) => {
 
     return () => extension?.event.off("chrome:tabs:onUpdated", onUpdated);
   }, [extension?.event, tabId]);
+
+  React.useEffect(() => {
+    const onActivated = (params: Extension.Event.Params<"chrome:tabs:onActivated">) => {
+      const activeInfo = params.payload.activeInfo;
+      if (activeInfo.tabId === tabId) setTab((tab) => (tab ? { ...tab, active: true } : tab));
+      else if (activeInfo.windowId === tab?.windowId) setTab((tab) => (tab ? { ...tab, active: false } : tab));
+    };
+
+    extension?.event.on("chrome:tabs:onActivated", onActivated);
+
+    return () => extension?.event.off("chrome:tabs:onActivated", onActivated);
+  }, [extension?.event, tab?.windowId, tabId]);
 
   return tab;
 };

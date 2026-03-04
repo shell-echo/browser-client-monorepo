@@ -93,7 +93,29 @@ const ExtensionProvider: React.FC<ExtensionProviderProps> = ({ children }) => {
     return () => extension?.event.off("chrome:tabs:onUpdated", onUpdated);
   }, [extension?.event]);
 
-  return <Context.Provider value={{ tab, tabs, extension }}>{children}</Context.Provider>;
+  React.useEffect(() => {
+    const onActivated = (params: Extension.Event.Params<"chrome:tabs:onActivated">) => {
+      const activeInfo = params.payload.activeInfo;
+      setTabs((tabs) =>
+        tabs.map((tab) => {
+          if (tab.id === activeInfo.tabId) return { ...tab, active: true };
+          else if (tab.windowId === activeInfo.windowId) return { ...tab, active: false };
+
+          return tab;
+        }),
+      );
+    };
+
+    extension?.event.on("chrome:tabs:onActivated", onActivated);
+
+    return () => extension?.event.off("chrome:tabs:onActivated", onActivated);
+  }, [extension?.event, tab?.windowId, tabId]);
+
+  return (
+    <Context.Provider value={{ tab, tabs: tabs.sort((a, b) => a.windowId - b.windowId || a.index - b.index), extension }}>
+      {children}
+    </Context.Provider>
+  );
 };
 
 export default ExtensionProvider;
