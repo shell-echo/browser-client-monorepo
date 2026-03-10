@@ -1,10 +1,13 @@
 "use client";
+
 import { Button } from "@workspace/ui/components/button";
 import { UnplugIcon } from "@workspace/ui/components/icons";
+import { useRouter } from "next/navigation";
 
 import { useExtension } from "~/components/provider/extension";
 
 export default function Page() {
+  const router = useRouter();
   const { extension } = useExtension();
 
   if (!extension) {
@@ -21,9 +24,7 @@ export default function Page() {
   return (
     <div className="w-screen h-screen flex justify-center items-center">
       <div className="flex flex-col gap-2">
-        <Button>
-          {extension.name} v{extension.version}
-        </Button>
+        <Button onClick={() => router.push("/chrome/tabs")}>chrome/tabs</Button>
       </div>
     </div>
   );

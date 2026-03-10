@@ -1,4 +1,5 @@
 "use client";
+
 import { notice } from "@workspace/components/notice";
 import { Button } from "@workspace/ui/components/button";
 import { useRouter } from "next/navigation";
@@ -13,7 +14,7 @@ export default function Page() {
     <div className="w-screen h-screen flex justify-center items-center">
       <div className="flex flex-col gap-2">
         <Button onClick={() => notice.toast.success("apps/web")}>apps/web</Button>
-        {extension && <Button onClick={() => router.push("/extension")}>extension/components</Button>}
+        {extension && <Button onClick={() => router.push("/chrome")}>chrome/components</Button>}
       </div>
     </div>
   );
