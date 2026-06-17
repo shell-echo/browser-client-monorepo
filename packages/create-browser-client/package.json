@@ -1,0 +1,16 @@
+{
+  "name": "create-browser-client",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "create-browser-client": "./src/index.js"
+  },
+  "scripts": {
+    "check-types": "node --check src/index.js",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@workspace/eslint-config": "workspace:*"
+  }
+}
