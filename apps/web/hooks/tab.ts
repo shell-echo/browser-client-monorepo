@@ -1,4 +1,3 @@
-import logger from "@workspace/logger";
 import React from "react";
 
 const useTab = (extension?: Web.Extension, tabId?: number) => {

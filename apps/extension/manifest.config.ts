@@ -36,7 +36,7 @@ export default defineManifest(({ mode }) => ({
   },
   web_accessible_resources: [
     {
-      resources: ["src/content-script/library/inject.js"],
+      resources: ["src/content-script/library/inject.js", "src/content-script/library/network-hook.js"],
       matches: ["<all_urls>"],
     },
   ],
