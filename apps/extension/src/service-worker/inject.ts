@@ -105,7 +105,7 @@ class InjectServiceWorker {
       };
     };
 
-    const network = { hook: (window as any).__NETWORK_HOOK__ };
+    const network = { hook: (window as any).__EXTENSION_NETWORK_HOOK__ };
     (window as any)[params.name] = { id, name, version, invoke, event: event(), network };
   };
 
