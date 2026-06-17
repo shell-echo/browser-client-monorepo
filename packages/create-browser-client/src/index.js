@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const appDependencies = {
+const appPackages = {
   admin: ["@workspace/components", "@workspace/ui", "react", "react-dom", "react-router"],
   web: ["@workspace/components", "@workspace/constant", "@workspace/ui", "next", "react", "react-dom"],
   extension: [
@@ -86,7 +86,7 @@ const packages = collectPackages(selectedApps);
 const catalogVersions = readCatalogVersions();
 const versions = resolveLatestVersions();
 copyRepo(targetRoot, selectedApps, packages);
-rewriteWorkspace(targetRoot, selectedApps, packages, versions, catalogVersions);
+rewriteWorkspace(targetRoot, selectedApps, packages, versions);
 console.log(`Created ${targetRoot} with apps: ${selectedApps.join(", ")}`);
 
 function readApps(values) {
@@ -95,7 +95,7 @@ function readApps(values) {
     .split(",")
     .map((app) => app.trim())
     .filter(Boolean);
-  const invalid = list.filter((app) => !appDependencies[app]);
+  const invalid = list.filter((app) => !appPackages[app]);
   if (invalid.length) throw new Error(`Unknown apps: ${invalid.join(", ")}`);
 
   return [...new Set(list)];
@@ -105,9 +105,6 @@ function collectPackages(apps) {
   const packages = new Set(sharedPackages);
   for (const app of apps) {
     packages.add(app);
-    for (const dep of appDependencies[app].filter((name) => name.startsWith("@workspace/"))) {
-      packages.add(dep.replace("@workspace/", ""));
-    }
     for (const dep of packageDeps[app] || []) packages.add(dep);
   }
   for (const pkg of [...packages]) for (const dep of packageDeps[pkg] || []) packages.add(dep);
@@ -163,7 +160,7 @@ function copyRepo(destination, apps, packages) {
   walk(repoRoot, destination);
 }
 
-function rewriteWorkspace(root, apps, packages, versions, catalogVersions) {
+function rewriteWorkspace(root, apps, packages, versions) {
   writeFileSync(join(root, "pnpm-workspace.yaml"), `packages:\n${apps.length ? "  - apps/*\n" : ""}  - packages/*\n`);
   for (const file of findPackageJson(root)) {
     const json = JSON.parse(readFileSync(file, "utf8"));
