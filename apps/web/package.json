@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@workspace/components": "workspace:*",
+    "@workspace/constant": "workspace:*",
     "@workspace/ui": "workspace:*",
     "next": "catalog:next",
     "react": "catalog:react",

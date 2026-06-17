@@ -203,6 +203,9 @@ importers:
       '@workspace/components':
         specifier: workspace:*
         version: link:../../packages/components
+      '@workspace/constant':
+        specifier: workspace:*
+        version: link:../../packages/constant
       '@workspace/ui':
         specifier: workspace:*
         version: link:../../packages/ui
