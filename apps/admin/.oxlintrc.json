@@ -1,0 +1,6 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": [
+    "./node_modules/@browser-client/oxlint-config/react-app.json"
+  ]
+}

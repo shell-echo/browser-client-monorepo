@@ -1,9 +1,0 @@
-{
-  "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
-  "version": "0.2",
-  "language": "en",
-  "allowCompoundWords": true,
-  "useGitignore": true,
-  "words": ["crxjs", "Turborepo", "ungroup", "ctype", "unstub", "atrule"],
-  "ignorePaths": ["**/*.svg", "**/*.ico", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
-}

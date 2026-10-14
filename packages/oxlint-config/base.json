@@ -1,0 +1,4 @@
+{
+  "plugins": ["typescript", "oxc"],
+  "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/dist-dev/**", "**/.next/**", "**/.turbo/**", "**/.reinit/**", "**/coverage/**"]
+}

@@ -1,14 +1,8 @@
 {
-  "name": "@workspace/typescript-config",
+  "name": "@browser-client/typescript-config",
   "version": "0.0.0",
   "private": true,
-  "scripts": {
-    "check-types": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --coverage"
-  },
-  "devDependencies": {
-    "@types/node": "catalog:node",
-    "typescript": "catalog:typescript"
-  },
-  "license": "PROPRIETARY"
+  "exports": {
+    "./*.json": "./*.json"
+  }
 }

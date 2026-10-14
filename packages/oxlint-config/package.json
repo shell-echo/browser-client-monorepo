@@ -1,0 +1,8 @@
+{
+  "name": "@browser-client/oxlint-config",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./*.json": "./*.json"
+  }
+}

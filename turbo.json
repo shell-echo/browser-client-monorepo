@@ -1,26 +1,10 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
-  "ui": "tui",
+  "globalDependencies": ["packages/typescript-config/**", "packages/eslint-config/**", "packages/oxlint-config/**"],
   "tasks": {
-    "build": {
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "dependsOn": ["^build"],
-      "outputs": ["build/**", ".vercel/**", "dist/**", ".next/**", "!.next/cache/**"]
-    },
-    "lint": {
-      "dependsOn": ["^lint"]
-    },
-    "test": {
-      "dependsOn": ["^test"],
-      "outputs": ["coverage/**"]
-    },
-    "check-types": {
-      "dependsOn": ["^check-types"],
-      "outputs": []
-    },
-    "dev": {
-      "cache": false,
-      "persistent": true
-    }
+    "build": { "dependsOn": ["^build"], "inputs": ["$TURBO_DEFAULT$", ".env*"], "outputs": [".next/**", "!.next/cache/**", "dist/**"] },
+    "dev": { "cache": false, "persistent": true, "passThroughEnv": ["EXTENSION_DEV_PORT"] },
+    "lint": { "dependsOn": ["^lint"] },
+    "typecheck": { "dependsOn": ["^typecheck"], "cache": false }
   }
 }

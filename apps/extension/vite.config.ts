@@ -1,30 +1,16 @@
-import path from "path";
-
-import { crx } from "@crxjs/vite-plugin";
-import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react-swc";
-import { defineConfig } from "vite";
-import zip from "vite-plugin-zip-pack";
-
-import manifest from "./manifest.config";
-import { name, version } from "./package.json";
+import { crx } from "@crxjs/vite-plugin"
+import manifest from "./manifest.config.ts"
+import tailwindcss from "@tailwindcss/vite"
+import { fileURLToPath, URL } from "node:url"
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
-export default defineConfig({
-  server: {
-    host: "0.0.0.0",
-    port: 5174,
-    cors: { origin: [/chrome-extension:\/\//] },
-    hmr: { port: 5174 },
-  },
-  plugins: [react(), tailwindcss(), crx({ manifest }), zip({ outDir: "release", outFileName: `crx-${name}-${version}.zip` })],
-  resolve: {
-    alias: {
-      "~/components": path.resolve(__dirname, "./components"),
-      "~": path.resolve(__dirname, "./src"),
-    },
-  },
-  optimizeDeps: {
-    exclude: ["@workspace/ui", "@workspace/components", "@workspace/types"],
-  },
-});
+const port = Number(process.env.EXTENSION_DEV_PORT ?? 3002)
+
+export default defineConfig(({ command, mode }) => ({
+  resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
+  server: { host: "127.0.0.1", port, strictPort: true, ws: { clientPort: port } },
+  build: { outDir: command === "serve" ? "dist-dev" : "dist" },
+  plugins: [react(), tailwindcss(), ...(mode === "preview-ui" ? [] : [crx({ manifest })])],
+}))

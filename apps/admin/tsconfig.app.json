@@ -1,35 +1,17 @@
 {
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "target": "ES2022",
-    "useDefineForClassFields": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "types": ["vite/client", "@workspace/types/admin"],
-    "skipLibCheck": true,
-
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "noEmit": true,
-    "jsx": "react-jsx",
-
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true,
+    "types": [
+      "vite/client"
+    ],
     "paths": {
-      "~/components/*": ["./components/*"],
-      "~/*": ["./src/*"],
-      "@workspace/ui/*": ["../../packages/ui/src/*"],
-      "@workspace/components/*": ["../../packages/components/src/*"],
-      "@workspace/types/*": ["../../packages/types/src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     }
   },
-  "include": ["src", "components"]
+  "include": [
+    "src"
+  ],
+  "extends": "@browser-client/typescript-config/vite.json"
 }

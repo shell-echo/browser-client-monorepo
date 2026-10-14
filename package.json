@@ -1,34 +1,38 @@
 {
-  "name": "browser-client-monorepo",
+  "name": "browser-client",
   "private": true,
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "format": "prettier --write .",
-    "lint": "turbo run lint",
-    "spellcheck": "cspell lint --config .cspell.json \"**/*\"",
-    "test": "turbo run test",
-    "check-types": "turbo run check-types --continue=always",
-    "create": "create-browser-client"
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24.0.0 <25",
+    "pnpm": ">=11 <12"
   },
-  "dependencies": {
-    "@workspace/constant": "workspace:*",
-    "@workspace/helper": "workspace:*",
-    "@workspace/logger": "workspace:*"
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "pnpm --filter @browser-client/web dev",
+    "dev:admin": "pnpm --filter @browser-client/admin dev",
+    "dev:extension": "pnpm --filter @browser-client/extension dev",
+    "preview:extension": "pnpm --filter @browser-client/extension preview:ui",
+    "build": "turbo run build",
+    "lint": "pnpm lint:scripts && turbo run lint",
+    "lint:scripts": "eslint scripts packages/eslint-config eslint.config.mjs",
+    "typecheck": "turbo run typecheck",
+    "test": "node --test --test-concurrency=2 --test-timeout=180000 scripts/tests/*.test.mjs",
+    "check": "node scripts/check-extension-compat.mjs && pnpm test && pnpm lint && pnpm typecheck && pnpm build && node scripts/check-extension.mjs",
+    "test:extension": "node scripts/test-extension.mjs",
+    "reinit": "node scripts/reinit.mjs",
+    "reinit:clean": "node scripts/clean-reinit.mjs",
+    "ui:add": "pnpm --filter @browser-client/web exec shadcn add"
   },
   "devDependencies": {
-    "@testing-library/react": "^16.3.2",
-    "@vitest/coverage-v8": "^4.0.18",
-    "cspell": "^9.6.4",
-    "eslint": "^9.39.2",
-    "jsdom": "^28.1.0",
-    "prettier": "^3.8.1",
-    "turbo": "^2.8.11",
-    "vitest": "^4.0.18",
-    "create-browser-client": "workspace:*"
-  },
-  "packageManager": "pnpm@10.28.2",
-  "engines": {
-    "node": ">=24"
+    "@browser-client/eslint-config": "workspace:*",
+    "es-module-lexer": "^1.7.0",
+    "eslint": "catalog:",
+    "jsonc-parser": "^3.3.1",
+    "playwright": "1.62.1",
+    "semver": "7.7.3",
+    "shadcn": "catalog:",
+    "turbo": "2.11.7",
+    "yaml": "^2.8.1"
   }
 }

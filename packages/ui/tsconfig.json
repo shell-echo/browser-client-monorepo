@@ -1,10 +1,13 @@
 {
-  "extends": "@workspace/typescript-config/react-library.json",
   "compilerOptions": {
     "paths": {
-      "@workspace/ui/*": ["./src/*"]
+      "@browser-client/ui/*": [
+        "./src/*"
+      ]
     }
   },
-  "include": ["."],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx"]
+  "include": [
+    "src"
+  ],
+  "extends": "@browser-client/typescript-config/react.json"
 }

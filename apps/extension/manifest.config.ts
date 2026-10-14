@@ -1,43 +1,13 @@
-import { defineManifest } from "@crxjs/vite-plugin";
-import constant from "@workspace/constant";
+import { defineManifest } from "@crxjs/vite-plugin"
 
-import pkg from "./package.json";
-
-export default defineManifest(({ mode }) => ({
+export default defineManifest({
   manifest_version: 3,
-  name: `${mode === "development" ? "[DEV] " : ""}${constant.extension.name}`,
-  description: constant.extension.description,
-  version: pkg.version,
-  action: {
-    default_popup: "src/action-popup/index.html",
-  },
-  background: {
-    service_worker: "src/service-worker/main.ts",
-  },
-  content_scripts: [
-    {
-      matches: ["<all_urls>"],
-      js: ["src/content-script/application.ts"],
-      run_at: "document_start",
-    },
-    {
-      matches: ["<all_urls>"],
-      js: ["src/content-script/inject.ts"],
-      run_at: "document_start",
-    },
-  ],
-  side_panel: {
-    default_path: "src/side-panel/index.html",
-  },
-  permissions: ["sidePanel", "tabs", "activeTab", "tabGroups", "scripting", "debugger", "power"],
-  host_permissions: ["<all_urls>"],
-  externally_connectable: {
-    matches: ["<all_urls>"],
-  },
-  web_accessible_resources: [
-    {
-      resources: ["src/content-script/library/inject.js", "src/content-script/library/network-hook.js"],
-      matches: ["<all_urls>"],
-    },
-  ],
-}));
+  name: "Browser Client",
+  version: "0.1.0",
+  description: "Browser Client 的 Chrome / Edge 扩展",
+  permissions: ["storage"],
+  action: { default_title: "Browser Client", default_popup: "index.html" },
+  options_page: "options.html",
+  background: { service_worker: "src/background.ts", type: "module" },
+  content_security_policy: { extension_pages: "script-src 'self'; object-src 'self'" },
+})

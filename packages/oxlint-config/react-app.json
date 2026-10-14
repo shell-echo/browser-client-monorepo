@@ -1,0 +1,6 @@
+{
+  "extends": ["./react.json"],
+  "rules": {
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}

@@ -2,35 +2,35 @@ packages:
   - apps/*
   - packages/*
 
+# Project policy; framework-specific toolchains keep separate catalogs.
+catalog:
+  react: 19.3.0
+  react-dom: 19.3.0
+  '@types/react': ^19.2.18
+  '@types/react-dom': ^19.2.7
+  tailwindcss: ^4.1.0
+  '@tailwindcss/vite': ^4.1.0
+  oxlint: ^1.81.0
+  eslint: ^9
+  '@eslint/js': ^9
+  shadcn: 4.21.4
+
 catalogs:
   next:
-    next: 16.1.6
-  node:
-    '@types/node': 25.2.1
-  postcss:
-    postcss: 8.5.6
-  react:
-    '@types/react': 19.2.13
-    '@types/react-dom': 19.2.3
-    react: 19.2.4
-    react-dom: 19.2.4
-    react-router: 7.13.1
-  tailwind:
-    '@tailwindcss/postcss': 4.1.18
-    '@tailwindcss/vite': 4.1.18
-    tailwindcss: 4.1.18
-  typescript:
-    typescript: 5.9.3
+    typescript: ^5
+    '@types/node': ^20
   vite:
-    '@vitejs/plugin-react-swc': 4.2.3
-    vite: 7.3.1
+    typescript: ~6.0.2
+    '@types/node': ^24.13.3
 
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+engineStrict: true
+verifyDepsBeforeRun: false
 
-onlyBuiltDependencies:
-  - '@swc/core'
-  - core-js-pure
-  - esbuild
-  - msw
+allowBuilds:
+  '@tailwindcss/oxide': true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - '@types/chrome@0.3.5'

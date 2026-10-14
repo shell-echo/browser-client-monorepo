@@ -1,0 +1,7 @@
+{
+  "extends": ["./base.json"],
+  "plugins": ["react", "typescript", "oxc"],
+  "rules": {
+    "react/rules-of-hooks": "error"
+  }
+}

@@ -1,32 +1,31 @@
 {
-  "name": "admin",
+  "name": "@browser-client/admin",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "check-types": "tsc -b --pretty false",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@workspace/components": "workspace:*",
-    "@workspace/ui": "workspace:*",
-    "react": "catalog:react",
-    "react-dom": "catalog:react",
-    "react-router": "catalog:react"
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "@browser-client/ui": "workspace:*"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "catalog:tailwind",
-    "@types/node": "catalog:node",
-    "@types/react": "catalog:react",
-    "@types/react-dom": "catalog:react",
-    "@vitejs/plugin-react-swc": "catalog:vite",
-    "@workspace/eslint-config": "workspace:*",
-    "@workspace/types": "workspace:*",
-    "tailwindcss": "catalog:tailwind",
-    "typescript": "catalog:typescript",
-    "vite": "catalog:vite"
+    "@types/node": "catalog:vite",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "catalog:",
+    "typescript": "catalog:vite",
+    "vite": "^8.3.0",
+    "@tailwindcss/vite": "catalog:",
+    "tailwindcss": "catalog:",
+    "@browser-client/typescript-config": "workspace:*",
+    "@browser-client/oxlint-config": "workspace:*"
   }
 }

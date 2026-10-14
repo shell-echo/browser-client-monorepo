@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+  TURBO_TELEMETRY_DISABLED: '1'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      extension: ${{ steps.changes.outputs.extension }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+      - name: Detect extension-related changes
+        id: changes
+        env:
+          CI_COMPARE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_EVENT_NAME: ${{ github.event_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { appendFileSync } from 'node:fs';
+          const base = process.env.CI_COMPARE_SHA;
+          let extension = true;
+          if (process.env.CI_EVENT_NAME !== 'workflow_dispatch' && /^[a-f0-9]{40}$/.test(base ?? '') && !/^0+$/.test(base)) {
+            try {
+              const files = execFileSync('git', ['diff', '--name-only', base, 'HEAD'], { encoding: 'utf8' }).split('\n');
+              extension = files.some((file) => /^(apps\/extension\/|packages\/|scripts\/|package\.json$|pnpm-(lock|workspace)\.yaml$|turbo\.json$|\.github\/workflows\/)/.test(file));
+            } catch { extension = true; }
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, `extension=${extension}\n`);
+          NODE
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+
+  extension:
+    needs: check
+    if: needs.check.outputs.extension == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:extension
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: extension-verification
+          include-hidden-files: true
+          path: |
+            .reinit/verification/*/report.json
+            .reinit/verification/*/*.log
+          if-no-files-found: ignore
+          retention-days: 7

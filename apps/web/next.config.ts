@@ -1,12 +1,17 @@
+import { resolve } from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@workspace/ui", "@workspace/components", "@workspace/types"],
-  images: {
-    remotePatterns: [
-      { protocol: "http", hostname: "**" },
-      { protocol: "https", hostname: "**" },
-    ],
+  transpilePackages: ["@browser-client/ui"],
+  /* config options here */
+  turbopack: {
+    root: resolve(process.cwd(), "../.."),
+    rules: {
+      "*.css": {
+        loaders: ["@tailwindcss/turbopack"],
+        as: "*.css",
+      },
+    },
   },
 };
 

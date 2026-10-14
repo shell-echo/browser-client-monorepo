@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": ["./react.json", "./vite-common.json"],
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "allowArbitraryExtensions": true
+  }
+}
