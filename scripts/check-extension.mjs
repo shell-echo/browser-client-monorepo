@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url"
 import { init, parse } from "es-module-lexer"
 
 export function assetPath(dist, path, from = dist) {
-  assert(typeof path === "string" && path.length && !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(path), `扩展资源必须是本地路径：${path}`)
+  assert(
+    typeof path === "string" && path.length && !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(path),
+    `扩展资源必须是本地路径：${path}`,
+  )
   assert(!/[\\%?#]/.test(path), `扩展资源路径不明确：${path}`)
   const file = path.startsWith("/") ? resolve(dist, path.slice(1)) : resolve(from, path)
   assert(file.startsWith(resolve(dist) + sep), `资源越界：${path}`)
@@ -48,7 +51,10 @@ export async function checkExtension(dist, source) {
       if (entry.isDirectory()) await scan(file)
       else if (/\.(?:js|html|json)$/.test(entry.name)) {
         const content = await readFile(file, "utf8")
-        assert(!/@vite\/client|@react-refresh|@crx\/client|__CRX_HMR_TOKEN__|crx:runtime-reload/.test(content), `生产产物含开发客户端：${file}`)
+        assert(
+          !/@vite\/client|@react-refresh|@crx\/client|__CRX_HMR_TOKEN__|crx:runtime-reload/.test(content),
+          `生产产物含开发客户端：${file}`,
+        )
         if (entry.name.endsWith(".js")) {
           const [imports] = parse(content, file)
           for (const dependency of imports) {

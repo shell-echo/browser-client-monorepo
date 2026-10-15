@@ -1,0 +1,28 @@
+{
+  "editor.insertSpaces": true,
+  "editor.tabSize": 2,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.fixAll.oxc": "explicit"
+  },
+  "prettier.requireConfig": true,
+  "prettier.ignorePath": ".prettierignore",
+  "eslint.format.enable": false,
+  "eslint.workingDirectories": [".", "./apps/web"],
+  "oxc.enable.oxfmt": false,
+  "oxc.requireConfig": true,
+  "search.exclude": {
+    ".reinit/**": true,
+    ".turbo/**": true,
+    "apps/*/.next/**": true,
+    "apps/*/dist/**": true,
+    "apps/*/dist-dev/**": true,
+    "packages/*/dist/**": true
+  },
+  "files.watcherExclude": {
+    "**/.reinit/**": true,
+    "**/.turbo/**": true
+  }
+}

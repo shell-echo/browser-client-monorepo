@@ -17,7 +17,15 @@ test("CRX root-relative assets work; remote and escaping paths fail", () => {
   const dist = join(tmpdir(), "extension-dist")
   assert.equal(assetPath(dist, "/assets/main.js"), join(dist, "assets/main.js"))
   assert.equal(assetPath(dist, "./main.js", join(dist, "assets")), join(dist, "assets/main.js"))
-  for (const path of ["../secret.js", "/../secret.js", "https://example.com/code.js", "//example.com/code.js", "data:script", "%2e%2e/secret.js", "..\\secret.js"]) {
+  for (const path of [
+    "../secret.js",
+    "/../secret.js",
+    "https://example.com/code.js",
+    "//example.com/code.js",
+    "data:script",
+    "%2e%2e/secret.js",
+    "..\\secret.js",
+  ]) {
     assert.throws(() => assetPath(dist, path))
   }
 })
@@ -26,16 +34,19 @@ test("production checker rejects leaked dev permissions, CSP, clients and missin
   const dist = await mkdtemp(join(tmpdir(), "extension-dist-"))
   t.after(() => rm(dist, { recursive: true, force: true }))
   const source = {
-    manifest_version: 3, permissions: ["storage"],
+    manifest_version: 3,
+    permissions: ["storage"],
     background: { service_worker: "worker.js", type: "module" },
-    action: { default_popup: "index.html" }, options_page: "options.html",
+    action: { default_popup: "index.html" },
+    options_page: "options.html",
     content_security_policy: { extension_pages: "script-src 'self'; object-src 'self'" },
   }
   const manifest = (value) => writeFile(join(dist, "manifest.json"), JSON.stringify(value))
   await manifest(source)
   await mkdir(join(dist, "assets"))
   for (const file of ["worker.js", "assets/main.js"]) await writeFile(join(dist, file), "export {}")
-  for (const page of ["index.html", "options.html"]) await writeFile(join(dist, page), '<script type="module" src="/assets/main.js"></script>')
+  for (const page of ["index.html", "options.html"])
+    await writeFile(join(dist, page), '<script type="module" src="/assets/main.js"></script>')
   await checkExtension(dist, source)
   await manifest({ ...source, host_permissions: ["http://localhost/*"] })
   await assert.rejects(checkExtension(dist, source), /生产权限/)
@@ -55,7 +66,10 @@ test("production checker rejects leaked dev permissions, CSP, clients and missin
   await assert.rejects(checkExtension(dist, source), /ENOENT/)
   await writeFile(join(dist, "assets/lazy.js"), 'export const note = "import ./missing-in-a-string.js";')
   await checkExtension(dist, source)
-  await writeFile(join(dist, "assets/lazy.js"), 'export const url = import.meta.url; export const load = (name) => import(`./${name}.js`);')
+  await writeFile(
+    join(dist, "assets/lazy.js"),
+    "export const url = import.meta.url; export const load = (name) => import(`./${name}.js`);",
+  )
   await checkExtension(dist, source)
   await writeFile(join(dist, "assets/lazy.js"), 'import "https://example.com/runtime.js"')
   await assert.rejects(checkExtension(dist, source), /本地路径/)

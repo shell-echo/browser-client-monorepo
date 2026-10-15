@@ -37,7 +37,8 @@ async function verification(root, id, status, age) {
 test("cleanup defaults to preview and refuses ambiguous or unsafe retention flags", () => {
   assert.equal(parseCleanupArgs([]).apply, false)
   assert.deepEqual(parseCleanupArgs(["--keep=1", "--days=0", "--apply"]), { keep: 1, days: 0, apply: true, help: false })
-  for (const args of [["--keep=0"], ["--days=-1"], ["--all"], ["--apply", "--dry-run"]]) assert.throws(() => parseCleanupArgs(args))
+  for (const args of [["--keep=0"], ["--days=-1"], ["--all"], ["--apply", "--dry-run"]])
+    assert.throws(() => parseCleanupArgs(args))
 })
 
 test("cleanup preserves recent, failed and unknown records; preview is read-only", async (t) => {
@@ -104,7 +105,8 @@ test("SIGINT during cleanup releases the owned lock and keeps pending backups", 
   for (let i = 0; i < 100; i++) await backup(root, `record-${i}`, "complete", 20)
   const runner = createCommandRunner({ timeoutMs: 30_000 })
   t.after(() => runner.close())
-  let handle, signalled = false
+  let handle,
+    signalled = false
   const poll = setInterval(() => {
     if (handle && !signalled && existsSync(join(root, ".reinit/lock"))) {
       signalled = true
@@ -112,9 +114,13 @@ test("SIGINT during cleanup releases the owned lock and keeps pending backups", 
     }
   }, 1)
   t.after(() => clearInterval(poll))
-  handle = runner.start(process.execPath, [join(root, "scripts/clean-reinit.mjs"), "--apply", "--keep=1", "--days=0"], { stdio: ["ignore", "pipe", "pipe"] })
+  handle = runner.start(process.execPath, [join(root, "scripts/clean-reinit.mjs"), "--apply", "--keep=1", "--days=0"], {
+    stdio: ["ignore", "pipe", "pipe"],
+  })
   let stderr = ""
-  handle.child.stderr.on("data", (chunk) => { stderr += chunk })
+  handle.child.stderr.on("data", (chunk) => {
+    stderr += chunk
+  })
   const result = await handle.done
   assert.equal(signalled, true, stderr)
   assert.equal(result.code, 1, stderr)

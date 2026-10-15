@@ -8,12 +8,34 @@ export function ignored(path) {
   const parts = path.split(/[\\/]/).filter((part) => part && part !== ".")
   const boundary = parts.length === 1 || (parts.length === 3 && ["apps", "packages"].includes(parts[0]))
   const name = parts.at(-1) ?? ""
-  return boundary && (["node_modules", ".git", ".next", "dist", "dist-dev", ".turbo", ".reinit", ".DS_Store"].includes(name) || name.endsWith(".tsbuildinfo"))
+  return (
+    boundary &&
+    (["node_modules", ".git", ".next", "dist", "dist-dev", ".turbo", ".reinit", ".DS_Store"].includes(name) ||
+      name.endsWith(".tsbuildinfo"))
+  )
 }
-export const managed = (name) => ["package.json", "components.json", "next-env.d.ts", "README.md", ".gitignore", ".oxlintrc.json", "pnpm-workspace.yaml", "pnpm-lock.yaml", "package-lock.json", "yarn.lock"].includes(name) || /^(tsconfig.*\.json|(?:next|vite|eslint|postcss)\.config\.[cm]?[jt]s)$/.test(name)
+export const managed = (name) =>
+  [
+    "package.json",
+    "components.json",
+    "next-env.d.ts",
+    "README.md",
+    ".gitignore",
+    ".oxlintrc.json",
+    "pnpm-workspace.yaml",
+    "pnpm-lock.yaml",
+    "package-lock.json",
+    "yarn.lock",
+  ].includes(name) || /^(tsconfig.*\.json|(?:next|vite|eslint|postcss)\.config\.[cm]?[jt]s)$/.test(name)
 
 export async function exists(path) {
-  try { await lstat(path); return true } catch (error) { if (error.code === "ENOENT") return false; throw error }
+  try {
+    await lstat(path)
+    return true
+  } catch (error) {
+    if (error.code === "ENOENT") return false
+    throw error
+  }
 }
 
 export async function copySource(from, to, { root = from } = {}) {
@@ -46,7 +68,12 @@ export async function fingerprint(root) {
     // path/mode record. JSON lines also preserve filename and type boundaries.
     const type = stat.isDirectory() ? "directory" : stat.isFile() ? "file" : undefined
     if (!type) throw new Error(`不支持的文件类型：${path}`)
-    const content = type === "file" ? createHash("sha256").update(await readFile(path)).digest("hex") : null
+    const content =
+      type === "file"
+        ? createHash("sha256")
+            .update(await readFile(path))
+            .digest("hex")
+        : null
     hash.update(JSON.stringify([relative, type, stat.mode, content]) + "\n")
     if (stat.isDirectory()) {
       for (const name of (await readdir(path)).sort()) {
@@ -63,7 +90,8 @@ export async function fingerprint(root) {
 export async function promote({ root, stage, backup, paths, validate, checkInterrupted = () => {} }) {
   await mkdir(backup, { recursive: true, mode: 0o700 })
   const moved = []
-  const journal = async (state) => writeFile(join(backup, "journal.json"), JSON.stringify({ state, root, stage, paths, moved }, null, 2) + "\n")
+  const journal = async (state) =>
+    writeFile(join(backup, "journal.json"), JSON.stringify({ state, root, stage, paths, moved }, null, 2) + "\n")
   await journal("promoting")
   try {
     for (const path of paths) {

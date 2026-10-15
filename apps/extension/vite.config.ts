@@ -2,8 +2,8 @@ import { crx } from "@crxjs/vite-plugin"
 import manifest from "./manifest.config.ts"
 import tailwindcss from "@tailwindcss/vite"
 import { fileURLToPath, URL } from "node:url"
-import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import react from "@vitejs/plugin-react"
+import { defineConfig } from "vite"
 
 // https://vite.dev/config/
 const port = Number(process.env.EXTENSION_DEV_PORT ?? 3002)

@@ -27,7 +27,11 @@ export function createVerificationRunner({ logDir, ...options }) {
     let lastError
     while (Date.now() < deadline) {
       runner.check()
-      try { if (await check()) return } catch (error) { lastError = error }
+      try {
+        if (await check()) return
+      } catch (error) {
+        lastError = error
+      }
       await delay(150)
     }
     throw new Error(`等待超时：${label}`, { cause: lastError })
@@ -38,7 +42,11 @@ export function createVerificationRunner({ logDir, ...options }) {
 export async function finishVerification(report, cleanup) {
   const failures = []
   for (const close of cleanup) {
-    try { await close() } catch (error) { failures.push(error) }
+    try {
+      await close()
+    } catch (error) {
+      failures.push(error)
+    }
   }
   if (failures.length) {
     report.status = "failed"

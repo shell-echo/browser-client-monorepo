@@ -11,12 +11,12 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-| 入口 | 命令 | 地址或产物 |
-| --- | --- | --- |
-| Web | `pnpm dev:web` | http://127.0.0.1:3000 |
-| Admin | `pnpm dev:admin` | http://127.0.0.1:3001 |
-| Extension | `pnpm dev:extension` | 加载 `apps/extension/dist-dev`，支持 HMR |
-| Extension 网页预览 | `pnpm preview:extension` | http://127.0.0.1:3002 |
+| 入口               | 命令                     | 地址或产物                               |
+| ------------------ | ------------------------ | ---------------------------------------- |
+| Web                | `pnpm dev:web`           | http://127.0.0.1:3000                    |
+| Admin              | `pnpm dev:admin`         | http://127.0.0.1:3001                    |
+| Extension          | `pnpm dev:extension`     | 加载 `apps/extension/dist-dev`，支持 HMR |
+| Extension 网页预览 | `pnpm preview:extension` | http://127.0.0.1:3002                    |
 
 `pnpm dev` 同时运行前三项。开发服务默认仅监听本机。Web / Admin 是接入真实业务前的最小示例，没有后端、登录或生产数据。Admin 表单只更新当前页面。
 
@@ -46,12 +46,12 @@ template-versions.json  # 实际脚手架版本与生成时间
 
 公共规则在 `packages/` 维护，通过 `workspace:*` 开发依赖接入。各应用只保留环境和路径相关配置：
 
-| 使用方 | TypeScript 预设 | lint 配置 |
-| --- | --- | --- |
-| Web | `@browser-client/typescript-config/nextjs.json` | `@browser-client/eslint-config/base` + 当前 Next.js 官方规则 |
-| Admin / Extension 页面 | `@browser-client/typescript-config/vite.json` | `@browser-client/oxlint-config/react-app.json` |
-| Vite 配置文件 | `@browser-client/typescript-config/vite-node.json` | 与所在应用共用 lint |
-| UI | `@browser-client/typescript-config/react.json` | `@browser-client/oxlint-config/react.json`，并保留 Unicorn 检查 |
+| 使用方                 | TypeScript 预设                                    | lint 配置                                                       |
+| ---------------------- | -------------------------------------------------- | --------------------------------------------------------------- |
+| Web                    | `@browser-client/typescript-config/nextjs.json`    | `@browser-client/eslint-config/base` + 当前 Next.js 官方规则    |
+| Admin / Extension 页面 | `@browser-client/typescript-config/vite.json`      | `@browser-client/oxlint-config/react-app.json`                  |
+| Vite 配置文件          | `@browser-client/typescript-config/vite-node.json` | 与所在应用共用 lint                                             |
+| UI                     | `@browser-client/typescript-config/react.json`     | `@browser-client/oxlint-config/react.json`，并保留 Unicorn 检查 |
 
 `base.json` 统一严格类型检查、`skipLibCheck` 和 `noEmit`；React、Next.js、Vite 预设逐层继承。`vite-common.json` 复用页面与构建配置共同的检查选项。`paths`、`types`、`include/exclude`、project references、`tsBuildInfoFile` 和 Next.js 插件留在使用方，避免相对路径解析到共享包。应用的本地选项优先于共享默认值。
 
@@ -73,6 +73,21 @@ ESLint 公共包统一生成目录忽略和未使用禁用指令的检查，不�
 各应用的 `.env*` 纳入构建缓存输入，修改后会重新构建；环境文件放在相应应用目录，实际值不提交 Git。Turbo 会自动识别 `NEXT_PUBLIC_*` / `VITE_*`；以后新增影响构建的服务端环境变量时，还需将变量名加入 `build.env`。`EXTENSION_DEV_PORT` 会透传给 `pnpm dev` 中的扩展开发服务。
 
 `reinit` 会重新添加配置包依赖并接入公共预设。共享预设已管理的 TypeScript 选项和 Oxlint 规则以项目设置为准，避免你修改公共规则后又被模板默认值覆盖；若模板给出不同值，脚本会打印提示供核对。上游新增且尚未纳入共享预设的选项、额外继承链、环境类型和 lint overrides 会保留。接入逻辑位于 `scripts/lib/tooling.mjs`；公共规则在配置包修改，框架接入差异在脚本修改，均会随下一次 reinit 保留。直接编辑应用配置可以临时覆盖共享默认值，但这些框架配置仍会在 reinit 时重建。
+
+## 格式化与编辑器
+
+根目录的 `.prettierrc.json` 为三个应用、共享包和脚本提供统一格式：两空格、双引号、不加分号、128 列换行。使用项目安装且精确锁定的 Prettier；Tailwind 排序插件通过 `packages/ui/src/styles/globals.css` 读取 v4 主题，同时整理 JSX、`cn`、`clsx` 和 `cva` 中的类名。无需在每个 workspace 重复安装或另建格式配置包。
+
+```sh
+pnpm format          # 统一源码、配置与文档的格式
+pnpm format:check    # 只检查；pnpm check 和 CI 均包含它
+```
+
+两条命令显式读取 `.prettierignore`，避免 Git 的宽泛 `dist/` 忽略规则隐藏 `src/dist/` 等业务源码。格式化只排除指定的工作区生成目录、依赖、锁文件、自动生成的版本记录、静态 `public/` 资源、私有 `.reinit/`、补丁和 `AGENTS.md`；不会改写静态资源或仓库指令。`.editorconfig` 统一 UTF-8、LF、两空格和末尾换行，保留 Markdown 换行及补丁的有意义空白。
+
+用 VS Code 打开仓库根目录后，按 `.vscode/extensions.json` 的推荐安装 Prettier、ESLint、Oxc 和 Tailwind CSS IntelliSense。保存时使用本地 Prettier 格式化，并执行相应 linter 的修复。Web 和工程脚本使用 ESLint；根 `.oxlintrc.json` 为 Oxc 编辑器排除这些文件，Admin、Extension 和 UI 继续使用各自的公共规则。根目录安装的 Oxlint 与应用共用 catalog 版本，供编辑器发现本地语言服务。Oxfmt 格式化已关闭，TypeScript 不使用 Nightly；最终类型检查仍由各工作区锁定的 TypeScript 执行。编辑器插件仅列为推荐，不自动安装或修改个人设置。
+
+`reinit` 在隔离候选目录安装依赖后，仅格式化被重建应用的托管配置，以及更新后的根配置和 workspace 依赖清单，再执行完整检查和浏览器验收。业务源码、共享 shadcn/ui、manifest、静态资源与编辑器配置不会被这一步重写。新增格式依赖自动参与联网兼容性升级；离线模式重放已验证的版本。如果升级后的规则要求业务文件调整，或生成配置不能格式化，检查会中止并保留原项目，需要审核格式调整后再重试。新增格式依赖后，先成功运行一次联网 reinit，才会生成包含这些依赖的离线重放记录。
 
 ## 公共依赖版本
 
@@ -156,15 +171,15 @@ pnpm reinit --apply --offline # 使用已记录且缓存的官方版本，不查
 5. 将原 apps、packages、根 `package.json`、`pnpm-workspace.yaml`、node_modules、锁文件和版本记录一起移动到 `.reinit/backups/<id>`，安装经过验证的新目录。
 6. 在最终目录按冻结锁文件严格安装并再次检查；联网模式继续联网完成 pnpm 供应链元数据校验，离线模式只使用缓存。失败则恢复原目录，备份与失败候选均保留，便于排查。
 
-| 内容 | 重建行为 |
-| --- | --- |
-| `src/`、`public/`、`.env*`、`manifest.config.ts`、HTML 入口、测试及其他业务文件 | 从当前磁盘保留，整个目录覆盖模板的示例目录 |
-| `packages/` 的组件 / 配置源码、导出、脚本和 peer 契约；根文档、Git 元数据 | 保留；UI 不会被重新初始化 |
-| 根 / `packages/*/package.json` 直接依赖及 `pnpm-workspace.yaml` catalog | 联网时升级到最高兼容稳定版本，保留其他字段和现有 workspace 设置 |
-| app `package.json` | 保留业务依赖、非标准 scripts、自定义字段与项目版本；官方模板同名依赖和标准 scripts 优先 |
-| app `tsconfig*.json`、`next/vite/eslint/postcss.config.*`、`.oxlintrc.json`、`next-env.d.ts`、`components.json` | 用新模板和接入逻辑重建 |
-| app `README.md`、`.gitignore` | 使用新模板版本；项目说明请维护在根 README 或 docs |
-| app 内独立的 `pnpm-workspace.yaml` 与锁文件 | 移除，统一使用仓库根 workspace 与锁文件 |
+| 内容                                                                                                                          | 重建行为                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/`、`public/`、`.env*`、`manifest.config.ts`、HTML 入口、测试及其他业务文件                                               | 从当前磁盘保留，整个目录覆盖模板的示例目录                                                                    |
+| `packages/` 的组件 / 配置源码、导出、脚本和 peer 契约；根文档、Git 元数据                                                     | 保留；UI 不会被重新初始化                                                                                     |
+| 根 / `packages/*/package.json` 直接依赖及 `pnpm-workspace.yaml` catalog                                                       | 联网时升级到最高兼容稳定版本，保留其他字段和现有 workspace 设置                                               |
+| app `package.json`                                                                                                            | 保留业务依赖、非标准 scripts、自定义字段与项目版本；官方模板同名依赖和标准 scripts 优先                       |
+| app `tsconfig*.json`、`next/vite/eslint/postcss.config.*`、`.oxlintrc.json`、`next-env.d.ts`、`components.json`               | 用新模板和接入逻辑重建                                                                                        |
+| app `README.md`、`.gitignore`                                                                                                 | 使用新模板版本；项目说明请维护在根 README 或 docs                                                             |
+| app 内独立的 `pnpm-workspace.yaml` 与锁文件                                                                                   | 移除，统一使用仓库根 workspace 与锁文件                                                                       |
 | 仓库根目录及 `apps/*` / `packages/*` 根目录的 `node_modules`、`.next`、`dist`、`dist-dev`、`.turbo`、`*.tsbuildinfo` 等生成物 | 重新生成；只在这些边界排除。`public/dist/`、`src/dist/`、共享组件内的同名业务路径完整保留，并纳入内容指纹检查 |
 
 自定义框架配置应固化到 `scripts/lib/integrate.mjs`，否则它只留在备份中，不会自动迁入新配置。`reinit` 是框架底座更新，不是清空业务源码，也不会自动迁移业务 API。上游模板结构或 API 出现不兼容变化时，脚本会停在暂存目录，由你调整接入逻辑或业务代码后重试。首次版本和以后每次生成的版本均记录在 `template-versions.json`；普通安装遵循锁文件，不追随 latest。

@@ -15,17 +15,26 @@ async function put(root, path, content) {
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "browser-client-preflight-"))
   t.after(() => rm(root, { recursive: true, force: true }))
-  const stage = join(root, ".reinit/staging/test"), backup = join(root, ".reinit/backups/test")
+  const stage = join(root, ".reinit/staging/test"),
+    backup = join(root, ".reinit/backups/test")
   const asset = "apps/web/public/dist/vendor.js"
   await put(root, asset, "original asset")
   await put(root, "pnpm-lock.yaml", "original lock")
   await put(root, "node_modules/cache", "original dependencies")
   await put(stage, asset, "candidate asset")
   await put(stage, "pnpm-lock.yaml", "candidate lock")
-  const baseline = await fingerprint(root), calls = []
+  const baseline = await fingerprint(root),
+    calls = []
   let promoted = false
-  const options = { root, stage, baseline, offline: true,
-    run: async (args, cwd, capture, env) => { calls.push({ command: args.join(" "), cwd, env }) },
+  const options = {
+    root,
+    stage,
+    baseline,
+    offline: true,
+    selected: ["extension"],
+    run: async (args, cwd, capture, env) => {
+      calls.push({ command: args.join(" "), cwd, env })
+    },
     promote: async () => {
       promoted = true
       await promote({ root, stage, backup, paths: ["apps", "pnpm-lock.yaml"], validate: async () => {} })
@@ -37,7 +46,17 @@ async function fixture(t) {
 test("online preflight completes both browser suites before replacing the original project", async (t) => {
   const f = await fixture(t)
   await validateBeforePromotion({ ...f.options, offline: false })
-  assert.deepEqual(f.calls.map(({ command }) => command), ["check", "audit:security", "exec playwright install chromium", "test:web-admin", "test:extension"])
+  assert.deepEqual(
+    f.calls.map(({ command }) => command),
+    [
+      "exec node scripts/format-reinit.mjs extension",
+      "check",
+      "audit:security",
+      "exec playwright install chromium",
+      "test:web-admin",
+      "test:extension",
+    ],
+  )
   for (const call of f.calls) assert.equal(call.cwd, f.stage)
   for (const call of f.calls.filter(({ command }) => command.startsWith("test:"))) {
     assert.equal(call.env.BROWSER_TEST_OUTPUT_ROOT, join(f.root, ".reinit/verification"))
@@ -51,43 +70,69 @@ test("online preflight completes both browser suites before replacing the origin
 test("offline preflight runs browser verification without downloading browsers or auditing online", async (t) => {
   const f = await fixture(t)
   await validateBeforePromotion(f.options)
-  assert.deepEqual(f.calls.map(({ command }) => command), ["check", "test:web-admin", "test:extension"])
+  assert.deepEqual(
+    f.calls.map(({ command }) => command),
+    ["exec node scripts/format-reinit.mjs extension", "check", "test:web-admin", "test:extension"],
+  )
   assert.equal(f.promoted(), true)
 })
 
 test("failed candidate checks never promote and preserve the original source, lock and dependencies", async (t) => {
-  const sequence = ["check", "audit:security", "exec playwright install chromium", "test:web-admin", "test:extension"]
-  for (const failure of sequence) await t.test(failure, async (t) => {
-    const f = await fixture(t)
-    let report
-    await assert.rejects(validateBeforePromotion({ ...f.options, offline: false,
-      run: async (args, cwd, capture, env) => {
-        const command = args.join(" ")
-        f.calls.push(command)
-        if (command !== failure) return
-        if (command.startsWith("test:")) {
-          report = join(env.BROWSER_TEST_OUTPUT_ROOT, "failed/report.json")
-          await put(env.BROWSER_TEST_OUTPUT_ROOT, "failed/report.json", JSON.stringify({ status: "failed", failure: command }))
-        }
-        throw new Error(`failed: ${command}`)
-      },
-    }), /failed:/)
-    assert.deepEqual(f.calls, sequence.slice(0, sequence.indexOf(failure) + 1))
-    assert.equal(f.promoted(), false)
-    assert.equal(await exists(f.backup), false)
-    assert.equal(await fingerprint(f.root), f.baseline)
-    assert.equal(await readFile(join(f.root, f.asset), "utf8"), "original asset")
-    assert.equal(await readFile(join(f.root, "pnpm-lock.yaml"), "utf8"), "original lock")
-    assert.equal(await readFile(join(f.root, "node_modules/cache"), "utf8"), "original dependencies")
-    if (report) assert.equal(JSON.parse(await readFile(report, "utf8")).status, "failed")
-  })
+  const sequence = [
+    "exec node scripts/format-reinit.mjs extension",
+    "check",
+    "audit:security",
+    "exec playwright install chromium",
+    "test:web-admin",
+    "test:extension",
+  ]
+  for (const failure of sequence)
+    await t.test(failure, async (t) => {
+      const f = await fixture(t)
+      let report
+      await assert.rejects(
+        validateBeforePromotion({
+          ...f.options,
+          offline: false,
+          run: async (args, cwd, capture, env) => {
+            const command = args.join(" ")
+            f.calls.push(command)
+            if (command !== failure) return
+            if (command.startsWith("test:")) {
+              report = join(env.BROWSER_TEST_OUTPUT_ROOT, "failed/report.json")
+              await put(
+                env.BROWSER_TEST_OUTPUT_ROOT,
+                "failed/report.json",
+                JSON.stringify({ status: "failed", failure: command }),
+              )
+            }
+            throw new Error(`failed: ${command}`)
+          },
+        }),
+        /failed:/,
+      )
+      assert.deepEqual(f.calls, sequence.slice(0, sequence.indexOf(failure) + 1))
+      assert.equal(f.promoted(), false)
+      assert.equal(await exists(f.backup), false)
+      assert.equal(await fingerprint(f.root), f.baseline)
+      assert.equal(await readFile(join(f.root, f.asset), "utf8"), "original asset")
+      assert.equal(await readFile(join(f.root, "pnpm-lock.yaml"), "utf8"), "original lock")
+      assert.equal(await readFile(join(f.root, "node_modules/cache"), "utf8"), "original dependencies")
+      if (report) assert.equal(JSON.parse(await readFile(report, "utf8")).status, "failed")
+    })
 })
 
 test("editing a generated-looking business asset during browser verification prevents promotion", async (t) => {
   const f = await fixture(t)
-  await assert.rejects(validateBeforePromotion({ ...f.options,
-    run: async (args) => { if (args[0] === "test:web-admin") await put(f.root, f.asset, "user edit") },
-  }), /工作区发生变化/)
+  await assert.rejects(
+    validateBeforePromotion({
+      ...f.options,
+      run: async (args) => {
+        if (args[0] === "test:web-admin") await put(f.root, f.asset, "user edit")
+      },
+    }),
+    /工作区发生变化/,
+  )
   assert.equal(f.promoted(), false)
   assert.equal(await exists(f.backup), false)
   assert.equal(await readFile(join(f.root, f.asset), "utf8"), "user edit")
@@ -95,21 +140,38 @@ test("editing a generated-looking business asset during browser verification pre
 
 test("cancellation after browser verification prevents replacement", async (t) => {
   const f = await fixture(t)
-  await assert.rejects(validateBeforePromotion({ ...f.options, checkInterrupted: () => { throw new Error("cancelled") } }), /cancelled/)
+  await assert.rejects(
+    validateBeforePromotion({
+      ...f.options,
+      checkInterrupted: () => {
+        throw new Error("cancelled")
+      },
+    }),
+    /cancelled/,
+  )
   assert.equal(f.promoted(), false)
   assert.equal(await fingerprint(f.root), f.baseline)
 })
 
 test("post-promotion validation still restores the original project after browser checks pass", async (t) => {
   const f = await fixture(t)
-  await assert.rejects(validateBeforePromotion({ ...f.options,
-    promote: () => promote({ root: f.root, stage: f.stage, backup: f.backup, paths: ["apps", "pnpm-lock.yaml"],
-      validate: async () => {
-        assert.equal(await readFile(join(f.root, f.asset), "utf8"), "candidate asset")
-        throw new Error("final validation failed")
-      },
+  await assert.rejects(
+    validateBeforePromotion({
+      ...f.options,
+      promote: () =>
+        promote({
+          root: f.root,
+          stage: f.stage,
+          backup: f.backup,
+          paths: ["apps", "pnpm-lock.yaml"],
+          validate: async () => {
+            assert.equal(await readFile(join(f.root, f.asset), "utf8"), "candidate asset")
+            throw new Error("final validation failed")
+          },
+        }),
     }),
-  }), /final validation failed/)
+    /final validation failed/,
+  )
   assert.equal(await fingerprint(f.root), f.baseline)
   assert.equal(await readFile(join(f.root, "pnpm-lock.yaml"), "utf8"), "original lock")
   assert.equal(JSON.parse(await readFile(join(f.backup, "journal.json"), "utf8")).state, "rolled-back")

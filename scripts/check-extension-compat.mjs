@@ -7,8 +7,10 @@ import semver from "semver"
 
 export function assertCompatible(vite, crx) {
   const range = crx.peerDependencies?.vite
-  assert(range && semver.satisfies(vite.version, range),
-    `CRXJS ${crx.version} 不支持 Vite ${vite.version}（要求 ${range ?? "未知"}）。请先更新 CRXJS 接入，reinit 不会替换原应用。`)
+  assert(
+    range && semver.satisfies(vite.version, range),
+    `CRXJS ${crx.version} 不支持 Vite ${vite.version}（要求 ${range ?? "未知"}）。请先更新 CRXJS 接入，reinit 不会替换原应用。`,
+  )
 }
 
 export async function checkCompatibility(root) {

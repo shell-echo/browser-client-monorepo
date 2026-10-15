@@ -4,7 +4,10 @@ import { setTimeout as delay } from "node:timers/promises"
 const alive = (child) => {
   if (!child.pid) return false
   if (process.platform === "win32") return child.exitCode === null && child.signalCode === null
-  try { process.kill(-child.pid, 0); return true } catch (error) {
+  try {
+    process.kill(-child.pid, 0)
+    return true
+  } catch (error) {
     if (error.code === "ESRCH") return false
     // A group containing only a just-exited child may briefly return EPERM on
     // macOS until the close event reaps it. Keep waiting; never assume exit.
@@ -16,12 +19,18 @@ const alive = (child) => {
 async function killTree(child, signal) {
   if (!alive(child)) return
   if (process.platform === "win32") {
-    await new Promise((resolve, reject) => execFile("taskkill", ["/pid", String(child.pid), "/T", "/F"], (error) => {
-      if (error && alive(child)) reject(error)
-      else resolve()
-    }))
+    await new Promise((resolve, reject) =>
+      execFile("taskkill", ["/pid", String(child.pid), "/T", "/F"], (error) => {
+        if (error && alive(child)) reject(error)
+        else resolve()
+      }),
+    )
   } else {
-    try { process.kill(-child.pid, signal) } catch (error) { if (error.code !== "ESRCH") throw error }
+    try {
+      process.kill(-child.pid, signal)
+    } catch (error) {
+      if (error.code !== "ESRCH") throw error
+    }
   }
 }
 
@@ -52,19 +61,35 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
     const limit = options.timeoutMs ?? timeoutMs
     if (limit !== 0) positiveTimeout(limit, timeoutMs)
     const child = spawn(command, args, {
-      cwd: options.cwd ?? cwd, shell: false, detached: process.platform !== "win32",
+      cwd: options.cwd ?? cwd,
+      shell: false,
+      detached: process.platform !== "win32",
       env: { ...process.env, ...env, ...options.env },
       stdio: options.stdio ?? (options.capture ? ["ignore", "pipe", "inherit"] : "inherit"),
     })
-    let output = "", reason, spawnError, stopping, timer
+    let output = "",
+      reason,
+      spawnError,
+      stopping,
+      timer
     let closedResolve
-    const closed = new Promise((resolve) => { closedResolve = resolve })
+    const closed = new Promise((resolve) => {
+      closedResolve = resolve
+    })
     let doneResolve, doneReject
-    const done = new Promise((resolve, reject) => { doneResolve = resolve; doneReject = reject })
+    const done = new Promise((resolve, reject) => {
+      doneResolve = resolve
+      doneReject = reject
+    })
     // Long-running services may finish before their caller awaits them.
     void done.catch(() => {})
-    if (options.capture) child.stdout?.on("data", (chunk) => { output += chunk })
-    child.once("error", (error) => { spawnError = error })
+    if (options.capture)
+      child.stdout?.on("data", (chunk) => {
+        output += chunk
+      })
+    child.once("error", (error) => {
+      spawnError = error
+    })
 
     const stop = (cause) => {
       reason ??= cause
@@ -72,18 +97,26 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
       stopping = (async () => {
         clearTimeout(timer)
         await killTree(child, "SIGTERM")
-        if (!await waitForExit(child, graceMs)) {
+        if (!(await waitForExit(child, graceMs))) {
           await killTree(child, "SIGKILL")
-          if (!await waitForExit(child, graceMs)) throw new Error(`无法确认进程树已退出：${command}（${child.pid}）`)
+          if (!(await waitForExit(child, graceMs))) throw new Error(`无法确认进程树已退出：${command}（${child.pid}）`)
         }
         let closeTimer
         try {
-          await Promise.race([closed, new Promise((_, reject) => {
-            closeTimer = setTimeout(() => reject(new Error(`进程流未关闭：${command}（${child.pid}）`)), graceMs)
-          })])
-        } finally { clearTimeout(closeTimer) }
+          await Promise.race([
+            closed,
+            new Promise((_, reject) => {
+              closeTimer = setTimeout(() => reject(new Error(`进程流未关闭：${command}（${child.pid}）`)), graceMs)
+            }),
+          ])
+        } finally {
+          clearTimeout(closeTimer)
+        }
       })()
-      void stopping.catch((error) => { error.unsafeToRestore = true; doneReject(error) })
+      void stopping.catch((error) => {
+        error.unsafeToRestore = true
+        doneReject(error)
+      })
       return stopping
     }
     const handle = { child, done, stop }
@@ -97,10 +130,15 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
           else if (alive(child)) await stop()
           doneResolve({ code, signal, error: spawnError, reason, output: output.trim() })
           active.delete(handle)
-        } catch (error) { doneReject(error) }
+        } catch (error) {
+          doneReject(error)
+        }
       })()
     })
-    if (limit) timer = setTimeout(() => { void stop(new Error(`${command} ${args.join(" ")} 超时（${limit}ms）`)).catch(() => {}) }, limit)
+    if (limit)
+      timer = setTimeout(() => {
+        void stop(new Error(`${command} ${args.join(" ")} 超时（${limit}ms）`)).catch(() => {})
+      }, limit)
     return handle
   }
   const run = async (command, args, options) => {

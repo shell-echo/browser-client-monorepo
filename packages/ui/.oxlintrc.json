@@ -1,12 +1,5 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "extends": [
-    "./node_modules/@browser-client/oxlint-config/react.json"
-  ],
-  "plugins": [
-    "unicorn",
-    "react",
-    "typescript",
-    "oxc"
-  ]
+  "extends": ["./node_modules/@browser-client/oxlint-config/react.json"],
+  "plugins": ["unicorn", "react", "typescript", "oxc"]
 }

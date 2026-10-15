@@ -9,7 +9,13 @@ export const writeJson = (path, value) => writeFile(path, JSON.stringify(value, 
 
 // Official template dependencies win; app-only dependencies/scripts are retained.
 export function mergeManifest(template, previous, target) {
-  const merged = { ...previous, ...template, version: previous?.version ?? template.version, name: `@browser-client/${target}`, private: true }
+  const merged = {
+    ...previous,
+    ...template,
+    version: previous?.version ?? template.version,
+    name: `@browser-client/${target}`,
+    private: true,
+  }
   for (const field of ["dependencies", "devDependencies", "scripts"]) {
     merged[field] = { ...previous?.[field], ...template[field] }
   }
@@ -40,7 +46,8 @@ export function mergeManifest(template, previous, target) {
 }
 
 function replaceRequired(text, from, to, filename) {
-  if (!text.includes(from)) throw new Error(`官方模板结构已变化，无法接入 ${filename}。请更新 scripts/lib/integrate.mjs；当前应用未替换。`)
+  if (!text.includes(from))
+    throw new Error(`官方模板结构已变化，无法接入 ${filename}。请更新 scripts/lib/integrate.mjs；当前应用未替换。`)
   return text.replace(from, to)
 }
 
@@ -56,27 +63,41 @@ export async function integrate(root, target, previous = {}, prepared) {
   // otherwise adding a dependency from apps/web cannot resolve workspace:*.
   await rm(join(app, "pnpm-workspace.yaml"), { force: true })
   const template = await readJson(join(app, "package.json"))
-  await writeJson(join(app, "package.json"), applyCatalogs(prepared ?? mergeManifest(template, previous, target), await readCatalogs(root), target))
+  await writeJson(
+    join(app, "package.json"),
+    applyCatalogs(prepared ?? mergeManifest(template, previous, target), await readCatalogs(root), target),
+  )
   const ui = await readJson(join(root, "packages/ui/components.json"))
   await writeJson(join(app, "components.json"), {
     ...ui,
     rsc: target === "web",
     tailwind: { ...ui.tailwind, css: "../../packages/ui/src/styles/globals.css" },
     aliases: {
-      components: "@/components", hooks: "@/hooks", lib: "@/lib",
-      utils: "@browser-client/ui/lib/utils", ui: "@browser-client/ui/components",
+      components: "@/components",
+      hooks: "@/hooks",
+      lib: "@/lib",
+      utils: "@browser-client/ui/lib/utils",
+      ui: "@browser-client/ui/components",
     },
   })
   if (target === "web") {
     const file = join(app, "next.config.ts")
     let config = await readFile(file, "utf8")
     config = 'import { resolve } from "node:path";\n' + config
-    config = replaceRequired(config, "const nextConfig: NextConfig = {", 'const nextConfig: NextConfig = {\n  transpilePackages: ["@browser-client/ui"],', file)
+    config = replaceRequired(
+      config,
+      "const nextConfig: NextConfig = {",
+      'const nextConfig: NextConfig = {\n  transpilePackages: ["@browser-client/ui"],',
+      file,
+    )
     // Retain the current official CSS loader and any future template settings.
     if (config.includes("turbopack: {")) {
       config = config.replace("turbopack: {", 'turbopack: {\n    root: resolve(process.cwd(), "../.."),')
     } else {
-      config = config.replace("const nextConfig: NextConfig = {", 'const nextConfig: NextConfig = {\n  turbopack: { root: resolve(process.cwd(), "../..") },')
+      config = config.replace(
+        "const nextConfig: NextConfig = {",
+        'const nextConfig: NextConfig = {\n  turbopack: { root: resolve(process.cwd(), "../..") },',
+      )
     }
     await writeFile(file, config)
   } else {
@@ -84,17 +105,32 @@ export async function integrate(root, target, previous = {}, prepared) {
     let config = await readFile(file, "utf8")
     config = 'import tailwindcss from "@tailwindcss/vite"\nimport { fileURLToPath, URL } from "node:url"\n' + config
     const extension = target === "extension"
-    config = replaceRequired(config, "plugins: [react()]", extension
-      ? 'plugins: [react(), tailwindcss(), ...(mode === "preview-ui" ? [] : [crx({ manifest })])]'
-      : "plugins: [react(), tailwindcss()]", file)
+    config = replaceRequired(
+      config,
+      "plugins: [react()]",
+      extension
+        ? 'plugins: [react(), tailwindcss(), ...(mode === "preview-ui" ? [] : [crx({ manifest })])]'
+        : "plugins: [react(), tailwindcss()]",
+      file,
+    )
     if (extension) {
       config = 'import { crx } from "@crxjs/vite-plugin"\nimport manifest from "./manifest.config.ts"\n' + config
       config = replaceRequired(config, "\n})", "\n}))", file)
-      config = replaceRequired(config, "export default defineConfig", 'const port = Number(process.env.EXTENSION_DEV_PORT ?? 3002)\n\nexport default defineConfig', file)
+      config = replaceRequired(
+        config,
+        "export default defineConfig",
+        "const port = Number(process.env.EXTENSION_DEV_PORT ?? 3002)\n\nexport default defineConfig",
+        file,
+      )
     }
-    config = replaceRequired(config, "defineConfig({", `${extension ? "defineConfig(({ command, mode }) => ({" : "defineConfig({"}
+    config = replaceRequired(
+      config,
+      "defineConfig({",
+      `${extension ? "defineConfig(({ command, mode }) => ({" : "defineConfig({"}
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
-  server: { host: "127.0.0.1", ${extension ? 'port, strictPort: true, ws: { clientPort: port }' : 'port: 3001, strictPort: true'} },${extension ? '\n  build: { outDir: command === "serve" ? "dist-dev" : "dist" },' : ""}`, file)
+  server: { host: "127.0.0.1", ${extension ? "port, strictPort: true, ws: { clientPort: port }" : "port: 3001, strictPort: true"} },${extension ? '\n  build: { outDir: command === "serve" ? "dist-dev" : "dist" },' : ""}`,
+      file,
+    )
     await writeFile(file, config)
     for (const filename of ["tsconfig.json", "tsconfig.app.json"]) {
       await patchJsonc(join(app, filename), (ts) => {

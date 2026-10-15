@@ -12,8 +12,15 @@ const workspace = {
 }
 
 test("common catalogs are reused while framework toolchains and custom dependencies stay distinct", () => {
-  for (const [target, version, group] of [["web", "^5", "next"], ["extension", "~6.0.2", "vite"], ["ui", "~6.0.2", "vite"]]) {
-    const manifest = { dependencies: { react: "^19.2.8", custom: "^1" }, devDependencies: { typescript: version, tailwindcss: "^4" } }
+  for (const [target, version, group] of [
+    ["web", "^5", "next"],
+    ["extension", "~6.0.2", "vite"],
+    ["ui", "~6.0.2", "vite"],
+  ]) {
+    const manifest = {
+      dependencies: { react: "^19.2.8", custom: "^1" },
+      devDependencies: { typescript: version, tailwindcss: "^4" },
+    }
     applyCatalogs(manifest, workspace, target)
     assert.equal(manifest.dependencies.react, "catalog:")
     assert.equal(manifest.dependencies.custom, "^1")

@@ -6,46 +6,46 @@ packages:
 catalog:
   react: 19.3.1
   react-dom: 19.3.1
-  '@types/react': 19.3.0
-  '@types/react-dom': 19.3.0
+  "@types/react": 19.3.0
+  "@types/react-dom": 19.3.0
   tailwindcss: 4.3.3
-  '@tailwindcss/vite': 4.3.3
+  "@tailwindcss/vite": 4.3.3
   oxlint: 1.88.0
   eslint: 10.12.0
-  '@eslint/js': 10.0.1
+  "@eslint/js": 10.0.1
   shadcn: 4.21.5
 
 catalogs:
   next:
     typescript: 5.9.3
-    '@types/node': 24.19.2
+    "@types/node": 24.19.2
   vite:
     typescript: 6.0.3
-    '@types/node': 24.19.2
+    "@types/node": 24.19.2
 
 engineStrict: true
 strictPeerDependencies: true
 verifyDepsBeforeRun: false
 
 allowBuilds:
-  '@tailwindcss/oxide': true
+  "@tailwindcss/oxide": true
   esbuild: true
   sharp: true
   unrs-resolver: true
 
 minimumReleaseAgeExclude:
-  - '@types/chrome@0.3.5'
-  - '@next/env@16.4.1'
-  - '@next/eslint-plugin-next@16.4.1'
-  - '@next/swc-darwin-arm64@16.4.1'
-  - '@next/swc-darwin-x64@16.4.1'
-  - '@next/swc-linux-arm64-gnu@16.4.1'
-  - '@next/swc-linux-arm64-musl@16.4.1'
-  - '@next/swc-linux-x64-gnu@16.4.1'
-  - '@next/swc-linux-x64-musl@16.4.1'
-  - '@next/swc-win32-arm64-msvc@16.4.1'
-  - '@next/swc-win32-x64-msvc@16.4.1'
-  - '@shadcn/registry@0.1.4'
+  - "@types/chrome@0.3.5"
+  - "@next/env@16.4.1"
+  - "@next/eslint-plugin-next@16.4.1"
+  - "@next/swc-darwin-arm64@16.4.1"
+  - "@next/swc-darwin-x64@16.4.1"
+  - "@next/swc-linux-arm64-gnu@16.4.1"
+  - "@next/swc-linux-arm64-musl@16.4.1"
+  - "@next/swc-linux-x64-gnu@16.4.1"
+  - "@next/swc-linux-x64-musl@16.4.1"
+  - "@next/swc-win32-arm64-msvc@16.4.1"
+  - "@next/swc-win32-x64-msvc@16.4.1"
+  - "@shadcn/registry@0.1.4"
   - eslint-config-next@16.4.1
   - lucide-react@1.57.0
   - next@16.4.1

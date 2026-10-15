@@ -1,13 +1,9 @@
 {
   "compilerOptions": {
     "paths": {
-      "@browser-client/ui/*": [
-        "./src/*"
-      ]
+      "@browser-client/ui/*": ["./src/*"]
     }
   },
-  "include": [
-    "src"
-  ],
+  "include": ["src"],
   "extends": "@browser-client/typescript-config/react.json"
 }

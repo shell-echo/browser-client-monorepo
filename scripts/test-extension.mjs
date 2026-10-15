@@ -14,7 +14,11 @@ const app = join(workspace, "apps/extension")
 const port = positiveTimeout(process.env.EXTENSION_TEST_PORT, 3102, "EXTENSION_TEST_PORT")
 assert(port < 65536, "EXTENSION_TEST_PORT 必须小于 65536")
 const report = { checks: [], errors: [], runDir }
-const runner = createVerificationRunner({ cwd: workspace, logDir: runDir, timeoutMs: positiveTimeout(process.env.EXTENSION_TEST_COMMAND_TIMEOUT_MS, 180_000, "EXTENSION_TEST_COMMAND_TIMEOUT_MS") })
+const runner = createVerificationRunner({
+  cwd: workspace,
+  logDir: runDir,
+  timeoutMs: positiveTimeout(process.env.EXTENSION_TEST_COMMAND_TIMEOUT_MS, 180_000, "EXTENSION_TEST_COMMAND_TIMEOUT_MS"),
+})
 const { start, run, until } = runner
 let server, context
 const removeSignalHandlers = handleCancellation(runner, () => {
@@ -31,7 +35,8 @@ function passed(message) {
 
 async function launch(directory, profile) {
   const context = await chromium.launchPersistentContext(join(runDir, profile), {
-    channel: "chromium", headless: true,
+    channel: "chromium",
+    headless: true,
     args: [`--disable-extensions-except=${directory}`, `--load-extension=${directory}`],
   })
   context.on("page", (page) => {
@@ -58,7 +63,10 @@ async function extensionPages(context) {
   const options = await opened
   await options.waitForURL(`chrome-extension://${id}/options.html`)
   await until(async () => !(await options.getByRole("button", { name: "保存设置" }).isDisabled()), "设置完成加载")
-  await until(async () => (await options.evaluate(() => chrome.storage.local.get("workspaceName"))).workspaceName === "Browser Client", "后台初始化本地存储")
+  await until(
+    async () => (await options.evaluate(() => chrome.storage.local.get("workspaceName"))).workspaceName === "Browser Client",
+    "后台初始化本地存储",
+  )
   return { popup, options }
 }
 
@@ -79,10 +87,17 @@ try {
   await run("pnpm", ["install", "--offline", "--frozen-lockfile"], "install.log")
   await run("node", ["scripts/check-extension-compat.mjs"], "compat.log")
   server = start("pnpm", ["--filter", "@browser-client/extension", "dev"], "dev.log", { EXTENSION_DEV_PORT: String(port) }, 0)
-  await until(async () => {
-    assert.equal(server.child.exitCode, null, `开发服务已退出：${join(runDir, "dev.log")}`)
-    return await exists(join(app, "dist-dev/manifest.json")) && (await fetch(`http://127.0.0.1:${port}/@vite/client`, { signal: AbortSignal.timeout(2000) })).ok
-  }, "开发产物及 Vite 服务", 60_000)
+  await until(
+    async () => {
+      assert.equal(server.child.exitCode, null, `开发服务已退出：${join(runDir, "dev.log")}`)
+      return (
+        (await exists(join(app, "dist-dev/manifest.json"))) &&
+        (await fetch(`http://127.0.0.1:${port}/@vite/client`, { signal: AbortSignal.timeout(2000) })).ok
+      )
+    },
+    "开发产物及 Vite 服务",
+    60_000,
+  )
   context = await launch(join(app, "dist-dev"), "profile-dev")
   runner.check()
   report.chromium = context.browser().version()
@@ -94,9 +109,13 @@ try {
   const originals = await Promise.all(paths.map((path) => readFile(join(workspace, path), "utf8")))
   const unsaved = "HMR 保留的未保存输入"
   await options.getByLabel("工作区名称").fill(unsaved)
-  await options.evaluate(() => { window.__hmrSentinel = "same-document" })
+  await options.evaluate(() => {
+    window.__hmrSentinel = "same-document"
+  })
   let navigations = 0
-  options.on("framenavigated", (frame) => { if (frame === options.mainFrame()) navigations++ })
+  options.on("framenavigated", (frame) => {
+    if (frame === options.mainFrame()) navigations++
+  })
   const preserved = async () => {
     assert.equal(await options.getByLabel("工作区名称").inputValue(), unsaved, "HMR 丢失 React 状态")
     assert.equal(await options.evaluate(() => window.__hmrSentinel), "same-document")
@@ -109,18 +128,26 @@ try {
   passed("扩展 React 页面热更新，保留未保存输入且没有整页刷新")
 
   assert(originals[1].includes('data-slot="button"'))
-  await writeFile(join(workspace, paths[1]), originals[1].replace('data-slot="button"', 'data-slot="button" data-hmr-shared="updated"'))
+  await writeFile(
+    join(workspace, paths[1]),
+    originals[1].replace('data-slot="button"', 'data-slot="button" data-hmr-shared="updated"'),
+  )
   await options.locator('button[data-hmr-shared="updated"]').waitFor()
   await popup.locator('button[data-hmr-shared="updated"]').waitFor()
   await preserved()
   passed("共享 shadcn/ui Button 同时热更新 popup / options，保留 React 状态")
 
   await writeFile(join(workspace, paths[2]), `${originals[2]}\n[data-slot="button"] { border-top-width: 7px !important; }\n`)
-  await until(() => options.locator('[data-slot="button"]').evaluate((button) => getComputedStyle(button).borderTopWidth === "7px"), "共享主题 CSS 热更新")
+  await until(
+    () => options.locator('[data-slot="button"]').evaluate((button) => getComputedStyle(button).borderTopWidth === "7px"),
+    "共享主题 CSS 热更新",
+  )
   await preserved()
   passed("共享 Tailwind / UI 样式热更新，保留 React 状态")
-  await context.close(); context = undefined
-  await server.stop(); server = undefined
+  await context.close()
+  context = undefined
+  await server.stop()
+  server = undefined
   for (let i = 0; i < paths.length; i++) await writeFile(join(workspace, paths[i]), originals[i])
 
   await run("pnpm", ["--filter", "@browser-client/extension", "build"], "build.log")
@@ -128,7 +155,9 @@ try {
   context = await launch(join(app, "dist"), "profile-production")
   runner.check()
   const network = []
-  context.on("request", (request) => { if (/^https?:/.test(request.url())) network.push(request.url()) })
+  context.on("request", (request) => {
+    if (/^https?:/.test(request.url())) network.push(request.url())
+  })
   const production = await extensionPages(context)
   await storageRoundTrip(production.popup, production.options, "生产设置验证")
   assert.deepEqual(network, [], "生产扩展请求了外部 HTTP 资源")

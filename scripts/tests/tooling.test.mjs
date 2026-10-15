@@ -11,12 +11,14 @@ import { readConfig, shareTypeScript, integrateTooling } from "../lib/tooling.mj
 
 const root = fileURLToPath(new URL("../../", import.meta.url))
 const lintTimeout = 60_000
-const oxlint = (app) => join(dirname(createRequire(join(root, app, "package.json")).resolve("oxlint/package.json")), "bin/oxlint")
+const oxlint = (app) =>
+  join(dirname(createRequire(join(root, app, "package.json")).resolve("oxlint/package.json")), "bin/oxlint")
 
 async function fixture(t) {
   const dir = await mkdtemp(join(tmpdir(), "browser-client-tooling-"))
   t.after(() => rm(dir, { recursive: true, force: true }))
-  for (const name of ["typescript-config", "oxlint-config"]) await copySource(join(root, "packages", name), join(dir, "packages", name))
+  for (const name of ["typescript-config", "oxlint-config"])
+    await copySource(join(root, "packages", name), join(dir, "packages", name))
   return dir
 }
 
@@ -26,8 +28,12 @@ test("reinit preserves shared policy edits and new upstream TS options; integrat
   await mkdir(app, { recursive: true })
   const file = join(app, "tsconfig.app.json")
   const options = {
-    strict: true, module: "esnext", target: "esnext", noUncheckedIndexedAccess: true,
-    types: ["vite/client", "custom-env"], paths: { "@/*": ["./src/*"] },
+    strict: true,
+    module: "esnext",
+    target: "esnext",
+    noUncheckedIndexedAccess: true,
+    types: ["vite/client", "custom-env"],
+    paths: { "@/*": ["./src/*"] },
     tsBuildInfoFile: "./node_modules/.tmp/app.tsbuildinfo",
   }
   await writeFile(file, JSON.stringify({ compilerOptions: options, include: ["src", "custom"], exclude: ["fixtures"] }))
@@ -94,12 +100,24 @@ test("reinit preserves upstream lint additions while shared rules override templ
 })
 
 test("real TypeScript resolves shared presets while keeping consumer-relative paths and environments", () => {
-  for (const [app, filename] of [["apps/web", "tsconfig.json"], ["apps/admin", "tsconfig.app.json"], ["apps/extension", "tsconfig.app.json"], ["packages/ui", "tsconfig.json"], ["apps/admin", "tsconfig.node.json"], ["apps/extension", "tsconfig.node.json"]]) {
+  for (const [app, filename] of [
+    ["apps/web", "tsconfig.json"],
+    ["apps/admin", "tsconfig.app.json"],
+    ["apps/extension", "tsconfig.app.json"],
+    ["packages/ui", "tsconfig.json"],
+    ["apps/admin", "tsconfig.node.json"],
+    ["apps/extension", "tsconfig.node.json"],
+  ]) {
     const directory = join(root, app)
     const ts = createRequire(join(directory, "package.json"))("typescript")
-    const config = ts.getParsedCommandLineOfConfigFile(join(directory, filename), {}, {
-      ...ts.sys, onUnRecoverableConfigFileDiagnostic: (error) => assert.fail(ts.flattenDiagnosticMessageText(error.messageText, "\n")),
-    })
+    const config = ts.getParsedCommandLineOfConfigFile(
+      join(directory, filename),
+      {},
+      {
+        ...ts.sys,
+        onUnRecoverableConfigFileDiagnostic: (error) => assert.fail(ts.flattenDiagnosticMessageText(error.messageText, "\n")),
+      },
+    )
     assert.deepEqual(config.errors, [])
     assert.equal(config.options.strict, true)
     assert.equal(config.options.noEmit, true)
@@ -121,16 +139,27 @@ test("real TypeScript resolves shared presets while keeping consumer-relative pa
 test("real Oxlint rejects invalid React Hooks in both applications and the shared UI", async (t) => {
   const dir = await fixture(t)
   const file = join(dir, "Broken.tsx")
-  await writeFile(file, 'import { useState } from "react";\nexport function Broken({ enabled }: { enabled: boolean }) { if (enabled) useState(0); return null; }\n')
+  await writeFile(
+    file,
+    'import { useState } from "react";\nexport function Broken({ enabled }: { enabled: boolean }) { if (enabled) useState(0); return null; }\n',
+  )
   for (const app of ["apps/admin", "apps/extension", "packages/ui"]) {
-    const result = spawnSync(process.execPath, [oxlint(app), "--config", join(root, app, ".oxlintrc.json"), file], { cwd: join(root, app), encoding: "utf8", timeout: lintTimeout })
+    const result = spawnSync(process.execPath, [oxlint(app), "--config", join(root, app, ".oxlintrc.json"), file], {
+      cwd: join(root, app),
+      encoding: "utf8",
+      timeout: lintTimeout,
+    })
     assert.equal(result.status, 1, `${app}: ${result.error ?? result.stdout + result.stderr}`)
     assert.match(result.stdout + result.stderr, /rules-of-hooks/)
   }
   // Options must survive JSON inheritance too, not just rule severity.
-  await writeFile(file, 'export const answer = 42;\nexport function Probe() { return <div />; }\n')
+  await writeFile(file, "export const answer = 42;\nexport function Probe() { return <div />; }\n")
   for (const app of ["apps/admin", "apps/extension"]) {
-    const result = spawnSync(process.execPath, [oxlint(app), "--config", join(root, app, ".oxlintrc.json"), "--deny-warnings", file], { cwd: join(root, app), encoding: "utf8", timeout: lintTimeout })
+    const result = spawnSync(
+      process.execPath,
+      [oxlint(app), "--config", join(root, app, ".oxlintrc.json"), "--deny-warnings", file],
+      { cwd: join(root, app), encoding: "utf8", timeout: lintTimeout },
+    )
     assert.equal(result.status, 0, result.error ?? result.stdout + result.stderr)
   }
 })
@@ -138,7 +167,12 @@ test("real Oxlint rejects invalid React Hooks in both applications and the share
 test("real ESLint combines shared policy with Next rules and ignores generated extension output", () => {
   const app = join(root, "apps/web")
   // Match the real CLI's cwd so eslint-plugin-react can detect the app's React.
-  execFileSync(process.execPath, ["--input-type=module", "-e", `
+  execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
     import assert from "node:assert/strict"
     import { ESLint } from "eslint"
     const eslint = new ESLint()
@@ -149,5 +183,8 @@ test("real ESLint combines shared policy with Next rules and ignores generated e
     assert.equal(await eslint.isPathIgnored("dist-dev/generated.js"), true)
     const [result] = await eslint.lintText("// eslint-disable-next-line no-debugger\\nexport const value = 1;", { filePath: "src/config-probe.ts" })
     assert(result.messages.some((message) => message.severity === 2 && /Unused eslint-disable directive/.test(message.message)))
-  `], { cwd: app, encoding: "utf8", timeout: lintTimeout })
+  `,
+    ],
+    { cwd: app, encoding: "utf8", timeout: lintTimeout },
+  )
 })

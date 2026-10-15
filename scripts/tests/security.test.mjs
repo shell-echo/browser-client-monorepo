@@ -23,9 +23,14 @@ test("installed shadcn dependency rejects deep brace/paren patterns and preserve
     let node = ast
     for (let depth = 0; depth < 150; depth++) {
       const child = { type: "paren", nodes: [], parent: node }
-      node.nodes.push(child); node = child
+      node.nodes.push(child)
+      node = child
     }
-    assert.throws(() => braces[method](ast), (error) => error.code === "ERR_BRACES_DEPTH", `${method} must also guard caller-provided ASTs`)
+    assert.throws(
+      () => braces[method](ast),
+      (error) => error.code === "ERR_BRACES_DEPTH",
+      `${method} must also guard caller-provided ASTs`,
+    )
   }
 })
 
@@ -35,7 +40,11 @@ test("audit only accepts the exact advisory/version after patch verification; ot
   const receipt = { verified: true, version: "3.0.3" }
   assert.equal(classifyAudit(audit({ known }), receipt).mitigated.length, 1)
   assert.equal(classifyAudit(audit({ known }), undefined).unresolved.length, 1)
-  for (const advisory of [{ ...known, url: "https://github.com/advisories/GHSA-new" }, { ...known, findings: [{ version: "3.0.2" }] }, { ...known, module_name: "other" }]) {
+  for (const advisory of [
+    { ...known, url: "https://github.com/advisories/GHSA-new" },
+    { ...known, findings: [{ version: "3.0.2" }] },
+    { ...known, module_name: "other" },
+  ]) {
     assert.equal(classifyAudit(audit({ advisory }), receipt).unresolved.length, 1)
   }
   assert.throws(() => classifyAudit({ error: { message: "registry unavailable" } }, receipt), /响应无效/)

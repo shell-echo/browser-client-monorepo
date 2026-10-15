@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "policy": "stable-compatible-v1",
-    "resolvedAt": "2026-10-15T07:13:36.754Z",
+    "resolvedAt": "2026-10-15T08:09:13.191Z",
     "entries": [
       {
         "id": "catalog:default:react",
@@ -395,6 +395,38 @@
         "strictLatest": false,
         "latest": "1.64.1",
         "version": "1.64.1",
+        "reasons": []
+      },
+      {
+        "id": ".:devDependencies:prettier",
+        "name": "prettier",
+        "previous": "3.9.10",
+        "current": "3.9.10",
+        "location": {
+          "path": ".",
+          "field": "devDependencies",
+          "name": "prettier"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "3.9.10",
+        "version": "3.9.10",
+        "reasons": []
+      },
+      {
+        "id": ".:devDependencies:prettier-plugin-tailwindcss",
+        "name": "prettier-plugin-tailwindcss",
+        "previous": "0.8.1",
+        "current": "0.8.1",
+        "location": {
+          "path": ".",
+          "field": "devDependencies",
+          "name": "prettier-plugin-tailwindcss"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "0.8.1",
+        "version": "0.8.1",
         "reasons": []
       },
       {

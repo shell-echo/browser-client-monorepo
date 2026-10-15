@@ -9,12 +9,22 @@ test("cleanup failures persist a failed report and still close the other owned r
   const runDir = await mkdtemp(join(tmpdir(), "browser-client-report-"))
   t.after(() => rm(runDir, { recursive: true, force: true }))
   const report = { status: "passed", runDir, checks: ["runtime passed"] }
-  let runnerClosed = false, handlersRemoved = false
-  await assert.rejects(finishVerification(report, [
-    () => { throw new Error("browser close failed") },
-    () => { runnerClosed = true },
-    () => { handlersRemoved = true },
-  ]), /现场清理失败/)
+  let runnerClosed = false,
+    handlersRemoved = false
+  await assert.rejects(
+    finishVerification(report, [
+      () => {
+        throw new Error("browser close failed")
+      },
+      () => {
+        runnerClosed = true
+      },
+      () => {
+        handlersRemoved = true
+      },
+    ]),
+    /现场清理失败/,
+  )
   assert.equal(runnerClosed, true)
   assert.equal(handlersRemoved, true)
   const saved = JSON.parse(await readFile(join(runDir, "report.json"), "utf8"))

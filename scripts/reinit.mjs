@@ -19,6 +19,7 @@ ESLint 最低为 10；联网候选、离线记录及实际锁定依赖均不得�
 保留业务源码、public、环境文件、业务依赖及共享 UI 源码；公共依赖清单和 catalog 会更新。
 重建框架配置及标准脚本；原始目录与锁文件保存到 .reinit/backups/。
 替换前必须通过 Web / Admin 及扩展浏览器验收；联网时准备 Chromium，离线时要求浏览器已缓存。
+仅格式化新生成的配置；业务源码及共享 UI 必须通过格式检查，不自动改写。
 执行前请停止开发/构建进程，并暂停编辑此项目。
 --offline 重放 template-versions.json 已记录且缓存的版本，不查询 latest。
 `
@@ -28,14 +29,23 @@ export function parseArgs(args) {
   for (const arg of args.filter((arg) => arg.startsWith("--"))) {
     if (!["--apply", "--dry-run", "--help", "--offline"].includes(arg)) throw new Error(`未知选项：${arg}`)
   }
-  if (positional.length > 1 || (positional[0] && !["all", ...targets].includes(positional[0]))) throw new Error("目标必须为 all、web、admin 或 extension")
+  if (positional.length > 1 || (positional[0] && !["all", ...targets].includes(positional[0])))
+    throw new Error("目标必须为 all、web、admin 或 extension")
   if (args.includes("--apply") && args.includes("--dry-run")) throw new Error("--apply 与 --dry-run 不能同时使用")
-  return { selected: !positional[0] || positional[0] === "all" ? targets : positional, apply: args.includes("--apply"), help: args.includes("--help"), offline: args.includes("--offline") }
+  return {
+    selected: !positional[0] || positional[0] === "all" ? targets : positional,
+    apply: args.includes("--apply"),
+    help: args.includes("--help"),
+    offline: args.includes("--offline"),
+  }
 }
 
 async function main() {
   const options = parseArgs(process.argv.slice(2))
-  if (options.help) { console.log(help); return }
+  if (options.help) {
+    console.log(help)
+    return
+  }
   const pkg = await readJson(join(root, "package.json"))
   if (pkg.name !== "browser-client") throw new Error("项目根目录标识不匹配")
   console.log(`项目：${root}\n重建：${options.selected.join(", ")}\n${help}`)
@@ -50,27 +60,41 @@ async function main() {
     pnpm_config_fetch_retry_maxtimeout: process.env.pnpm_config_fetch_retry_maxtimeout ?? "5000",
     pnpm_config_network_concurrency: process.env.pnpm_config_network_concurrency ?? "4",
   }
-  const runner = createCommandRunner({ timeoutMs: commandTimeout, env: {
-    CI: "1", NEXT_TELEMETRY_DISABLED: "1", TURBO_TELEMETRY_DISABLED: "1", pnpm_config_update_notifier: "false",
-    pnpm_config_fetch_retries: process.env.pnpm_config_fetch_retries ?? "2",
-    pnpm_config_fetch_timeout: process.env.pnpm_config_fetch_timeout ?? "30000",
-    pnpm_config_fetch_retry_mintimeout: process.env.pnpm_config_fetch_retry_mintimeout ?? "1000",
-    pnpm_config_fetch_retry_maxtimeout: process.env.pnpm_config_fetch_retry_maxtimeout ?? "5000",
-    ...(options.offline ? { pnpm_config_offline: "true" } : {}),
-  } })
+  const runner = createCommandRunner({
+    timeoutMs: commandTimeout,
+    env: {
+      CI: "1",
+      NEXT_TELEMETRY_DISABLED: "1",
+      TURBO_TELEMETRY_DISABLED: "1",
+      pnpm_config_update_notifier: "false",
+      pnpm_config_fetch_retries: process.env.pnpm_config_fetch_retries ?? "2",
+      pnpm_config_fetch_timeout: process.env.pnpm_config_fetch_timeout ?? "30000",
+      pnpm_config_fetch_retry_mintimeout: process.env.pnpm_config_fetch_retry_mintimeout ?? "1000",
+      pnpm_config_fetch_retry_maxtimeout: process.env.pnpm_config_fetch_retry_maxtimeout ?? "5000",
+      ...(options.offline ? { pnpm_config_offline: "true" } : {}),
+    },
+  })
   const state = join(root, ".reinit")
-  if (await exists(state) && (await lstat(state)).isSymbolicLink()) throw new Error(".reinit 不允许是符号链接")
+  if ((await exists(state)) && (await lstat(state)).isSymbolicLink()) throw new Error(".reinit 不允许是符号链接")
   await mkdir(state, { recursive: true, mode: 0o700 })
   const lock = join(state, "lock")
-  try { await mkdir(lock) } catch (error) {
-    if (error.code === "EEXIST") throw new Error("已有 reinit 锁。先检查 .reinit/lock/owner.json 和相关进程；若曾被强制中断，检查备份 journal 后再手工解除锁。", { cause: error })
+  try {
+    await mkdir(lock)
+  } catch (error) {
+    if (error.code === "EEXIST")
+      throw new Error(
+        "已有 reinit 锁。先检查 .reinit/lock/owner.json 和相关进程；若曾被强制中断，检查备份 journal 后再手工解除锁。",
+        { cause: error },
+      )
     throw error
   }
   const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}`
   const stage = join(state, "staging", id)
   const backup = join(state, "backups", id)
   let leaveLock = false
-  const removeSignalHandlers = handleCancellation(runner, () => console.error("已请求取消；正在停止当前命令及子进程，退出后恢复现场。"))
+  const removeSignalHandlers = handleCancellation(runner, () =>
+    console.error("已请求取消；正在停止当前命令及子进程，退出后恢复现场。"),
+  )
   const checkInterrupted = runner.check
   const run = (args, cwd, capture = false, env = {}) => {
     // npm_execpath pins the active pnpm implementation; PATH is the fallback for node scripts/reinit.mjs.
@@ -91,14 +115,19 @@ async function main() {
       if (!ignored(entry) && entry !== "apps") await copySource(join(root, entry), join(stage, entry), { root })
     }
     await mkdir(join(stage, "apps"))
-    const versions = await exists(join(root, "template-versions.json")) ? await readJson(join(root, "template-versions.json")) : {}
-    const registry = createRegistry(async (specifier, fields) => JSON.parse(await run(["view", specifier, ...fields, "--json"], stage, true)))
+    const versions = (await exists(join(root, "template-versions.json")))
+      ? await readJson(join(root, "template-versions.json"))
+      : {}
+    const registry = createRegistry(async (specifier, fields) =>
+      JSON.parse(await run(["view", specifier, ...fields, "--json"], stage, true)),
+    )
     const resolved = {}
     for (const target of options.selected) {
       const generator = target === "web" ? "create-next-app" : "create-vite"
       if (options.offline) {
         const saved = versions[target]
-        if (saved?.generator !== generator || !/^\d+\.\d+\.\d+([-+][\w.-]+)?$/.test(saved.version)) throw new Error(`缺少 ${target} 的官方模板版本记录，无法离线重建`)
+        if (saved?.generator !== generator || !/^\d+\.\d+\.\d+([-+][\w.-]+)?$/.test(saved.version))
+          throw new Error(`缺少 ${target} 的官方模板版本记录，无法离线重建`)
         continue
       }
       if (!resolved[generator]) {
@@ -106,7 +135,8 @@ async function main() {
         resolved[generator] = metadata.version
       }
     }
-    const templates = {}, previous = {}
+    const templates = {},
+      previous = {}
     const workspacePolicy = await readFile(join(stage, "pnpm-workspace.yaml"), "utf8")
     for (const target of targets) {
       const original = join(root, "apps", target)
@@ -117,9 +147,26 @@ async function main() {
       const generator = target === "web" ? "create-next-app" : "create-vite"
       const version = options.offline ? versions[target].version : resolved[generator]
       console.log(`\n生成 ${target}：${generator}@${version}`)
-      const flags = target === "web"
-        ? ["--ts", "--eslint", "--tailwind", "--app", "--src-dir", "--import-alias", "@/*", "--use-pnpm", "--skip-install", "--disable-git", "--no-agents-md", "--no-agent-feedback", "--no-react-compiler", "--no-cache-components", "--yes"]
-        : ["--template", "react-ts", "--no-interactive"]
+      const flags =
+        target === "web"
+          ? [
+              "--ts",
+              "--eslint",
+              "--tailwind",
+              "--app",
+              "--src-dir",
+              "--import-alias",
+              "@/*",
+              "--use-pnpm",
+              "--skip-install",
+              "--disable-git",
+              "--no-agents-md",
+              "--no-agent-feedback",
+              "--no-react-compiler",
+              "--no-cache-components",
+              "--yes",
+            ]
+          : ["--template", "react-ts", "--no-interactive"]
       await run(["dlx", `${generator}@${version}`, `apps/${target}`, ...flags], stage)
       templates[target] = await readJson(join(stage, "apps", target, "package.json"))
       previous[target] = await readJson(join(original, "package.json"))
@@ -127,26 +174,64 @@ async function main() {
     }
     // Additional user workspaces under apps/ remain intact.
     for (const entry of await readdir(join(root, "apps"))) {
-      if (!targets.includes(entry) && !ignored(`apps/${entry}`)) await copySource(join(root, "apps", entry), join(stage, "apps", entry), { root })
+      if (!targets.includes(entry) && !ignored(`apps/${entry}`))
+        await copySource(join(root, "apps", entry), join(stage, "apps", entry), { root })
     }
     // pnpm dlx may add release-age exceptions for its temporary generator.
     // Those are not project dependencies; preserve the original project policy.
     await writeFile(join(stage, "pnpm-workspace.yaml"), workspacePolicy)
-    versions.dependencies = await updateDependencies({ root: stage, templates, previous, registry, offline: options.offline, saved: versions.dependencies })
+    versions.dependencies = await updateDependencies({
+      root: stage,
+      templates,
+      previous,
+      registry,
+      offline: options.offline,
+      saved: versions.dependencies,
+    })
     for (const target of options.selected) {
       await integrate(stage, target, previous[target], await readJson(join(stage, "apps", target, "package.json")))
       await preserveApp(join(root, "apps", target), join(stage, "apps", target))
     }
     await writeJson(join(stage, "template-versions.json"), versions)
-    await run(["install", ...(options.offline ? ["--offline"] : []), "--no-frozen-lockfile", "--strict-peer-dependencies"], stage, false, installEnv)
+    await run(
+      ["install", ...(options.offline ? ["--offline"] : []), "--no-frozen-lockfile", "--strict-peer-dependencies"],
+      stage,
+      false,
+      installEnv,
+    )
     await verifyResolvedUpdates(stage, versions.dependencies)
-    await validateBeforePromotion({ root, stage, baseline, offline: options.offline, run, checkInterrupted,
+    await validateBeforePromotion({
+      root,
+      stage,
+      baseline,
+      offline: options.offline,
+      selected: options.selected,
+      run,
+      checkInterrupted,
       promote: async () => {
         console.log(`\n验证通过，保存原始目录到 ${backup}`)
         try {
-          await promote({ root, stage, backup, paths: ["apps", "packages", "package.json", "pnpm-workspace.yaml", "node_modules", "pnpm-lock.yaml", "template-versions.json"], checkInterrupted,
+          await promote({
+            root,
+            stage,
+            backup,
+            paths: [
+              "apps",
+              "packages",
+              "package.json",
+              "pnpm-workspace.yaml",
+              "node_modules",
+              "pnpm-lock.yaml",
+              "template-versions.json",
+            ],
+            checkInterrupted,
             validate: async () => {
-              await run(["install", ...(options.offline ? ["--offline"] : []), "--frozen-lockfile", "--strict-peer-dependencies"], root, false, installEnv)
+              await run(
+                ["install", ...(options.offline ? ["--offline"] : []), "--frozen-lockfile", "--strict-peer-dependencies"],
+                root,
+                false,
+                installEnv,
+              )
               await verifyResolvedUpdates(root, versions.dependencies)
               await run(["check"], root)
             },
@@ -165,7 +250,9 @@ async function main() {
     console.error(`\n${error.message}\n诊断目录：${stage}`)
     process.exitCode = 1
   } finally {
-    try { await runner.close() } catch (error) {
+    try {
+      await runner.close()
+    } catch (error) {
       leaveLock = true
       console.error(`进程退出未确认，保留锁与现场：${error.message}`)
       process.exitCode = 1
@@ -176,5 +263,8 @@ async function main() {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((error) => { console.error(error.message); process.exitCode = 1 })
+  main().catch((error) => {
+    console.error(error.message)
+    process.exitCode = 1
+  })
 }

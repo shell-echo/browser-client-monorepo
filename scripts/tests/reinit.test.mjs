@@ -35,7 +35,11 @@ test("default is read-only; unknown targets and conflicting flags fail closed", 
 })
 
 test("official versions win while custom dependencies and scripts survive", () => {
-  const previous = { dependencies: { next: "old", custom: "^1", typescript: "old" }, scripts: { build: "old", seed: "custom" }, version: "1.2.3" }
+  const previous = {
+    dependencies: { next: "old", custom: "^1", typescript: "old" },
+    scripts: { build: "old", seed: "custom" },
+    version: "1.2.3",
+  }
   const template = { dependencies: { next: "new" }, devDependencies: { typescript: "new" }, scripts: { build: "next build" } }
   const result = mergeManifest(template, previous, "web")
   assert.equal(result.dependencies.next, "new")
@@ -52,7 +56,8 @@ test("official versions win while custom dependencies and scripts survive", () =
 
 test("source, untracked files, env and manifest survive; generated configs refresh", async (t) => {
   const root = await fixture(t)
-  const old = join(root, "old"), stage = join(root, "stage")
+  const old = join(root, "old"),
+    stage = join(root, "stage")
   await put(old, "src/feature.ts", "business")
   await put(old, ".env.local", "test-only")
   await put(old, "public/manifest.json", "manifest")
@@ -65,7 +70,13 @@ test("source, untracked files, env and manifest survive; generated configs refre
   await put(stage, "src/demo.ts", "upstream-demo")
   await put(stage, "vite.config.ts", "new-config")
   await preserveApp(old, stage)
-  for (const [file, value] of [["src/feature.ts", "business"], [".env.local", "test-only"], ["public/manifest.json", "manifest"], ["options.html", "options"], ["vite.config.ts", "new-config"]]) {
+  for (const [file, value] of [
+    ["src/feature.ts", "business"],
+    [".env.local", "test-only"],
+    ["public/manifest.json", "manifest"],
+    ["options.html", "options"],
+    ["vite.config.ts", "new-config"],
+  ]) {
     assert.equal(await readFile(join(stage, file), "utf8"), value)
   }
   assert.equal(await exists(join(stage, "src/demo.ts")), false)
@@ -77,22 +88,53 @@ test("source, untracked files, env and manifest survive; generated configs refre
 })
 
 test("business trees retain generated-looking names while app build outputs stay excluded", async (t) => {
-  const root = await fixture(t), original = join(root, "original"), stage = join(root, "stage")
-  const business = ["public/dist/vendor.js", "public/dist-dev/config.json", "public/.next/icon.svg", "public/.turbo/data.json",
-    "public/.reinit/fixture.json", "public/node_modules/vendor.css", "public/.git/fixture.txt", "src/dist/feature.ts", "src/cache.tsbuildinfo"]
+  const root = await fixture(t),
+    original = join(root, "original"),
+    stage = join(root, "stage")
+  const business = [
+    "public/dist/vendor.js",
+    "public/dist-dev/config.json",
+    "public/.next/icon.svg",
+    "public/.turbo/data.json",
+    "public/.reinit/fixture.json",
+    "public/node_modules/vendor.css",
+    "public/.git/fixture.txt",
+    "src/dist/feature.ts",
+    "src/cache.tsbuildinfo",
+  ]
   for (const file of business) await put(original, file, `business:${file}`)
-  for (const file of ["dist/bundle.js", "dist-dev/manifest.json", ".next/cache", ".turbo/log", "node_modules/cache", "app.tsbuildinfo"]) {
+  for (const file of [
+    "dist/bundle.js",
+    "dist-dev/manifest.json",
+    ".next/cache",
+    ".turbo/log",
+    "node_modules/cache",
+    "app.tsbuildinfo",
+  ]) {
     await put(original, file, "generated")
   }
   await preserveApp(original, stage)
   for (const file of business) assert.equal(await readFile(join(stage, file), "utf8"), `business:${file}`)
-  for (const name of ["dist", "dist-dev", ".next", ".turbo", "node_modules", "app.tsbuildinfo"]) assert.equal(await exists(join(stage, name)), false)
+  for (const name of ["dist", "dist-dev", ".next", ".turbo", "node_modules", "app.tsbuildinfo"])
+    assert.equal(await exists(join(stage, name)), false)
 })
 
 test("workspace copies preserve nested business assets in apps and shared packages", async (t) => {
-  const root = await fixture(t), stage = join(root, ".reinit/stage")
-  const business = ["apps/web/public/dist/vendor.js", "apps/dist/src/dist/feature.ts", "packages/ui/src/dist/component.tsx", "docs/dist/example.json"]
-  const generated = ["apps/web/dist/bundle.js", "apps/web/.next/cache", "apps/web/app.tsbuildinfo", "packages/ui/.turbo/log", "packages/ui/node_modules/cache"]
+  const root = await fixture(t),
+    stage = join(root, ".reinit/stage")
+  const business = [
+    "apps/web/public/dist/vendor.js",
+    "apps/dist/src/dist/feature.ts",
+    "packages/ui/src/dist/component.tsx",
+    "docs/dist/example.json",
+  ]
+  const generated = [
+    "apps/web/dist/bundle.js",
+    "apps/web/.next/cache",
+    "apps/web/app.tsbuildinfo",
+    "packages/ui/.turbo/log",
+    "packages/ui/node_modules/cache",
+  ]
   for (const file of business) await put(root, file, `business:${file}`)
   for (const file of generated) await put(root, file, "generated")
   for (const name of ["apps", "packages", "docs"]) await copySource(join(root, name), join(stage, name), { root })
@@ -102,10 +144,18 @@ test("workspace copies preserve nested business assets in apps and shared packag
 
 test("fingerprints detect edits, additions and deletions inside generated-looking business paths", async (t) => {
   const root = await fixture(t)
-  const asset = "apps/web/public/dist/vendor.js", component = "packages/ui/src/dist/component.tsx"
-  await put(root, asset, "original"); await put(root, component, "component")
+  const asset = "apps/web/public/dist/vendor.js",
+    component = "packages/ui/src/dist/component.tsx"
+  await put(root, asset, "original")
+  await put(root, component, "component")
   const before = await fingerprint(root)
-  for (const file of [".reinit/stage/file", "apps/web/dist/bundle.js", "apps/web/.next/cache", "packages/ui/.turbo/log", "packages/ui/ui.tsbuildinfo"]) {
+  for (const file of [
+    ".reinit/stage/file",
+    "apps/web/dist/bundle.js",
+    "apps/web/.next/cache",
+    "packages/ui/.turbo/log",
+    "packages/ui/ui.tsbuildinfo",
+  ]) {
     await put(root, file, "generated")
   }
   assert.equal(await fingerprint(root), before)
@@ -124,12 +174,28 @@ test("fingerprints detect edits, additions and deletions inside generated-lookin
 test("Next adapter retains upstream CSS settings and removes the nested workspace", async (t) => {
   const root = await fixture(t)
   await sharedConfigs(root)
-  await put(root, "packages/ui/components.json", JSON.stringify({ style: "base-nova", tailwind: { css: "src/styles/globals.css" } }))
+  await put(
+    root,
+    "packages/ui/components.json",
+    JSON.stringify({ style: "base-nova", tailwind: { css: "src/styles/globals.css" } }),
+  )
   await put(root, "apps/web/package.json", JSON.stringify({ version: "0.1.0", scripts: {}, dependencies: {} }))
   await put(root, "apps/web/pnpm-workspace.yaml", "allowBuilds: {}")
-  await put(root, "apps/web/next.config.ts", 'const nextConfig: NextConfig = { turbopack: { rules: { "*.css": { loaders: ["upstream-loader"] } } } }; export default nextConfig;')
-  await put(root, "apps/web/tsconfig.json", '{"compilerOptions":{"strict":true,"plugins":[{"name":"next"}]},"include":[".next/types/**/*.ts"]}')
-  await put(root, "apps/web/eslint.config.mjs", 'import { defineConfig } from "eslint/config";\nexport default defineConfig([{ rules: { "no-debugger": "error" } }]);')
+  await put(
+    root,
+    "apps/web/next.config.ts",
+    'const nextConfig: NextConfig = { turbopack: { rules: { "*.css": { loaders: ["upstream-loader"] } } } }; export default nextConfig;',
+  )
+  await put(
+    root,
+    "apps/web/tsconfig.json",
+    '{"compilerOptions":{"strict":true,"plugins":[{"name":"next"}]},"include":[".next/types/**/*.ts"]}',
+  )
+  await put(
+    root,
+    "apps/web/eslint.config.mjs",
+    'import { defineConfig } from "eslint/config";\nexport default defineConfig([{ rules: { "no-debugger": "error" } }]);',
+  )
   await integrate(root, "web")
   const config = await readFile(join(root, "apps/web/next.config.ts"), "utf8")
   assert(config.includes("upstream-loader"))
@@ -159,9 +225,22 @@ test("extension reinit reapplies CRXJS and shared UI while preserving the manife
   const app = join(root, "apps/extension")
   await put(root, "packages/ui/components.json", JSON.stringify({ tailwind: {} }))
   await put(root, "pnpm-workspace.yaml", 'catalog:\n  react: 19.3.0\n  tailwindcss: ^4.1.0\n  "@tailwindcss/vite": ^4.1.0\n')
-  await put(app, "package.json", JSON.stringify({ scripts: { dev: "vite", build: "tsc -b && vite build" }, dependencies: { react: "^19.2.8" }, devDependencies: { vite: "^8.3.0" } }))
-  await put(app, "vite.config.ts", "import react from '@vitejs/plugin-react'\nimport { defineConfig } from 'vite'\nexport default defineConfig({\n  plugins: [react()],\n})\n")
-  for (const file of ["tsconfig.json", "tsconfig.app.json", "tsconfig.node.json"]) await put(app, file, '{"compilerOptions":{}}')
+  await put(
+    app,
+    "package.json",
+    JSON.stringify({
+      scripts: { dev: "vite", build: "tsc -b && vite build" },
+      dependencies: { react: "^19.2.8" },
+      devDependencies: { vite: "^8.3.0" },
+    }),
+  )
+  await put(
+    app,
+    "vite.config.ts",
+    "import react from '@vitejs/plugin-react'\nimport { defineConfig } from 'vite'\nexport default defineConfig({\n  plugins: [react()],\n})\n",
+  )
+  for (const file of ["tsconfig.json", "tsconfig.app.json", "tsconfig.node.json"])
+    await put(app, file, '{"compilerOptions":{}}')
   await put(app, ".oxlintrc.json", '{"plugins":["react","typescript","oxc"],"rules":{"react/rules-of-hooks":"error"}}')
   const previous = { devDependencies: { "@crxjs/vite-plugin": "3.0.0" }, scripts: { "preview:ui": "vite" } }
   await integrate(root, "extension", previous)
@@ -180,20 +259,40 @@ test("extension reinit reapplies CRXJS and shared UI while preserving the manife
   assert(config.includes("ws: { clientPort: port }"))
   assert(!config.includes("rollupOptions"))
   assert.deepEqual(JSON.parse(await readFile(join(app, "tsconfig.app.json"), "utf8")).compilerOptions.types, ["chrome"])
-  assert.equal(JSON.parse(await readFile(join(app, "tsconfig.app.json"))).extends, "@browser-client/typescript-config/vite.json")
-  assert.equal(JSON.parse(await readFile(join(app, "tsconfig.node.json"))).extends, "@browser-client/typescript-config/vite-node.json")
-  assert.deepEqual(JSON.parse(await readFile(join(app, ".oxlintrc.json"))).extends, ["./node_modules/@browser-client/oxlint-config/react-app.json"])
+  assert.equal(
+    JSON.parse(await readFile(join(app, "tsconfig.app.json"))).extends,
+    "@browser-client/typescript-config/vite.json",
+  )
+  assert.equal(
+    JSON.parse(await readFile(join(app, "tsconfig.node.json"))).extends,
+    "@browser-client/typescript-config/vite-node.json",
+  )
+  assert.deepEqual(JSON.parse(await readFile(join(app, ".oxlintrc.json"))).extends, [
+    "./node_modules/@browser-client/oxlint-config/react-app.json",
+  ])
 })
 
 test("cancellation between moves restores the original tree", async (t) => {
   const base = await fixture(t)
-  const root = join(base, "root"), stage = join(base, "stage"), backup = join(base, "backup")
+  const root = join(base, "root"),
+    stage = join(base, "stage"),
+    backup = join(base, "backup")
   await put(root, "apps/data", "original")
   await put(stage, "apps/data", "candidate")
   let checks = 0
-  await assert.rejects(promote({ root, stage, backup, paths: ["apps"], validate: async () => assert.fail("must not validate"), checkInterrupted: () => {
-    if (++checks === 2) throw new Error("cancelled")
-  } }), /cancelled/)
+  await assert.rejects(
+    promote({
+      root,
+      stage,
+      backup,
+      paths: ["apps"],
+      validate: async () => assert.fail("must not validate"),
+      checkInterrupted: () => {
+        if (++checks === 2) throw new Error("cancelled")
+      },
+    }),
+    /cancelled/,
+  )
   assert.equal(await readFile(join(root, "apps/data"), "utf8"), "original")
 })
 
@@ -244,14 +343,22 @@ test("fingerprint distinguishes file bytes from a following file record", async 
 
 test("successful promotion keeps an exact backup including untracked files", async (t) => {
   const base = await fixture(t)
-  const root = join(base, "root"), stage = join(base, "stage"), backup = join(base, "backup")
+  const root = join(base, "root"),
+    stage = join(base, "stage"),
+    backup = join(base, "backup")
   await put(root, "apps/custom.txt", "old-untracked")
   await put(root, "pnpm-lock.yaml", "old-lock")
   await put(stage, "apps/custom.txt", "new")
   await put(stage, "pnpm-lock.yaml", "new-lock")
-  await promote({ root, stage, backup, paths: ["apps", "pnpm-lock.yaml"], validate: async () => {
-    assert.equal(await readFile(join(root, "apps/custom.txt"), "utf8"), "new")
-  } })
+  await promote({
+    root,
+    stage,
+    backup,
+    paths: ["apps", "pnpm-lock.yaml"],
+    validate: async () => {
+      assert.equal(await readFile(join(root, "apps/custom.txt"), "utf8"), "new")
+    },
+  })
   assert.equal(await readFile(join(backup, "apps/custom.txt"), "utf8"), "old-untracked")
   assert.equal(await readFile(join(backup, "pnpm-lock.yaml"), "utf8"), "old-lock")
   assert.equal(JSON.parse(await readFile(join(backup, "journal.json"))).state, "complete")
@@ -259,12 +366,25 @@ test("successful promotion keeps an exact backup including untracked files", asy
 
 test("failed final validation restores source and lockfile without deleting the candidate", async (t) => {
   const base = await fixture(t)
-  const root = join(base, "root"), stage = join(base, "stage"), backup = join(base, "backup")
+  const root = join(base, "root"),
+    stage = join(base, "stage"),
+    backup = join(base, "backup")
   await put(root, "apps/data", "original")
   await put(root, "pnpm-lock.yaml", "original-lock")
   await put(stage, "apps/data", "candidate")
   await put(stage, "pnpm-lock.yaml", "candidate-lock")
-  await assert.rejects(promote({ root, stage, backup, paths: ["apps", "pnpm-lock.yaml"], validate: async () => { throw new Error("build failed") } }), /build failed/)
+  await assert.rejects(
+    promote({
+      root,
+      stage,
+      backup,
+      paths: ["apps", "pnpm-lock.yaml"],
+      validate: async () => {
+        throw new Error("build failed")
+      },
+    }),
+    /build failed/,
+  )
   assert.equal(await readFile(join(root, "apps/data"), "utf8"), "original")
   assert.equal(await readFile(join(root, "pnpm-lock.yaml"), "utf8"), "original-lock")
   assert.equal(await readFile(join(backup, "failed-replacement/apps/data"), "utf8"), "candidate")
@@ -273,7 +393,9 @@ test("failed final validation restores source and lockfile without deleting the 
 
 test("partial rename failure rolls back paths already moved", async (t) => {
   const base = await fixture(t)
-  const root = join(base, "root"), stage = join(base, "stage"), backup = join(base, "backup")
+  const root = join(base, "root"),
+    stage = join(base, "stage"),
+    backup = join(base, "backup")
   await put(root, "apps/data", "original")
   await put(root, "pnpm-lock.yaml", "original-lock")
   await put(stage, "apps/data", "candidate")
@@ -284,12 +406,23 @@ test("partial rename failure rolls back paths already moved", async (t) => {
 
 test("unconfirmed process termination retains the promoted tree for manual recovery", async (t) => {
   const base = await fixture(t)
-  const root = join(base, "root"), stage = join(base, "stage"), backup = join(base, "backup")
+  const root = join(base, "root"),
+    stage = join(base, "stage"),
+    backup = join(base, "backup")
   await put(root, "apps/data", "original")
   await put(stage, "apps/data", "candidate")
-  await assert.rejects(promote({ root, stage, backup, paths: ["apps"], validate: async () => {
-    throw Object.assign(new Error("process still writing"), { unsafeToRestore: true })
-  } }), /still writing/)
+  await assert.rejects(
+    promote({
+      root,
+      stage,
+      backup,
+      paths: ["apps"],
+      validate: async () => {
+        throw Object.assign(new Error("process still writing"), { unsafeToRestore: true })
+      },
+    }),
+    /still writing/,
+  )
   assert.equal(await readFile(join(root, "apps/data"), "utf8"), "candidate")
   assert.equal(await readFile(join(backup, "apps/data"), "utf8"), "original")
   assert.equal(JSON.parse(await readFile(join(backup, "journal.json"))).state, "recovery-required")

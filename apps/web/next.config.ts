@@ -1,5 +1,5 @@
-import { resolve } from "node:path";
-import type { NextConfig } from "next";
+import { resolve } from "node:path"
+import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@browser-client/ui"],
@@ -13,6 +13,6 @@ const nextConfig: NextConfig = {
       },
     },
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

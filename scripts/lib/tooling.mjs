@@ -11,7 +11,7 @@ export async function readConfig(file) {
 }
 
 const writeConfig = (file, config) => writeFile(file, JSON.stringify(config, null, 2) + "\n")
-const list = (value) => value === undefined ? [] : Array.isArray(value) ? value : [value]
+const list = (value) => (value === undefined ? [] : Array.isArray(value) ? value : [value])
 
 // Read our presets before installing the staged workspace's dependencies.
 async function inherited(file, field, seen = new Set()) {
@@ -28,8 +28,11 @@ async function inherited(file, field, seen = new Set()) {
 
 function sameCompilerOption(key, a, b) {
   // TypeScript's enum values and lib names are case insensitive.
-  const normalize = (value) => Array.isArray(value) ? value.map(normalize) : typeof value === "string" ? value.toLowerCase() : value
-  return isDeepStrictEqual(...[a, b].map((value) => ["target", "module", "moduleResolution", "jsx", "lib"].includes(key) ? normalize(value) : value))
+  const normalize = (value) =>
+    Array.isArray(value) ? value.map(normalize) : typeof value === "string" ? value.toLowerCase() : value
+  return isDeepStrictEqual(
+    ...[a, b].map((value) => (["target", "module", "moduleResolution", "jsx", "lib"].includes(key) ? normalize(value) : value)),
+  )
 }
 
 export async function shareTypeScript(root, app, filename, preset) {
@@ -42,7 +45,8 @@ export async function shareTypeScript(root, app, filename, preset) {
   // official default over a deliberate edit to that shared preset.
   for (const [key, value] of Object.entries(config.compilerOptions ?? {})) {
     if (!Object.hasOwn(defaults, key)) continue
-    if (!sameCompilerOption(key, value, defaults[key])) console.log(`${filename}: ${key} 使用共享预设；官方模板值有差异，请按需核对。`)
+    if (!sameCompilerOption(key, value, defaults[key]))
+      console.log(`${filename}: ${key} 使用共享预设；官方模板值有差异，请按需核对。`)
     delete config.compilerOptions[key]
   }
   config.extends = parents.length ? [...parents, shared] : shared
@@ -67,7 +71,8 @@ async function shareOxlint(root, app, preset) {
   if (!parents.length && isDeepStrictEqual(config.plugins, await plugins(presetFile))) delete config.plugins
   for (const [key, value] of Object.entries(config.rules ?? {})) {
     if (!Object.hasOwn(rules, key)) continue
-    if (!isDeepStrictEqual(value, rules[key])) console.log(`.oxlintrc.json: ${key} 使用共享规则；官方模板值有差异，请按需核对。`)
+    if (!isDeepStrictEqual(value, rules[key]))
+      console.log(`.oxlintrc.json: ${key} 使用共享规则；官方模板值有差异，请按需核对。`)
     delete config.rules[key]
   }
   if (config.rules && !Object.keys(config.rules).length) delete config.rules
@@ -83,7 +88,9 @@ export async function integrateTooling(root, target) {
     let config = await readFile(file, "utf8")
     if (!config.includes('"@browser-client/eslint-config/base"')) {
       if (!config.includes("defineConfig([")) throw new Error(`官方模板结构已变化，无法接入 ${file} 的共享 ESLint 配置。`)
-      config = 'import sharedConfig from "@browser-client/eslint-config/base";\n' + config.replace("defineConfig([", "defineConfig([\n  ...sharedConfig,")
+      config =
+        'import sharedConfig from "@browser-client/eslint-config/base";\n' +
+        config.replace("defineConfig([", "defineConfig([\n  ...sharedConfig,")
       await writeFile(file, config)
     }
   } else {

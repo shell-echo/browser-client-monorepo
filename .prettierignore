@@ -1,0 +1,29 @@
+# Use this file explicitly so broad Git ignore rules do not hide source files.
+**/node_modules/
+**/.git/
+/.reinit/
+/.turbo/
+/coverage/
+/apps/*/.next/
+/apps/*/dist/
+/apps/*/dist-dev/
+/apps/*/.turbo/
+/apps/*/coverage/
+/apps/*/out/
+/apps/*/build/
+/packages/*/dist/
+/packages/*/dist-dev/
+/packages/*/.turbo/
+/packages/*/coverage/
+/*.tsbuildinfo
+/apps/*/*.tsbuildinfo
+/packages/*/*.tsbuildinfo
+/apps/web/next-env.d.ts
+
+# Generated records, static assets and protected repository instructions.
+/pnpm-lock.yaml
+/template-versions.json
+/patches/
+**/public/
+**/AGENTS.md
+**/.env*
