@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { mkdir, readdir } from "node:fs/promises"
 import { createServer } from "node:net"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { chromium } from "playwright"
 import { handleCancellation, positiveTimeout } from "./lib/commands.mjs"
@@ -9,7 +9,7 @@ import { copySource, fingerprint, ignored } from "./lib/workspace.mjs"
 import { createVerificationRunner, finishVerification } from "./lib/verification.mjs"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
-const runDir = join(root, ".reinit/verification", `web-admin-${Date.now()}`)
+const runDir = join(resolve(process.env.BROWSER_TEST_OUTPUT_ROOT ?? join(root, ".reinit/verification")), `web-admin-${Date.now()}`)
 const workspace = join(runDir, "workspace")
 const report = { runDir, checks: [], errors: [] }
 const port = (value, fallback, label) => {
@@ -74,7 +74,7 @@ try {
   await mkdir(workspace, { recursive: true, mode: 0o700 })
   originalFingerprint = await fingerprint(root)
   await freePort(webPort); await freePort(adminPort)
-  for (const name of await readdir(root)) if (!ignored(name)) await copySource(join(root, name), join(workspace, name))
+  for (const name of await readdir(root)) if (!ignored(name)) await copySource(join(root, name), join(workspace, name), { root })
   await runner.run("git", ["init", "--quiet"], "git.log")
   await runner.run("pnpm", ["install", "--offline", "--frozen-lockfile"], "install.log")
   await runner.run("pnpm", ["exec", "turbo", "run", "build", "--filter=@browser-client/web", "--filter=@browser-client/admin"], "build.log")

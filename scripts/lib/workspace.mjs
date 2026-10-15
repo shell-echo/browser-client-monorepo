@@ -1,19 +1,26 @@
 import { createHash } from "node:crypto"
 import { cp, lstat, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises"
-import { basename, join } from "node:path"
+import { join, relative } from "node:path"
 
-export const ignored = (name) => ["node_modules", ".git", ".next", "dist", "dist-dev", ".turbo", ".reinit", ".DS_Store"].includes(name) || name.endsWith(".tsbuildinfo")
+// Paths are relative to the repository (or an individual workspace) root.
+// Generated names inside business trees such as public/dist are source data.
+export function ignored(path) {
+  const parts = path.split(/[\\/]/).filter((part) => part && part !== ".")
+  const boundary = parts.length === 1 || (parts.length === 3 && ["apps", "packages"].includes(parts[0]))
+  const name = parts.at(-1) ?? ""
+  return boundary && (["node_modules", ".git", ".next", "dist", "dist-dev", ".turbo", ".reinit", ".DS_Store"].includes(name) || name.endsWith(".tsbuildinfo"))
+}
 export const managed = (name) => ["package.json", "components.json", "next-env.d.ts", "README.md", ".gitignore", ".oxlintrc.json", "pnpm-workspace.yaml", "pnpm-lock.yaml", "package-lock.json", "yarn.lock"].includes(name) || /^(tsconfig.*\.json|(?:next|vite|eslint|postcss)\.config\.[cm]?[jt]s)$/.test(name)
 
 export async function exists(path) {
   try { await lstat(path); return true } catch (error) { if (error.code === "ENOENT") return false; throw error }
 }
 
-export async function copySource(from, to) {
+export async function copySource(from, to, { root = from } = {}) {
   await cp(from, to, {
     recursive: true,
     filter: async (source) => {
-      if (ignored(basename(source))) return false
+      if (ignored(relative(root, source))) return false
       if ((await lstat(source)).isSymbolicLink()) throw new Error(`拒绝迁移符号链接：${source}`)
       return true
     },
@@ -25,13 +32,13 @@ export async function preserveApp(from, to) {
     if (ignored(entry) || managed(entry)) continue
     // Replace whole source/public trees so removed upstream demo files stay removed.
     await rm(join(to, entry), { force: true, recursive: true })
-    await copySource(join(from, entry), join(to, entry))
+    await copySource(join(from, entry), join(to, entry), { root: from })
   }
 }
 
 export async function fingerprint(root) {
   const hash = createHash("sha256")
-  hash.update("browser-client-source-tree-v2\n")
+  hash.update("browser-client-source-tree-v3\n")
   async function visit(path, relative = "") {
     const stat = await lstat(path)
     if (stat.isSymbolicLink()) throw new Error(`拒绝迁移符号链接：${path}`)
@@ -43,7 +50,8 @@ export async function fingerprint(root) {
     hash.update(JSON.stringify([relative, type, stat.mode, content]) + "\n")
     if (stat.isDirectory()) {
       for (const name of (await readdir(path)).sort()) {
-        if (!ignored(name)) await visit(join(path, name), `${relative}/${name}`)
+        const child = `${relative}/${name}`
+        if (!ignored(child)) await visit(join(path, name), child)
       }
     }
   }

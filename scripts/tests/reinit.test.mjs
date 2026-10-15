@@ -76,6 +76,51 @@ test("source, untracked files, env and manifest survive; generated configs refre
   assert.equal(await readFile(join(old, "vite.config.ts"), "utf8"), "old-config")
 })
 
+test("business trees retain generated-looking names while app build outputs stay excluded", async (t) => {
+  const root = await fixture(t), original = join(root, "original"), stage = join(root, "stage")
+  const business = ["public/dist/vendor.js", "public/dist-dev/config.json", "public/.next/icon.svg", "public/.turbo/data.json",
+    "public/.reinit/fixture.json", "public/node_modules/vendor.css", "public/.git/fixture.txt", "src/dist/feature.ts", "src/cache.tsbuildinfo"]
+  for (const file of business) await put(original, file, `business:${file}`)
+  for (const file of ["dist/bundle.js", "dist-dev/manifest.json", ".next/cache", ".turbo/log", "node_modules/cache", "app.tsbuildinfo"]) {
+    await put(original, file, "generated")
+  }
+  await preserveApp(original, stage)
+  for (const file of business) assert.equal(await readFile(join(stage, file), "utf8"), `business:${file}`)
+  for (const name of ["dist", "dist-dev", ".next", ".turbo", "node_modules", "app.tsbuildinfo"]) assert.equal(await exists(join(stage, name)), false)
+})
+
+test("workspace copies preserve nested business assets in apps and shared packages", async (t) => {
+  const root = await fixture(t), stage = join(root, ".reinit/stage")
+  const business = ["apps/web/public/dist/vendor.js", "apps/dist/src/dist/feature.ts", "packages/ui/src/dist/component.tsx", "docs/dist/example.json"]
+  const generated = ["apps/web/dist/bundle.js", "apps/web/.next/cache", "apps/web/app.tsbuildinfo", "packages/ui/.turbo/log", "packages/ui/node_modules/cache"]
+  for (const file of business) await put(root, file, `business:${file}`)
+  for (const file of generated) await put(root, file, "generated")
+  for (const name of ["apps", "packages", "docs"]) await copySource(join(root, name), join(stage, name), { root })
+  for (const file of business) assert.equal(await readFile(join(stage, file), "utf8"), `business:${file}`)
+  for (const file of generated) assert.equal(await exists(join(stage, file)), false)
+})
+
+test("fingerprints detect edits, additions and deletions inside generated-looking business paths", async (t) => {
+  const root = await fixture(t)
+  const asset = "apps/web/public/dist/vendor.js", component = "packages/ui/src/dist/component.tsx"
+  await put(root, asset, "original"); await put(root, component, "component")
+  const before = await fingerprint(root)
+  for (const file of [".reinit/stage/file", "apps/web/dist/bundle.js", "apps/web/.next/cache", "packages/ui/.turbo/log", "packages/ui/ui.tsbuildinfo"]) {
+    await put(root, file, "generated")
+  }
+  assert.equal(await fingerprint(root), before)
+  await put(root, asset, "edited")
+  assert.notEqual(await fingerprint(root), before)
+  await put(root, asset, "original")
+  assert.equal(await fingerprint(root), before)
+  await put(root, "apps/web/public/dist-dev/new.json", "new")
+  assert.notEqual(await fingerprint(root), before)
+  await rm(join(root, "apps/web/public/dist-dev"), { recursive: true })
+  assert.equal(await fingerprint(root), before)
+  await rm(join(root, component))
+  assert.notEqual(await fingerprint(root), before)
+})
+
 test("Next adapter retains upstream CSS settings and removes the nested workspace", async (t) => {
   const root = await fixture(t)
   await sharedConfigs(root)

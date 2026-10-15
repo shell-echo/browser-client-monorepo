@@ -2,21 +2,21 @@
   "web": {
     "generator": "create-next-app",
     "version": "16.4.1",
-    "generatedAt": "2026-10-15T06:42:20.481Z"
+    "generatedAt": "2026-10-15T07:12:39.414Z"
   },
   "admin": {
     "generator": "create-vite",
     "version": "9.2.1",
-    "generatedAt": "2026-10-15T06:42:21.294Z"
+    "generatedAt": "2026-10-15T07:12:40.403Z"
   },
   "extension": {
     "generator": "create-vite",
     "version": "9.2.1",
-    "generatedAt": "2026-10-15T06:42:22.891Z"
+    "generatedAt": "2026-10-15T07:12:41.172Z"
   },
   "dependencies": {
     "policy": "stable-compatible-v1",
-    "resolvedAt": "2026-10-15T06:43:18.756Z",
+    "resolvedAt": "2026-10-15T07:13:36.754Z",
     "entries": [
       {
         "id": "catalog:default:react",
@@ -352,8 +352,8 @@
       {
         "id": ".:devDependencies:es-module-lexer",
         "name": "es-module-lexer",
-        "previous": "3.0.3",
-        "current": "3.0.3",
+        "previous": "3.0.4",
+        "current": "3.0.4",
         "location": {
           "path": ".",
           "field": "devDependencies",

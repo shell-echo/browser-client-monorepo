@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { chromium } from "playwright"
 import { copySource, exists, fingerprint, ignored } from "./lib/workspace.mjs"
@@ -8,7 +8,7 @@ import { handleCancellation, positiveTimeout } from "./lib/commands.mjs"
 import { createVerificationRunner, finishVerification } from "./lib/verification.mjs"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
-const runDir = join(root, ".reinit/verification", `crxjs-${Date.now()}`)
+const runDir = join(resolve(process.env.BROWSER_TEST_OUTPUT_ROOT ?? join(root, ".reinit/verification")), `crxjs-${Date.now()}`)
 const workspace = join(runDir, "workspace")
 const app = join(workspace, "apps/extension")
 const port = positiveTimeout(process.env.EXTENSION_TEST_PORT, 3102, "EXTENSION_TEST_PORT")
@@ -73,7 +73,7 @@ async function storageRoundTrip(popup, options, name) {
 
 try {
   for (const name of await readdir(root)) {
-    if (!ignored(name)) await copySource(join(root, name), join(workspace, name))
+    if (!ignored(name)) await copySource(join(root, name), join(workspace, name), { root })
   }
   await run("git", ["init", "--quiet"], "git.log")
   await run("pnpm", ["install", "--offline", "--frozen-lockfile"], "install.log")

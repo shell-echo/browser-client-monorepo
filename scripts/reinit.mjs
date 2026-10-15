@@ -7,6 +7,7 @@ import { integrate, readJson, writeJson, targets } from "./lib/integrate.mjs"
 import { copySource, exists, fingerprint, ignored, preserveApp, promote } from "./lib/workspace.mjs"
 import { createCommandRunner, handleCancellation, positiveTimeout } from "./lib/commands.mjs"
 import { createRegistry, updateDependencies, verifyResolvedUpdates } from "./lib/updates.mjs"
+import { validateBeforePromotion } from "./lib/reinit-validation.mjs"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const help = `用法：pnpm reinit [all|web|admin|extension] [--dry-run|--apply] [--offline]
@@ -17,6 +18,7 @@ Next / Vite / CRXJS 使用最新稳定版；公共依赖优先最新稳定版，
 ESLint 最低为 10；联网候选、离线记录及实际锁定依赖均不得使用 9 或更低版本，不兼容时停止并保留原项目。
 保留业务源码、public、环境文件、业务依赖及共享 UI 源码；公共依赖清单和 catalog 会更新。
 重建框架配置及标准脚本；原始目录与锁文件保存到 .reinit/backups/。
+替换前必须通过 Web / Admin 及扩展浏览器验收；联网时准备 Chromium，离线时要求浏览器已缓存。
 执行前请停止开发/构建进程，并暂停编辑此项目。
 --offline 重放 template-versions.json 已记录且缓存的版本，不查询 latest。
 `
@@ -86,7 +88,7 @@ async function main() {
     // entire staging tree from Oxlint. No commits, hooks or remotes are created.
     await runner.run("git", ["init", "--quiet", stage], { capture: true })
     for (const entry of await readdir(root)) {
-      if (!ignored(entry) && entry !== "apps") await copySource(join(root, entry), join(stage, entry))
+      if (!ignored(entry) && entry !== "apps") await copySource(join(root, entry), join(stage, entry), { root })
     }
     await mkdir(join(stage, "apps"))
     const versions = await exists(join(root, "template-versions.json")) ? await readJson(join(root, "template-versions.json")) : {}
@@ -109,7 +111,7 @@ async function main() {
     for (const target of targets) {
       const original = join(root, "apps", target)
       if (!options.selected.includes(target)) {
-        await copySource(original, join(stage, "apps", target))
+        await copySource(original, join(stage, "apps", target), { root })
         continue
       }
       const generator = target === "web" ? "create-next-app" : "create-vite"
@@ -125,7 +127,7 @@ async function main() {
     }
     // Additional user workspaces under apps/ remain intact.
     for (const entry of await readdir(join(root, "apps"))) {
-      if (!targets.includes(entry) && !ignored(entry)) await copySource(join(root, "apps", entry), join(stage, "apps", entry))
+      if (!targets.includes(entry) && !ignored(`apps/${entry}`)) await copySource(join(root, "apps", entry), join(stage, "apps", entry), { root })
     }
     // pnpm dlx may add release-age exceptions for its temporary generator.
     // Those are not project dependencies; preserve the original project policy.
@@ -138,26 +140,26 @@ async function main() {
     await writeJson(join(stage, "template-versions.json"), versions)
     await run(["install", ...(options.offline ? ["--offline"] : []), "--no-frozen-lockfile", "--strict-peer-dependencies"], stage, false, installEnv)
     await verifyResolvedUpdates(stage, versions.dependencies)
-    await run(["check"], stage)
-    if (!options.offline) await run(["audit:security"], stage)
-    if (await fingerprint(root) !== baseline) throw new Error("生成期间工作区发生变化，停止替换。原项目完整保留，请停止编辑后重试。")
-    checkInterrupted()
-    console.log(`\n验证通过，保存原始目录到 ${backup}`)
-    try {
-      await promote({ root, stage, backup, paths: ["apps", "packages", "package.json", "pnpm-workspace.yaml", "node_modules", "pnpm-lock.yaml", "template-versions.json"], checkInterrupted,
-        validate: async () => {
-          await run(["install", ...(options.offline ? ["--offline"] : []), "--frozen-lockfile", "--strict-peer-dependencies"], root, false, installEnv)
-          await verifyResolvedUpdates(root, versions.dependencies)
-          await run(["check"], root)
-        },
-      })
-    } catch (error) {
-      const journal = await readJson(join(backup, "journal.json")).catch(() => null)
-      leaveLock = journal?.state !== "rolled-back"
-      if (leaveLock) console.error(`恢复未完成，保留锁与现场。请检查 ${backup}/journal.json`)
-      else console.error("最终验证失败，原始目录与依赖已恢复。")
-      throw error
-    }
+    await validateBeforePromotion({ root, stage, baseline, offline: options.offline, run, checkInterrupted,
+      promote: async () => {
+        console.log(`\n验证通过，保存原始目录到 ${backup}`)
+        try {
+          await promote({ root, stage, backup, paths: ["apps", "packages", "package.json", "pnpm-workspace.yaml", "node_modules", "pnpm-lock.yaml", "template-versions.json"], checkInterrupted,
+            validate: async () => {
+              await run(["install", ...(options.offline ? ["--offline"] : []), "--frozen-lockfile", "--strict-peer-dependencies"], root, false, installEnv)
+              await verifyResolvedUpdates(root, versions.dependencies)
+              await run(["check"], root)
+            },
+          })
+        } catch (error) {
+          const journal = await readJson(join(backup, "journal.json")).catch(() => null)
+          leaveLock = journal?.state !== "rolled-back"
+          if (leaveLock) console.error(`恢复未完成，保留锁与现场。请检查 ${backup}/journal.json`)
+          else console.error("最终验证失败，原始目录与依赖已恢复。")
+          throw error
+        }
+      },
+    })
     console.log(`\n重建完成。备份：${backup}\n脚手架版本：template-versions.json`)
   } catch (error) {
     console.error(`\n${error.message}\n诊断目录：${stage}`)

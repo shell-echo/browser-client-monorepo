@@ -152,7 +152,7 @@ pnpm reinit --apply --offline # 使用已记录且缓存的官方版本，不查
 1. 获取互斥锁，记录当前源码指纹；逐文件计算内容摘要，再汇总路径、类型及权限，避免文件内容与相邻记录边界混淆。解析官方 `create-next-app` / `create-vite` latest 通道的稳定版本。
 2. 在 `.reinit/staging/<id>` 创建独立 workspace，用解析出的精确版本运行官方脚手架，不创建 AGENTS.md。暂存目录建立独立 Git 边界以避免上级 ignore 规则干扰检查；不创建提交或远端，项目原 Git 元数据不变。此步骤需要 Git。
 3. 解析最新稳定版框架、CRXJS 和公共依赖，求解模板、Node / peer 兼容约束，记录未采用 latest 的原因。更新 catalog 和依赖清单；恢复业务文件，重新接入 workspace、共享 TypeScript / lint 配置、shadcn/ui、Tailwind 和 CRXJS，保留 `manifest.config.ts`。
-4. 严格安装 peer dependencies，核对实际版本并执行 `pnpm check`，包括实际 Vite / CRXJS 兼容性。联网模式追加 `pnpm audit:security`。检测原工作区是否在生成期间被编辑；有变化则拒绝替换。
+4. 严格安装 peer dependencies，核对实际版本并执行 `pnpm check`，包括实际 Vite / CRXJS 兼容性。联网模式追加 `pnpm audit:security` 并用候选项目的 Playwright 准备 Chromium；随后必须通过 `pnpm test:web-admin` 和 `pnpm test:extension`，包括页面交互、共享样式、扩展存储、热更新及独立生产加载。所有目标（包括单独重建一个应用）都执行这两组验收，因为公共依赖可能影响整个仓库。缺少浏览器、验收失败或清理失败时停止，原项目不替换。最后检测原工作区是否在生成期间被编辑；有变化则拒绝替换。
 5. 将原 apps、packages、根 `package.json`、`pnpm-workspace.yaml`、node_modules、锁文件和版本记录一起移动到 `.reinit/backups/<id>`，安装经过验证的新目录。
 6. 在最终目录按冻结锁文件严格安装并再次检查；联网模式继续联网完成 pnpm 供应链元数据校验，离线模式只使用缓存。失败则恢复原目录，备份与失败候选均保留，便于排查。
 
@@ -165,13 +165,15 @@ pnpm reinit --apply --offline # 使用已记录且缓存的官方版本，不查
 | app `tsconfig*.json`、`next/vite/eslint/postcss.config.*`、`.oxlintrc.json`、`next-env.d.ts`、`components.json` | 用新模板和接入逻辑重建 |
 | app `README.md`、`.gitignore` | 使用新模板版本；项目说明请维护在根 README 或 docs |
 | app 内独立的 `pnpm-workspace.yaml` 与锁文件 | 移除，统一使用仓库根 workspace 与锁文件 |
-| `node_modules`、`.next`、`dist`、`dist-dev`、`.turbo`、`*.tsbuildinfo` | 重新生成；源码复制时排除这些名称 |
+| 仓库根目录及 `apps/*` / `packages/*` 根目录的 `node_modules`、`.next`、`dist`、`dist-dev`、`.turbo`、`*.tsbuildinfo` 等生成物 | 重新生成；只在这些边界排除。`public/dist/`、`src/dist/`、共享组件内的同名业务路径完整保留，并纳入内容指纹检查 |
 
 自定义框架配置应固化到 `scripts/lib/integrate.mjs`，否则它只留在备份中，不会自动迁入新配置。`reinit` 是框架底座更新，不是清空业务源码，也不会自动迁移业务 API。上游模板结构或 API 出现不兼容变化时，脚本会停在暂存目录，由你调整接入逻辑或业务代码后重试。首次版本和以后每次生成的版本均记录在 `template-versions.json`；普通安装遵循锁文件，不追随 latest。
 
 扩展从官方 `create-vite` 最新稳定模板 `--template react-ts` 重建，同时解析 Vite 和 CRXJS 的最新稳定版，再接入共享 UI。每次成功后将精确版本写入应用清单和版本记录；下次联网 reinit 会重新查询。若最新 Vite 与最新 CRXJS 的 peer 范围冲突，会停止并保留原项目，等待上游兼容或调整接入方案。
 
-网络不可用时可显式使用 `--offline`，重放 `template-versions.json` 中已记录的模板及依赖决策，不请求 registry 或执行联网审计。建议先完成一次全部应用的联网 reinit；对应脚手架和全部依赖必须已缓存，缺少记录或缓存会停止。升级前的旧版记录仍按原依赖策略离线重建，并标记为 `legacy-offline`，不会冒充最新版本。离线模式执行相同的严格安装、检查、备份和恢复流程。默认模式的网络错误会报告，不自动退回旧版本。
+网络不可用时可显式使用 `--offline`，重放 `template-versions.json` 中已记录的模板及依赖决策，不请求 registry、下载浏览器或执行联网审计。建议先完成一次全部应用的联网 reinit；对应脚手架、全部依赖及当前 Playwright 对应的 Chromium 必须已缓存，缺少记录或缓存会停止。可提前运行 `pnpm exec playwright install chromium`；Linux 若缺系统库，需先按 Playwright 的诊断安装运行依赖。升级前的旧版记录仍按原依赖策略离线重建，并标记为 `legacy-offline`，不会冒充最新版本。离线模式执行相同的严格安装、浏览器验收、备份和恢复流程。默认模式的网络错误会报告，不自动退回旧版本。
+
+reinit 的浏览器报告、日志和截图保存在原项目的 `.reinit/verification/`，不会随候选目录的替换而丢失。单独运行浏览器测试默认也使用此位置；`BROWSER_TEST_OUTPUT_ROOT` 可指定其他报告父目录，reinit 会固定使用原项目的该目录以保留诊断现场。
 
 ### 失败与备份
 
