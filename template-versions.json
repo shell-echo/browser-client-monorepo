@@ -2,27 +2,27 @@
   "web": {
     "generator": "create-next-app",
     "version": "16.4.1",
-    "generatedAt": "2026-10-15T03:12:11.705Z"
+    "generatedAt": "2026-10-15T03:47:44.760Z"
   },
   "admin": {
     "generator": "create-vite",
     "version": "9.2.1",
-    "generatedAt": "2026-10-15T03:12:12.092Z"
+    "generatedAt": "2026-10-15T03:47:45.465Z"
   },
   "extension": {
     "generator": "create-vite",
     "version": "9.2.1",
-    "generatedAt": "2026-10-15T03:12:12.543Z"
+    "generatedAt": "2026-10-15T03:47:46.120Z"
   },
   "dependencies": {
     "policy": "stable-compatible-v1",
-    "resolvedAt": "2026-10-15T03:12:50.603Z",
+    "resolvedAt": "2026-10-15T03:48:55.459Z",
     "entries": [
       {
         "id": "catalog:default:react",
         "name": "react",
-        "previous": "19.3.0",
-        "current": "19.3.0",
+        "previous": "19.3.1",
+        "current": "19.3.1",
         "location": {
           "catalog": "default",
           "name": "react"
@@ -49,8 +49,8 @@
       {
         "id": "catalog:default:react-dom",
         "name": "react-dom",
-        "previous": "19.3.0",
-        "current": "19.3.0",
+        "previous": "19.3.1",
+        "current": "19.3.1",
         "location": {
           "catalog": "default",
           "name": "react-dom"
@@ -77,7 +77,7 @@
       {
         "id": "catalog:default:@types/react",
         "name": "@types/react",
-        "previous": "^19.2.18",
+        "previous": "19.3.0",
         "current": "19.3.0",
         "location": {
           "catalog": "default",
@@ -105,7 +105,7 @@
       {
         "id": "catalog:default:@types/react-dom",
         "name": "@types/react-dom",
-        "previous": "^19.2.7",
+        "previous": "19.3.0",
         "current": "19.3.0",
         "location": {
           "catalog": "default",
@@ -133,7 +133,7 @@
       {
         "id": "catalog:default:tailwindcss",
         "name": "tailwindcss",
-        "previous": "^4.1.0",
+        "previous": "4.3.3",
         "current": "4.3.3",
         "location": {
           "catalog": "default",
@@ -161,7 +161,7 @@
       {
         "id": "catalog:default:@tailwindcss/vite",
         "name": "@tailwindcss/vite",
-        "previous": "^4.1.0",
+        "previous": "4.3.3",
         "current": "4.3.3",
         "location": {
           "catalog": "default",
@@ -185,8 +185,8 @@
       {
         "id": "catalog:default:oxlint",
         "name": "oxlint",
-        "previous": "^1.81.0",
-        "current": "1.87.0",
+        "previous": "1.88.0",
+        "current": "1.88.0",
         "location": {
           "catalog": "default",
           "name": "oxlint"
@@ -209,32 +209,23 @@
       {
         "id": "catalog:default:eslint",
         "name": "eslint",
-        "previous": "^9",
-        "current": "9.39.5",
+        "previous": "10.12.0",
+        "current": "10.12.0",
         "location": {
           "catalog": "default",
           "name": "eslint"
         },
-        "required": [
-          {
-            "from": "apps/web 官方模板",
-            "range": "^9"
-          }
-        ],
+        "required": [],
         "strictLatest": false,
         "latest": "10.12.0",
-        "version": "9.39.5",
-        "reasons": [
-          "apps/web 官方模板 要求 eslint ^9",
-          "packages/eslint-config: @browser-client/eslint-config 要求 eslint ^9，候选为 10.12.0",
-          "现有兼容版本被上游标记 deprecated：This version is no longer supported. Please see https://eslint.org/version-support for other options."
-        ]
+        "version": "10.12.0",
+        "reasons": []
       },
       {
         "id": "catalog:default:@eslint/js",
         "name": "@eslint/js",
-        "previous": "^9",
-        "current": "9.39.5",
+        "previous": "10.0.1",
+        "current": "10.0.1",
         "location": {
           "catalog": "default",
           "name": "@eslint/js"
@@ -242,16 +233,14 @@
         "required": [],
         "strictLatest": false,
         "latest": "10.0.1",
-        "version": "9.39.5",
-        "reasons": [
-          "packages/eslint-config: @eslint/js@10.0.1 要求 eslint ^10.0.0，候选为 9.39.5"
-        ]
+        "version": "10.0.1",
+        "reasons": []
       },
       {
         "id": "catalog:default:shadcn",
         "name": "shadcn",
-        "previous": "4.21.4",
-        "current": "4.21.4",
+        "previous": "4.21.5",
+        "current": "4.21.5",
         "location": {
           "catalog": "default",
           "name": "shadcn"
@@ -265,7 +254,7 @@
       {
         "id": "catalog:next:typescript",
         "name": "typescript",
-        "previous": "^5",
+        "previous": "5.9.3",
         "current": "5.9.3",
         "location": {
           "catalog": "next",
@@ -287,8 +276,8 @@
       {
         "id": "catalog:next:@types/node",
         "name": "@types/node",
-        "previous": "^20",
-        "current": "20.19.43",
+        "previous": "24.19.2",
+        "current": "24.19.2",
         "location": {
           "catalog": "next",
           "name": "@types/node"
@@ -309,7 +298,7 @@
       {
         "id": "catalog:vite:typescript",
         "name": "typescript",
-        "previous": "~6.0.2",
+        "previous": "6.0.3",
         "current": "6.0.3",
         "location": {
           "catalog": "vite",
@@ -336,8 +325,8 @@
       {
         "id": "catalog:vite:@types/node",
         "name": "@types/node",
-        "previous": "^24.13.3",
-        "current": "24.19.1",
+        "previous": "24.19.2",
+        "current": "24.19.2",
         "location": {
           "catalog": "vite",
           "name": "@types/node"
@@ -358,8 +347,8 @@
       {
         "id": ".:devDependencies:es-module-lexer",
         "name": "es-module-lexer",
-        "previous": "^1.7.0",
-        "current": "1.7.0",
+        "previous": "3.0.3",
+        "current": "3.0.3",
         "location": {
           "path": ".",
           "field": "devDependencies",
@@ -374,7 +363,7 @@
       {
         "id": ".:devDependencies:jsonc-parser",
         "name": "jsonc-parser",
-        "previous": "^3.3.1",
+        "previous": "3.3.1",
         "current": "3.3.1",
         "location": {
           "path": ".",
@@ -390,8 +379,8 @@
       {
         "id": ".:devDependencies:playwright",
         "name": "playwright",
-        "previous": "1.62.1",
-        "current": "1.62.1",
+        "previous": "1.64.1",
+        "current": "1.64.1",
         "location": {
           "path": ".",
           "field": "devDependencies",
@@ -406,8 +395,8 @@
       {
         "id": ".:devDependencies:semver",
         "name": "semver",
-        "previous": "7.7.3",
-        "current": "7.7.3",
+        "previous": "7.8.5",
+        "current": "7.8.5",
         "location": {
           "path": ".",
           "field": "devDependencies",
@@ -422,8 +411,8 @@
       {
         "id": ".:devDependencies:turbo",
         "name": "turbo",
-        "previous": "2.11.7",
-        "current": "2.11.7",
+        "previous": "2.11.8",
+        "current": "2.11.8",
         "location": {
           "path": ".",
           "field": "devDependencies",
@@ -438,7 +427,7 @@
       {
         "id": ".:devDependencies:yaml",
         "name": "yaml",
-        "previous": "^2.8.1",
+        "previous": "2.9.1",
         "current": "2.9.1",
         "location": {
           "path": ".",
@@ -561,7 +550,7 @@
         "id": "apps/web:dependencies:next",
         "name": "next",
         "previous": "16.4.1",
-        "current": "16.4.0",
+        "current": "16.4.1",
         "location": {
           "path": "apps/web",
           "field": "dependencies",
@@ -598,7 +587,7 @@
         "id": "apps/web:devDependencies:eslint-config-next",
         "name": "eslint-config-next",
         "previous": "16.4.1",
-        "current": "16.4.0",
+        "current": "16.4.1",
         "location": {
           "path": "apps/web",
           "field": "devDependencies",
@@ -613,8 +602,8 @@
       {
         "id": "packages/eslint-config:dependencies:globals",
         "name": "globals",
-        "previous": "^16.4.0",
-        "current": "16.4.0",
+        "previous": "17.13.0",
+        "current": "17.13.0",
         "location": {
           "path": "packages/eslint-config",
           "field": "dependencies",
@@ -629,8 +618,8 @@
       {
         "id": "packages/ui:dependencies:@base-ui/react",
         "name": "@base-ui/react",
-        "previous": "^1.8.0",
-        "current": "1.8.0",
+        "previous": "1.9.0",
+        "current": "1.9.0",
         "location": {
           "path": "packages/ui",
           "field": "dependencies",
@@ -645,7 +634,7 @@
       {
         "id": "packages/ui:dependencies:class-variance-authority",
         "name": "class-variance-authority",
-        "previous": "^0.7.1",
+        "previous": "0.7.1",
         "current": "0.7.1",
         "location": {
           "path": "packages/ui",
@@ -661,7 +650,7 @@
       {
         "id": "packages/ui:dependencies:clsx",
         "name": "clsx",
-        "previous": "^2.1.1",
+        "previous": "2.1.1",
         "current": "2.1.1",
         "location": {
           "path": "packages/ui",
@@ -677,7 +666,7 @@
       {
         "id": "packages/ui:dependencies:cn",
         "name": "cn",
-        "previous": "^0.4.0",
+        "previous": "0.4.0",
         "current": "0.4.0",
         "location": {
           "path": "packages/ui",
@@ -693,8 +682,8 @@
       {
         "id": "packages/ui:dependencies:lucide-react",
         "name": "lucide-react",
-        "previous": "^0.577.0",
-        "current": "0.577.0",
+        "previous": "1.57.0",
+        "current": "1.57.0",
         "location": {
           "path": "packages/ui",
           "field": "dependencies",
@@ -709,7 +698,7 @@
       {
         "id": "packages/ui:dependencies:tailwind-merge",
         "name": "tailwind-merge",
-        "previous": "^3.3.1",
+        "previous": "3.7.0",
         "current": "3.7.0",
         "location": {
           "path": "packages/ui",
@@ -725,7 +714,7 @@
       {
         "id": "packages/ui:dependencies:tw-animate-css",
         "name": "tw-animate-css",
-        "previous": "^1.4.0",
+        "previous": "1.4.0",
         "current": "1.4.0",
         "location": {
           "path": "packages/ui",

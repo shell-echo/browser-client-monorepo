@@ -11,8 +11,8 @@ catalog:
   tailwindcss: 4.3.3
   '@tailwindcss/vite': 4.3.3
   oxlint: 1.88.0
-  eslint: 9.39.5
-  '@eslint/js': 9.39.5
+  eslint: 10.12.0
+  '@eslint/js': 10.0.1
   shadcn: 4.21.5
 
 catalogs:
@@ -24,6 +24,7 @@ catalogs:
     '@types/node': 24.19.2
 
 engineStrict: true
+strictPeerDependencies: true
 verifyDepsBeforeRun: false
 
 allowBuilds:
@@ -56,3 +57,11 @@ minimumReleaseAgeExclude:
 
 patchedDependencies:
   braces@3.0.3: patches/braces@3.0.3.patch
+
+# Next 16.4.1 adapts legacy rule contexts for ESLint 10. Keep exceptions scoped
+# to tested plugin versions; scripts/tests/eslint.test.mjs exercises their rules.
+peerDependencyRules:
+  allowedVersions:
+    eslint-plugin-react@7.37.5>eslint: ^10.0.0
+    eslint-plugin-import@2.32.0>eslint: ^10.0.0
+    eslint-plugin-jsx-a11y@6.10.2>eslint: ^10.0.0

@@ -12,6 +12,9 @@
     "globals": "17.13.0"
   },
   "peerDependencies": {
-    "eslint": "^9"
+    "eslint": "^9 || ^10"
+  },
+  "devDependencies": {
+    "eslint": "catalog:"
   }
 }

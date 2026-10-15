@@ -189,7 +189,9 @@ export async function updateDependencies({ root, templates, previous, registry, 
         : Object.hasOwn(workspace.catalog ?? {}, name) ? "default"
           : Object.hasOwn(workspace.catalogs?.[toolchain] ?? {}, name) ? toolchain : undefined
       const declared = template?.[field]?.[name]
-      const required = declared && !["next", "eslint-config-next", "vite", "@types/node"].includes(name)
+      // A starter's ESLint default is not a framework requirement. The actual
+      // config peers, strict install and rule regression tests enforce support.
+      const required = declared && !["next", "eslint-config-next", "vite", "@types/node", "eslint"].includes(name)
         ? [{ from: `${path} 官方模板`, range: ["react", "react-dom"].includes(name) && semver.valid(declared) ? `^${declared}` : declared }] : []
       if (template && ["tailwindcss", "@tailwindcss/vite"].includes(name) && !template[field]?.[name]) required.push({ from: `${path} Tailwind 接入`, range: "^4.1.0" })
       let id

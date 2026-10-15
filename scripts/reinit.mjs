@@ -60,7 +60,7 @@ async function main() {
   await mkdir(state, { recursive: true, mode: 0o700 })
   const lock = join(state, "lock")
   try { await mkdir(lock) } catch (error) {
-    if (error.code === "EEXIST") throw new Error("已有 reinit 锁。先检查 .reinit/lock/owner.json 和相关进程；若曾被强制中断，检查备份 journal 后再手工解除锁。")
+    if (error.code === "EEXIST") throw new Error("已有 reinit 锁。先检查 .reinit/lock/owner.json 和相关进程；若曾被强制中断，检查备份 journal 后再手工解除锁。", { cause: error })
     throw error
   }
   const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}`

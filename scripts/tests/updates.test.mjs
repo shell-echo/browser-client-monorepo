@@ -158,3 +158,37 @@ test("partial reinit retains the compiler constraints of applications it does no
   assert.equal(receipt.entries.find((entry) => entry.id === "catalog:vite:typescript").version, "6.0.3")
   for (const entry of receipt.entries.filter((entry) => entry.name === "typescript")) assert(entry.reasons.some((reason) => reason.includes("未重建的")))
 })
+
+test("reinit selects ESLint by runtime config peers while retaining template compiler constraints", async (t) => {
+  const root = await fixture(t)
+  await writeFile(join(root, "pnpm-workspace.yaml"), "catalog:\n  react: ^19\n  eslint: ^9\n  '@eslint/js': ^9\n")
+  await writeFile(join(root, "package.json"), JSON.stringify({ name: "root", devDependencies: { eslint: "catalog:" } }))
+  await mkdir(join(root, "packages/eslint-config"), { recursive: true })
+  await writeFile(join(root, "packages/eslint-config/package.json"), JSON.stringify({ name: "shared-lint", dependencies: { "@eslint/js": "catalog:" },
+    peerDependencies: { eslint: "^9 || ^10" }, devDependencies: { eslint: "catalog:" } }))
+  const template = { dependencies: { next: "16.4.1", react: "^19" },
+    devDependencies: { "eslint-config-next": "16.4.1", eslint: "^9", typescript: "^5" } }
+  await mkdir(join(root, "apps/web"), { recursive: true })
+  await writeFile(join(root, "apps/web/package.json"), JSON.stringify(template))
+  const packages = {
+    react: releases({ "19.3.0": {} }), helper: releases({ "2.0.0": {} }), next: releases({ "16.4.1": {} }),
+    "eslint-config-next": releases({ "16.4.1": { peerDependencies: { eslint: ">=9" } } }),
+    eslint: releases({ "10.12.0": {}, "9.39.5": {} }),
+    "@eslint/js": releases({ "10.0.1": { peerDependencies: { eslint: "^10" } }, "9.39.5": { peerDependencies: { eslint: "^9" } } }),
+    typescript: releases({ "7.0.2": {}, "5.9.3": {} }),
+  }
+  const args = { root, templates: { web: template }, previous: { web: template } }
+  const receipt = await updateDependencies({ ...args, registry: registryFixture(packages) })
+  assert.equal(receipt.entries.find((entry) => entry.name === "eslint").version, "10.12.0")
+  assert.equal(receipt.entries.find((entry) => entry.name === "@eslint/js").version, "10.0.1")
+  assert.equal(receipt.entries.find((entry) => entry.name === "typescript").version, "5.9.3")
+  const replay = await updateDependencies({ ...args, offline: true, saved: receipt,
+    registry: { latest: () => assert.fail("offline registry request") } })
+  assert.deepEqual(replay.entries.map(({ id, version }) => [id, version]), receipt.entries.map(({ id, version }) => [id, version]))
+  // Removing a starter constraint must not bypass an actual config peer limit.
+  packages["eslint-config-next"].releases["16.4.1"].peerDependencies.eslint = "^9"
+  const constrained = await updateDependencies({ ...args, registry: registryFixture(packages) })
+  assert.equal(constrained.entries.find((entry) => entry.name === "eslint").version, "9.39.5")
+  assert.equal(constrained.entries.find((entry) => entry.name === "@eslint/js").version, "9.39.5")
+  assert(constrained.entries.find((entry) => entry.name === "eslint").reasons.some((reason) => reason.includes("eslint-config-next")))
+})

@@ -80,7 +80,9 @@ ESLint 公共包统一生成目录忽略和未使用禁用指令的检查，不�
 
 普通安装遵循锁文件，不追随 latest。联网 reinit 优先选择发布者 latest 通道中的稳定版，过滤 beta / rc 等预发布，不自动追随 next 通道。Next.js、Vite 和 CRXJS 必须使用最新稳定版；公共依赖若不满足 Node 引擎、模板工具链要求或 peer 契约，则选择最高兼容稳定版并记录原因。React / React DOM 版本必须一致；Node 类型对齐当前 Node 主版本；TypeScript 保留模板要求，未重建应用的 TypeScript 工具链保留当前兼容范围。
 
-已弃用版本不会被新引入。若当前已经使用的版本因兼容要求暂时必须保留，其 deprecated 状态会明确记录；例如当前 Next 模板及其 lint 插件仍要求 ESLint 9，不能直接换成 ESLint 10。决策、版本和保留原因保存在 `template-versions.json#dependencies`。求解后还会严格安装 peer dependencies、核对锁文件实际版本，并执行完整检查及联网安全审计；不兼容时停止替换，不自动降级 Next / Vite / CRXJS，也不会用旧缓存冒充联网 latest。
+已弃用版本不会被新引入。若当前已经使用的版本因兼容要求暂时必须保留，其 deprecated 状态会明确记录。决策、版本和保留原因保存在 `template-versions.json#dependencies`。求解后还会严格安装 peer dependencies、核对锁文件实际版本，并执行完整检查及联网安全审计；不兼容时停止替换，不自动降级 Next / Vite / CRXJS，也不会用旧缓存冒充联网 latest。
+
+ESLint 使用 10，公共配置通过 peer 契约和 catalog 开发依赖统一版本，Web 保留完整的 Next 官方 Core Web Vitals / TypeScript 规则。模板中的 ESLint 默认版本不作为硬约束，实际兼容性由配置包的 peer、严格安装和规则回归测试共同检查。Next 16.4.1 自带 [ESLint 10 规则上下文兼容层](https://github.com/vercel/next.js/blob/v16.4.1/packages/eslint-config-next/src/rule-context.ts)；React 7.37.5、Import 2.32.0、JSX a11y 6.10.2 三个 ESLint 插件的上游 peer 声明尚未包含 10，因此只对这些固定插件版本设置 `peerDependencyRules.allowedVersions` 例外，其余 peer 检查保持严格。`pnpm test` 会实际执行 React、Hooks、无障碍、Import、Next 和 TypeScript 规则，并确认共享 shadcn/ui 的合法用法正常；后续插件升级仍须通过同样检查，不自动扩大例外。
 
 应用专属业务依赖保留声明；`packages/ui` 内的 Base UI、图标库、样式工具及 shadcn CLI 等公共依赖会参与升级，但不会重新生成现有 shadcn 组件。Node / pnpm 工具版本、业务源码和 API 不会自动迁移。版本决策位于 `scripts/lib/updates.mjs`，catalog 接入位于 `scripts/lib/catalogs.mjs`。
 

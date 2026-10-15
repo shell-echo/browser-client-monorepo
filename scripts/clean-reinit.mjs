@@ -103,7 +103,7 @@ export async function cleanReinit(root, options) {
   const lock = join(state, "lock")
   const id = randomUUID()
   try { await mkdir(lock, { mode: 0o700 }) } catch (error) {
-    if (error.code === "EEXIST") throw new Error("已有维护锁，拒绝清理")
+    if (error.code === "EEXIST") throw new Error("已有维护锁，拒绝清理", { cause: error })
     throw error
   }
   try {
