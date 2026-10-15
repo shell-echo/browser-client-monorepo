@@ -84,6 +84,8 @@ ESLint 公共包统一生成目录忽略和未使用禁用指令的检查，不�
 
 ESLint 使用 10，公共配置通过 peer 契约和 catalog 开发依赖统一版本，Web 保留完整的 Next 官方 Core Web Vitals / TypeScript 规则。模板中的 ESLint 默认版本不作为硬约束，实际兼容性由配置包的 peer、严格安装和规则回归测试共同检查。Next 16.4.1 自带 [ESLint 10 规则上下文兼容层](https://github.com/vercel/next.js/blob/v16.4.1/packages/eslint-config-next/src/rule-context.ts)；React 7.37.5、Import 2.32.0、JSX a11y 6.10.2 三个 ESLint 插件的上游 peer 声明尚未包含 10，因此只对这些固定插件版本设置 `peerDependencyRules.allowedVersions` 例外，其余 peer 检查保持严格。`pnpm test` 会实际执行 React、Hooks、无障碍、Import、Next 和 TypeScript 规则，并确认共享 shadcn/ui 的合法用法正常；后续插件升级仍须通过同样检查，不自动扩大例外。
 
+ESLint 的项目最低版本为 `10.0.0`，当前公共配置的 peer 为 `^10`。联网求解、离线记录重放、无依赖记录的旧锁文件以及安装后的实际依赖图均检查此底线；ESLint 9 即使已缓存、原先已安装或没有 deprecated 标记，也不能被选用。无法找到兼容组合时停止并保留原项目；离线记录低于底线或无法确认版本时，需先联网 reinit 更新记录。安装后的检查发生在替换前，替换后的复验失败仍按备份流程恢复。
+
 应用专属业务依赖保留声明；`packages/ui` 内的 Base UI、图标库、样式工具及 shadcn CLI 等公共依赖会参与升级，但不会重新生成现有 shadcn 组件。Node / pnpm 工具版本、业务源码和 API 不会自动迁移。版本决策位于 `scripts/lib/updates.mjs`，catalog 接入位于 `scripts/lib/catalogs.mjs`。
 
 ### 依赖安全检查

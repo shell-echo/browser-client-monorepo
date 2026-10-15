@@ -9,6 +9,15 @@ const fields = ["dependencies", "devDependencies"]
 const stable = (version) => Boolean(semver.valid(version) && !semver.prerelease(version))
 const deprecated = (metadata) => typeof metadata.deprecated === "string"
 const supports = (version, range) => Boolean(semver.validRange(range) && semver.satisfies(version, range))
+const minimumVersions = { eslint: "10.0.0" }
+const minimumRequirements = (name) => Object.hasOwn(minimumVersions, name)
+  ? [{ from: "项目最低版本策略", range: `>=${minimumVersions[name]}` }] : []
+
+function assertMinimumVersion(name, version) {
+  for (const { from, range } of minimumRequirements(name)) {
+    assert(supports(version, range), `${from} 要求 ${name} ${range}，实际为 ${version ?? "未知"}；停止重建，请先联网 reinit。`)
+  }
+}
 
 // Use the publisher's latest channel, never next/beta/rc. A mistagged
 // prerelease falls back to the highest stable release below that channel.
@@ -53,6 +62,7 @@ export function createRegistry(view) {
 // latest; shared packages may fall back, with every fallback recorded. pnpm's
 // strict peer installation subsequently checks the complete transitive graph.
 export async function solveUpdates({ variables, scopes, registry, nodeVersion = process.versions.node }) {
+  variables = variables.map((variable) => ({ ...variable, required: [...(variable.required ?? []), ...minimumRequirements(variable.name)] }))
   const chosen = new Map(), initial = new Map(), rejected = new Map()
   console.log(`解析 ${variables.length} 项直接依赖的稳定版本与兼容约束…`)
   let cursor = 0
@@ -214,18 +224,25 @@ export async function updateDependencies({ root, templates, previous, registry, 
   let entries
   const replay = saved?.policy === "stable-compatible-v1" ? saved : undefined
   if (offline) {
-    // Old records predate dependency receipts: retain their existing policy.
-    // New records replay exact decisions, without any registry request.
-    entries = [...variables.values()].filter((variable) => !variable.fixed).flatMap((variable) => {
+    // All receipt generations obey today's floor, including stale entries.
+    // Legacy records without receipts must prove their locked version instead.
+    for (const entry of saved?.entries ?? []) assertMinimumVersion(entry.name, entry.version)
+    entries = [...variables.values()].flatMap((variable) => {
+      if (variable.fixed) {
+        assertMinimumVersion(variable.name, variable.fixed)
+        return []
+      }
       const entry = replay?.entries?.find((entry) => entry.id === variable.id)
       if (!entry) {
         assert(!replay, `离线记录缺少 ${variable.id}，请先联网 reinit`)
+        assertMinimumVersion(variable.name, variable.current)
         return []
       }
       assert.equal(entry.name, variable.name, "离线依赖记录名称不匹配")
       assert(stable(entry.version), `离线依赖记录不是稳定版：${entry.id}`)
-      for (const { range, from } of variable.required) assert(supports(entry.version, range), `${from} 与离线依赖记录不兼容`)
-      return [{ ...variable, version: entry.version, latest: entry.latest, reasons: entry.reasons }]
+      const required = [...variable.required, ...minimumRequirements(variable.name)]
+      for (const { range, from } of required) assert(supports(entry.version, range), `${from} 要求 ${variable.name} ${range}，与离线依赖记录不兼容`)
+      return [{ ...variable, required, version: entry.version, latest: entry.latest, reasons: entry.reasons }]
     })
   } else entries = (await solveUpdates({ variables: [...variables.values()], scopes, registry })).filter((variable) => !variable.fixed)
   for (const entry of entries) {
@@ -244,7 +261,19 @@ export async function updateDependencies({ root, templates, previous, registry, 
 export async function verifyResolvedUpdates(root, receipt) {
   const lock = parse(await readFile(join(root, "pnpm-lock.yaml"), "utf8"))
   const workspace = parse(await readFile(join(root, "pnpm-workspace.yaml"), "utf8"))
+  // Verify actual dependencies too: a legacy receipt may be empty, and an
+  // indirect dependency may install an extra ESLint outside the direct plan.
+  for (const catalog of Object.values(lock.catalogs ?? {})) {
+    if (catalog.eslint) assertMinimumVersion("eslint", catalog.eslint.version)
+  }
+  for (const importer of Object.values(lock.importers ?? {})) for (const field of fields) {
+    if (importer[field]?.eslint) assertMinimumVersion("eslint", importer[field].eslint.version?.split("(")[0])
+  }
+  for (const key of Object.keys(lock.packages ?? {})) {
+    if (key.startsWith("eslint@")) assertMinimumVersion("eslint", key.slice("eslint@".length).split("(")[0])
+  }
   for (const entry of receipt.entries) {
+    assertMinimumVersion(entry.name, entry.version)
     const { location } = entry
     if (location.catalog) {
       const configured = (location.catalog === "default" ? workspace.catalog : workspace.catalogs?.[location.catalog])?.[entry.name]

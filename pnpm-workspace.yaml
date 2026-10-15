@@ -54,6 +54,7 @@ minimumReleaseAgeExclude:
   - react-dom@19.3.1
   - react@19.3.1
   - shadcn@4.21.5
+  - es-module-lexer@3.0.4
 
 patchedDependencies:
   braces@3.0.3: patches/braces@3.0.3.patch

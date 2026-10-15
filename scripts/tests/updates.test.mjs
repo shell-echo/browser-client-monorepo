@@ -5,7 +5,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { parse } from "yaml"
 import { createRegistry, solveUpdates, stableVersions, updateDependencies, verifyResolvedUpdates } from "../lib/updates.mjs"
-import { promote } from "../lib/workspace.mjs"
+import { fingerprint, promote } from "../lib/workspace.mjs"
 
 function registryFixture(packages) {
   return createRegistry(async (name, fields) => {
@@ -33,16 +33,16 @@ test("frameworks stay latest while shared dependencies choose highest compatible
     vite: releases({ "8.0.0": { peerDependencies: { typescript: ">=5" } } }),
     crx: releases({ "3.0.0": { peerDependencies: { vite: "^8" } } }),
     typescript: releases({ "7.0.0": {}, "6.1.0": {}, "6.0.0": {}, "5.9.0": {} }),
-    eslint: releases({ "10.0.0": {}, "9.9.0": {}, "9.8.0": {} }),
-    js: releases({ "10.0.0": { peerDependencies: { eslint: "^10" }, peerDependenciesMeta: { eslint: { optional: true } } }, "9.9.0": {} }),
+    eslint: releases({ "11.0.0": {}, "10.9.0": {}, "10.8.0": {} }),
+    js: releases({ "11.0.0": { peerDependencies: { eslint: "^11" }, peerDependenciesMeta: { eslint: { optional: true } } }, "10.9.0": {} }),
     helper: releases({ "3.0.0": { engines: { node: ">=26" } }, "2.0.0": {} }),
   })
   const entries = await solveUpdates({ registry, nodeVersion: "24.21.0", variables: [variable("vite", { strictLatest: true }), variable("crx", { strictLatest: true }),
     variable("typescript", { required: [{ range: "~6.0.0", from: "template" }] }), variable("eslint"), variable("js"), variable("helper")], scopes: [
     { path: ".", dependencies: { vite: "vite", crx: "crx", typescript: "typescript", eslint: "eslint", js: "js", helper: "helper" } },
-    { path: "packages/lint", name: "local-config", dependencies: {}, peers: { eslint: "^9" } },
+    { path: "packages/lint", name: "local-config", dependencies: {}, peers: { eslint: "^10" } },
   ] })
-  assert.deepEqual(Object.fromEntries(entries.map((entry) => [entry.name, entry.version])), { vite: "8.0.0", crx: "3.0.0", typescript: "6.0.0", eslint: "9.9.0", js: "9.9.0", helper: "2.0.0" })
+  assert.deepEqual(Object.fromEntries(entries.map((entry) => [entry.name, entry.version])), { vite: "8.0.0", crx: "3.0.0", typescript: "6.0.0", eslint: "10.9.0", js: "10.9.0", helper: "2.0.0" })
   for (const name of ["typescript", "eslint", "js", "helper"]) assert(entries.find((entry) => entry.name === name).reasons.length)
 })
 
@@ -53,19 +53,19 @@ test("incompatible latest CRXJS/Vite stops instead of silently downgrading a fra
 })
 
 test("a deprecated compatibility release is explicit rather than a silent downgrade", async () => {
-  const registry = registryFixture({ eslint: releases({ "10.0.0": {}, "9.9.0": { deprecated: "unsupported by upstream" }, "9.8.0": {} }) })
-  const [entry] = await solveUpdates({ registry, variables: [variable("eslint", { current: "9.9.0", required: [{ from: "official template", range: "^9" }] })],
-    scopes: [{ path: ".", dependencies: { eslint: "eslint" } }] })
+  const registry = registryFixture({ tool: releases({ "10.0.0": {}, "9.9.0": { deprecated: "unsupported by upstream" }, "9.8.0": {} }) })
+  const [entry] = await solveUpdates({ registry, variables: [variable("tool", { current: "9.9.0", required: [{ from: "official template", range: "^9" }] })],
+    scopes: [{ path: ".", dependencies: { tool: "tool" } }] })
   assert.equal(entry.version, "9.9.0")
   assert(entry.reasons.some((reason) => reason.includes("deprecated")))
 })
 
 test("withdrawn releases with missing peer metadata cannot be introduced during fallback", async () => {
-  const registry = registryFixture({ eslint: releases({ "9.9.0": {} }), js: releases({ "10.0.1": { peerDependencies: { eslint: "^10" } },
-    "10.0.0": { deprecated: "This version should not be used." }, "9.9.0": { peerDependencies: { eslint: "^9" } } }) })
-  const entries = await solveUpdates({ registry, variables: [variable("eslint"), variable("js", { current: "9.9.0" })],
+  const registry = registryFixture({ eslint: releases({ "10.12.0": {} }), js: releases({ "11.0.1": { peerDependencies: { eslint: "^11" } },
+    "11.0.0": { deprecated: "This version should not be used." }, "10.0.1": { peerDependencies: { eslint: "^10" } } }) })
+  const entries = await solveUpdates({ registry, variables: [variable("eslint"), variable("js", { current: "10.0.1" })],
     scopes: [{ path: ".", dependencies: { eslint: "eslint", js: "js" } }] })
-  assert.equal(entries.find((entry) => entry.name === "js").version, "9.9.0")
+  assert.equal(entries.find((entry) => entry.name === "js").version, "10.0.1")
 })
 
 test("peer providers are checked per workspace, not by a global package-name match", async () => {
@@ -165,7 +165,7 @@ test("reinit selects ESLint by runtime config peers while retaining template com
   await writeFile(join(root, "package.json"), JSON.stringify({ name: "root", devDependencies: { eslint: "catalog:" } }))
   await mkdir(join(root, "packages/eslint-config"), { recursive: true })
   await writeFile(join(root, "packages/eslint-config/package.json"), JSON.stringify({ name: "shared-lint", dependencies: { "@eslint/js": "catalog:" },
-    peerDependencies: { eslint: "^9 || ^10" }, devDependencies: { eslint: "catalog:" } }))
+    peerDependencies: { eslint: "^10" }, devDependencies: { eslint: "catalog:" } }))
   const template = { dependencies: { next: "16.4.1", react: "^19" },
     devDependencies: { "eslint-config-next": "16.4.1", eslint: "^9", typescript: "^5" } }
   await mkdir(join(root, "apps/web"), { recursive: true })
@@ -182,13 +182,87 @@ test("reinit selects ESLint by runtime config peers while retaining template com
   assert.equal(receipt.entries.find((entry) => entry.name === "eslint").version, "10.12.0")
   assert.equal(receipt.entries.find((entry) => entry.name === "@eslint/js").version, "10.0.1")
   assert.equal(receipt.entries.find((entry) => entry.name === "typescript").version, "5.9.3")
+  receipt.entries.find((entry) => entry.name === "eslint").required = []
   const replay = await updateDependencies({ ...args, offline: true, saved: receipt,
     registry: { latest: () => assert.fail("offline registry request") } })
   assert.deepEqual(replay.entries.map(({ id, version }) => [id, version]), receipt.entries.map(({ id, version }) => [id, version]))
+  assert(replay.entries.find((entry) => entry.name === "eslint").required.some(({ range }) => range === ">=10.0.0"))
   // Removing a starter constraint must not bypass an actual config peer limit.
   packages["eslint-config-next"].releases["16.4.1"].peerDependencies.eslint = "^9"
-  const constrained = await updateDependencies({ ...args, registry: registryFixture(packages) })
-  assert.equal(constrained.entries.find((entry) => entry.name === "eslint").version, "9.39.5")
-  assert.equal(constrained.entries.find((entry) => entry.name === "@eslint/js").version, "9.39.5")
-  assert(constrained.entries.find((entry) => entry.name === "eslint").reasons.some((reason) => reason.includes("eslint-config-next")))
+  const before = await fingerprint(root)
+  await assert.rejects(updateDependencies({ ...args, registry: registryFixture(packages) }), /eslint-config-next@16\.4\.1 要求 eslint \^9/)
+  assert.equal(await fingerprint(root), before, "不兼容时不得降级或改写原项目")
+})
+
+test("ESLint's minimum overrides legacy peers, existing releases and fixed versions", async (t) => {
+  for (const extra of [{}, { current: "9.39.5" }, { fixed: "9.39.5" }]) {
+    await t.test(JSON.stringify(extra), async () => {
+      // Deliberately omit deprecated metadata and keep a loose peer: the floor
+      // must be a project invariant rather than a registry metadata accident.
+      const registry = registryFixture({ eslint: releases({ "9.39.5": {}, "9.0.0": {} }) })
+      await assert.rejects(solveUpdates({ registry, variables: [variable("eslint", extra)],
+        scopes: [{ path: ".", dependencies: { eslint: "eslint" }, peers: { eslint: ">=9" } }] }), /最低版本.*eslint.*>=10\.0\.0/)
+    })
+  }
+})
+
+test("offline ESLint 9 receipts and legacy locks are rejected before any project writes", async (t) => {
+  for (const mode of ["receipt", "missing-receipt", "legacy-receipt", "fixed-app", "missing-version"]) {
+    await t.test(mode, async (t) => {
+      const root = await fixture(t)
+      await writeFile(join(root, "package.json"), JSON.stringify({ name: "root", devDependencies: { eslint: "catalog:" } }))
+      await writeFile(join(root, "pnpm-workspace.yaml"), "catalog:\n  react: ^19\n  eslint: 9.39.5\n")
+      await writeFile(join(root, "pnpm-lock.yaml"), "catalogs:\n  default:\n    eslint:\n      version: 9.39.5\nimporters: {}\n")
+      const registry = registryFixture({ react: releases({ "19.3.0": {} }), helper: releases({ "2.0.0": {} }), eslint: releases({ "10.12.0": {} }) })
+      const receipt = await updateDependencies({ root, templates: {}, previous: {}, registry })
+      const entry = receipt.entries.find((entry) => entry.name === "eslint")
+      // Simulate a pre-policy record that does not contain the new floor.
+      entry.version = "9.39.5"; entry.required = []
+      let saved = receipt
+      if (mode !== "receipt") {
+        saved = mode === "missing-receipt" || mode === "fixed-app" ? undefined : { policy: "legacy-offline", entries: [] }
+      }
+      if (mode === "fixed-app") {
+        await writeFile(join(root, "pnpm-workspace.yaml"), "catalog:\n  react: ^19\n")
+        await writeFile(join(root, "package.json"), JSON.stringify({ name: "root" }))
+        await mkdir(join(root, "apps/web"), { recursive: true })
+        await writeFile(join(root, "apps/web/package.json"), JSON.stringify({ devDependencies: { eslint: "^9" } }))
+        await writeFile(join(root, "pnpm-lock.yaml"), "importers:\n  apps/web:\n    devDependencies:\n      eslint:\n        version: 9.39.5\n")
+      }
+      if (mode === "missing-version") await writeFile(join(root, "pnpm-lock.yaml"), "importers: {}\n")
+      const before = await fingerprint(root)
+      await assert.rejects(updateDependencies({ root, templates: {}, previous: {}, offline: true, saved,
+        registry: { latest: () => assert.fail("offline registry request") } }), /最低版本.*eslint.*>=10\.0\.0/)
+      assert.equal(await fingerprint(root), before, "失败时不得改写清单、源码、锁文件或共享 UI")
+    })
+  }
+})
+
+test("legacy offline ESLint 10 locks remain replayable without registry access", async (t) => {
+  const root = await fixture(t)
+  await writeFile(join(root, "package.json"), JSON.stringify({ name: "root", devDependencies: { eslint: "catalog:" } }))
+  await writeFile(join(root, "pnpm-workspace.yaml"), "catalog:\n  react: ^19\n  eslint: 10.12.0\n")
+  await writeFile(join(root, "pnpm-lock.yaml"), "catalogs:\n  default:\n    eslint:\n      version: 10.12.0\nimporters: {}\n")
+  const receipt = await updateDependencies({ root, templates: {}, previous: {}, offline: true,
+    registry: { latest: () => assert.fail("offline registry request") } })
+  assert.equal(receipt.policy, "legacy-offline")
+  assert.equal(parse(await readFile(join(root, "pnpm-workspace.yaml"), "utf8")).catalog.eslint, "10.12.0")
+  assert.equal(await readFile(join(root, "packages/ui/component.tsx"), "utf8"), "// custom shared shadcn component\n")
+})
+
+test("resolved ESLint 9 is rejected even without dependency receipts", async (t) => {
+  const cases = {
+    catalog: "catalogs:\n  default:\n    eslint:\n      version: 9.39.5\n",
+    importer: "importers:\n  apps/web:\n    devDependencies:\n      eslint:\n        version: 9.39.5(jiti@2.7.0)\n",
+    transitive: "packages:\n  eslint@9.39.5: {}\n",
+  }
+  for (const [name, lock] of Object.entries(cases)) {
+    await t.test(name, async (t) => {
+      const root = await fixture(t)
+      await writeFile(join(root, "pnpm-lock.yaml"), lock)
+      const before = await fingerprint(root)
+      await assert.rejects(verifyResolvedUpdates(root, { entries: [] }), /最低版本.*eslint.*>=10\.0\.0/)
+      assert.equal(await fingerprint(root), before)
+    })
+  }
 })

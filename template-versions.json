@@ -2,21 +2,21 @@
   "web": {
     "generator": "create-next-app",
     "version": "16.4.1",
-    "generatedAt": "2026-10-15T03:47:44.760Z"
+    "generatedAt": "2026-10-15T06:42:20.481Z"
   },
   "admin": {
     "generator": "create-vite",
     "version": "9.2.1",
-    "generatedAt": "2026-10-15T03:47:45.465Z"
+    "generatedAt": "2026-10-15T06:42:21.294Z"
   },
   "extension": {
     "generator": "create-vite",
     "version": "9.2.1",
-    "generatedAt": "2026-10-15T03:47:46.120Z"
+    "generatedAt": "2026-10-15T06:42:22.891Z"
   },
   "dependencies": {
     "policy": "stable-compatible-v1",
-    "resolvedAt": "2026-10-15T03:48:55.459Z",
+    "resolvedAt": "2026-10-15T06:43:18.756Z",
     "entries": [
       {
         "id": "catalog:default:react",
@@ -215,7 +215,12 @@
           "catalog": "default",
           "name": "eslint"
         },
-        "required": [],
+        "required": [
+          {
+            "from": "项目最低版本策略",
+            "range": ">=10.0.0"
+          }
+        ],
         "strictLatest": false,
         "latest": "10.12.0",
         "version": "10.12.0",
@@ -356,8 +361,8 @@
         },
         "required": [],
         "strictLatest": false,
-        "latest": "3.0.3",
-        "version": "3.0.3",
+        "latest": "3.0.4",
+        "version": "3.0.4",
         "reasons": []
       },
       {
