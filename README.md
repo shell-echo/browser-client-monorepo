@@ -76,9 +76,13 @@ ESLint 公共包统一生成目录忽略和未使用禁用指令的检查，不�
 
 ## 公共依赖版本
 
-`pnpm-workspace.yaml` 的 `catalog` 集中维护 React、React DOM、React 类型、Tailwind、Oxlint、ESLint 和 shadcn 的版本范围。使用方通过 `catalog:` 引用，升级兼容的公共依赖只需修改一处。`catalog:next` 和 `catalog:vite` 分别维护 TypeScript 与 Node 类型，保留两个框架的工具链要求；Next.js、Vite、框架插件和 CRXJS 继续在应用声明版本。
+`pnpm-workspace.yaml` 的 `catalog` 集中维护 React、React DOM、React 类型、Tailwind、Oxlint、ESLint 和 shadcn。使用方通过 `catalog:` 引用；`catalog:next` 和 `catalog:vite` 分别维护框架工具链。Next.js、Vite、框架插件和 CRXJS 在应用声明版本。联网 reinit 会更新 catalog、根工具依赖和 `packages/*` 的直接依赖，写入经过验证的精确版本；共享组件源码、导出、脚本和 peer 契约保留。
 
-普通安装遵循锁文件。`reinit` 会重新接入 catalog，并要求 catalog 允许的所有版本均满足模板的要求；仅有部分范围相交不足以保证已有锁定版本兼容。不兼容时停止重建，原目录保留，需要先调整公共版本策略。它不会把 `catalog:` 改回分散的版本号，也不会自动升级 catalog。兼容范围内仍需通过完整类型、lint 和构建检查。接入逻辑在 `scripts/lib/catalogs.mjs`。
+普通安装遵循锁文件，不追随 latest。联网 reinit 优先选择发布者 latest 通道中的稳定版，过滤 beta / rc 等预发布，不自动追随 next 通道。Next.js、Vite 和 CRXJS 必须使用最新稳定版；公共依赖若不满足 Node 引擎、模板工具链要求或 peer 契约，则选择最高兼容稳定版并记录原因。React / React DOM 版本必须一致；Node 类型对齐当前 Node 主版本；TypeScript 保留模板要求，未重建应用的 TypeScript 工具链保留当前兼容范围。
+
+已弃用版本不会被新引入。若当前已经使用的版本因兼容要求暂时必须保留，其 deprecated 状态会明确记录；例如当前 Next 模板及其 lint 插件仍要求 ESLint 9，不能直接换成 ESLint 10。决策、版本和保留原因保存在 `template-versions.json#dependencies`。求解后还会严格安装 peer dependencies、核对锁文件实际版本，并执行完整检查及联网安全审计；不兼容时停止替换，不自动降级 Next / Vite / CRXJS，也不会用旧缓存冒充联网 latest。
+
+应用专属业务依赖保留声明；`packages/ui` 内的 Base UI、图标库、样式工具及 shadcn CLI 等公共依赖会参与升级，但不会重新生成现有 shadcn 组件。Node / pnpm 工具版本、业务源码和 API 不会自动迁移。版本决策位于 `scripts/lib/updates.mjs`，catalog 接入位于 `scripts/lib/catalogs.mjs`。
 
 ### 依赖安全检查
 
@@ -134,24 +138,25 @@ popup / options 支持 React Fast Refresh，共享 `packages/ui` 的组件与样
 pnpm reinit                  # 只显示计划，不联网、不写文件
 pnpm reinit web --dry-run    # 查看指定目标
 pnpm reinit --apply          # 重建全部三个应用
-pnpm reinit admin --apply    # 仅更新 Admin 的官方框架底座
+pnpm reinit admin --apply    # 更新 Admin 模板及全仓公共依赖，仍检查全部应用
 pnpm reinit extension --apply
 pnpm reinit --apply --offline # 使用已记录且缓存的官方版本，不查询 latest
 ```
 
 执行前停止开发/构建进程并暂停编辑项目。脚本的步骤：
 
-1. 获取互斥锁，记录当前源码指纹；逐文件计算内容摘要，再汇总路径、类型及权限，避免文件内容与相邻记录边界混淆。查询官方 `create-next-app@latest` / `create-vite@latest` 的实际版本。
+1. 获取互斥锁，记录当前源码指纹；逐文件计算内容摘要，再汇总路径、类型及权限，避免文件内容与相邻记录边界混淆。解析官方 `create-next-app` / `create-vite` latest 通道的稳定版本。
 2. 在 `.reinit/staging/<id>` 创建独立 workspace，用解析出的精确版本运行官方脚手架，不创建 AGENTS.md。暂存目录建立独立 Git 边界以避免上级 ignore 规则干扰检查；不创建提交或远端，项目原 Git 元数据不变。此步骤需要 Git。
-3. 恢复业务文件与业务依赖，重新接入 workspace、共享 TypeScript / lint 配置、shadcn/ui、Tailwind 和 CRXJS；保留 `manifest.config.ts`。
-4. 安装依赖并执行 `pnpm check`，先检查实际安装的 Vite 是否满足 CRXJS 的 peerDependencies。检测原工作区是否在生成期间被编辑；有变化则拒绝替换。
-5. 将原 apps、packages、node_modules、锁文件和版本记录移动到 `.reinit/backups/<id>`，安装经过验证的新目录。
-6. 在最终目录重新连接依赖并再次检查；失败则恢复原目录。备份与失败候选均保留，便于排查。
+3. 解析最新稳定版框架、CRXJS 和公共依赖，求解模板、Node / peer 兼容约束，记录未采用 latest 的原因。更新 catalog 和依赖清单；恢复业务文件，重新接入 workspace、共享 TypeScript / lint 配置、shadcn/ui、Tailwind 和 CRXJS，保留 `manifest.config.ts`。
+4. 严格安装 peer dependencies，核对实际版本并执行 `pnpm check`，包括实际 Vite / CRXJS 兼容性。联网模式追加 `pnpm audit:security`。检测原工作区是否在生成期间被编辑；有变化则拒绝替换。
+5. 将原 apps、packages、根 `package.json`、`pnpm-workspace.yaml`、node_modules、锁文件和版本记录一起移动到 `.reinit/backups/<id>`，安装经过验证的新目录。
+6. 在最终目录按冻结锁文件严格安装并再次检查；联网模式继续联网完成 pnpm 供应链元数据校验，离线模式只使用缓存。失败则恢复原目录，备份与失败候选均保留，便于排查。
 
 | 内容 | 重建行为 |
 | --- | --- |
 | `src/`、`public/`、`.env*`、`manifest.config.ts`、HTML 入口、测试及其他业务文件 | 从当前磁盘保留，整个目录覆盖模板的示例目录 |
-| `packages/`、根目录配置、文档、Git 元数据 | 保留；UI 不会被重新初始化 |
+| `packages/` 的组件 / 配置源码、导出、脚本和 peer 契约；根文档、Git 元数据 | 保留；UI 不会被重新初始化 |
+| 根 / `packages/*/package.json` 直接依赖及 `pnpm-workspace.yaml` catalog | 联网时升级到最高兼容稳定版本，保留其他字段和现有 workspace 设置 |
 | app `package.json` | 保留业务依赖、非标准 scripts、自定义字段与项目版本；官方模板同名依赖和标准 scripts 优先 |
 | app `tsconfig*.json`、`next/vite/eslint/postcss.config.*`、`.oxlintrc.json`、`next-env.d.ts`、`components.json` | 用新模板和接入逻辑重建 |
 | app `README.md`、`.gitignore` | 使用新模板版本；项目说明请维护在根 README 或 docs |
@@ -160,19 +165,21 @@ pnpm reinit --apply --offline # 使用已记录且缓存的官方版本，不查
 
 自定义框架配置应固化到 `scripts/lib/integrate.mjs`，否则它只留在备份中，不会自动迁入新配置。`reinit` 是框架底座更新，不是清空业务源码，也不会自动迁移业务 API。上游模板结构或 API 出现不兼容变化时，脚本会停在暂存目录，由你调整接入逻辑或业务代码后重试。首次版本和以后每次生成的版本均记录在 `template-versions.json`；普通安装遵循锁文件，不追随 latest。
 
-扩展依然从官方 `create-vite@latest --template react-ts` 重建，然后接入 CRXJS。CRXJS 使用项目中明确固定的版本（当前 3.0.0），不会随 reinit 自动追逐 latest；如果未来 Vite 超出其兼容范围，先升级并验证插件，再重试 reinit。
+扩展从官方 `create-vite` 最新稳定模板 `--template react-ts` 重建，同时解析 Vite 和 CRXJS 的最新稳定版，再接入共享 UI。每次成功后将精确版本写入应用清单和版本记录；下次联网 reinit 会重新查询。若最新 Vite 与最新 CRXJS 的 peer 范围冲突，会停止并保留原项目，等待上游兼容或调整接入方案。
 
-网络不可用时可显式使用 `--offline`，按 `template-versions.json` 中每个应用已记录的官方版本重建。对应脚手架和全部依赖必须已缓存，缺少记录或缓存会停止。离线模式执行相同的接入、检查、备份和恢复流程，不代表重新查询到了最新版本。默认模式的网络错误仍会报告，不自动退回旧版本。
+网络不可用时可显式使用 `--offline`，重放 `template-versions.json` 中已记录的模板及依赖决策，不请求 registry 或执行联网审计。建议先完成一次全部应用的联网 reinit；对应脚手架和全部依赖必须已缓存，缺少记录或缓存会停止。升级前的旧版记录仍按原依赖策略离线重建，并标记为 `legacy-offline`，不会冒充最新版本。离线模式执行相同的严格安装、检查、备份和恢复流程。默认模式的网络错误会报告，不自动退回旧版本。
 
 ### 失败与备份
 
 生成或暂存检查失败时原目录未替换；最终目录检查失败时自动恢复。Ctrl-C / SIGTERM 会取消当前命令并停止它的进程树，先等待退出，必要时强制终止，再恢复目录。若无法确认进程已经退出，则保留锁与现场，禁止自动恢复以免与后台写入冲突。命令执行逻辑在 `scripts/lib/commands.mjs`，也用于浏览器验收。
 
-每个 reinit 子命令默认总超时 10 分钟，可用 `REINIT_COMMAND_TIMEOUT_MS` 设置正整数毫秒。registry 请求默认 30 秒、不重试，可通过 pnpm 11 的 `pnpm_config_fetch_timeout` / `pnpm_config_fetch_retries` 覆盖。`.reinit` 不纳入 Git，其中可能包含环境文件，应按本地私有备份管理。它不是跨磁盘备份或断电原子事务。
+每个 reinit 子命令默认总超时 10 分钟，可用 `REINIT_COMMAND_TIMEOUT_MS` 设置正整数毫秒。版本查询默认 30 秒，安装下载默认 120 秒；两者均最多重试两次，重试间隔为 1–5 秒。安装默认最多 4 个网络请求并发。可通过 pnpm 11 的 `pnpm_config_fetch_timeout` / `pnpm_config_fetch_retries` 等覆盖。`.reinit` 不纳入 Git，其中可能包含环境文件，应按本地私有备份管理。它不是跨磁盘备份或断电原子事务。
+
+pnpm 可能为本次明确选中的新发布版本追加精确的 `minimumReleaseAgeExclude`，包括对应的平台包。这些例外随 workspace 配置一并备份和回滚；不会全局关闭发布年龄限制。脚手架 `dlx` 临时增加的例外不会迁入项目。
 
 若强制结束进程或断电，先查看 `.reinit/lock/owner.json` 和对应备份的 `journal.json`，核对原目录、备份与候选的位置后恢复，**不要直接删除锁或备份**。正常失败会释放锁；备份不会自动回收。
 
-需要手动恢复时，停止相关进程，先将当前 `apps/`、`packages/`、`node_modules/`、`pnpm-lock.yaml`、`template-versions.json` 移到新的保留目录，再把同一份成功备份中的对应项目移回根目录，最后运行 `pnpm install --frozen-lockfile` 和 `pnpm check`。不要混用不同时间点的锁文件与源码。
+需要手动恢复时，停止相关进程，先将当前 `apps/`、`packages/`、`package.json`、`pnpm-workspace.yaml`、`node_modules/`、`pnpm-lock.yaml`、`template-versions.json` 移到新的保留目录，再按备份 `journal.json#paths` 把同一份成功备份中的对应项目移回根目录，最后运行 `pnpm install --frozen-lockfile` 和 `pnpm check`。旧备份可能不包含根清单和 workspace 配置，按其 journal 恢复，不混用不同时间点的锁文件与源码。
 
 ### 清理旧的成功现场
 

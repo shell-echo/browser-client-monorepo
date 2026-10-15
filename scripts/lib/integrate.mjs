@@ -50,13 +50,13 @@ async function patchJsonc(path, edit) {
   await writeJson(path, value)
 }
 
-export async function integrate(root, target, previous = {}) {
+export async function integrate(root, target, previous = {}, prepared) {
   const app = join(root, "apps", target)
   // create-next-app may emit a standalone pnpm workspace. Keep one root only,
   // otherwise adding a dependency from apps/web cannot resolve workspace:*.
   await rm(join(app, "pnpm-workspace.yaml"), { force: true })
   const template = await readJson(join(app, "package.json"))
-  await writeJson(join(app, "package.json"), applyCatalogs(mergeManifest(template, previous, target), await readCatalogs(root), target))
+  await writeJson(join(app, "package.json"), applyCatalogs(prepared ?? mergeManifest(template, previous, target), await readCatalogs(root), target))
   const ui = await readJson(join(root, "packages/ui/components.json"))
   await writeJson(join(app, "components.json"), {
     ...ui,

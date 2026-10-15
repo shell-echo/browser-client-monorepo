@@ -13,7 +13,9 @@ export function assetPath(dist, path, from = dist) {
 }
 
 export async function checkExtension(dist, source) {
-  await init
+  // v3 uses an init function and descriptive record fields. Keep the previous
+  // API supported while an older installation is generating its replacement.
+  await (typeof init === "function" ? init() : init)
   const manifest = JSON.parse(await readFile(resolve(dist, "manifest.json"), "utf8"))
   assert.equal(manifest.manifest_version, 3)
   assert.equal(manifest.background.type, "module")
@@ -52,7 +54,8 @@ export async function checkExtension(dist, source) {
           for (const dependency of imports) {
             // import.meta and imports whose paths are computed at runtime have
             // no literal specifier. Browser validation covers the latter.
-            if (dependency.n !== undefined) await localAsset(dependency.n, dirname(file))
+            const specifier = dependency.specifier ?? dependency.n
+            if (typeof specifier === "string" && !dependency.glob) await localAsset(specifier, dirname(file))
           }
         }
       }

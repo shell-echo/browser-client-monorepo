@@ -1,17 +1,743 @@
 {
   "web": {
     "generator": "create-next-app",
-    "version": "16.4.0",
-    "generatedAt": "2026-10-14T08:05:50.484Z"
+    "version": "16.4.1",
+    "generatedAt": "2026-10-15T03:12:11.705Z"
   },
   "admin": {
     "generator": "create-vite",
     "version": "9.2.1",
-    "generatedAt": "2026-10-14T08:06:15.102Z"
+    "generatedAt": "2026-10-15T03:12:12.092Z"
   },
   "extension": {
     "generator": "create-vite",
     "version": "9.2.1",
-    "generatedAt": "2026-10-14T08:06:48.872Z"
+    "generatedAt": "2026-10-15T03:12:12.543Z"
+  },
+  "dependencies": {
+    "policy": "stable-compatible-v1",
+    "resolvedAt": "2026-10-15T03:12:50.603Z",
+    "entries": [
+      {
+        "id": "catalog:default:react",
+        "name": "react",
+        "previous": "19.3.0",
+        "current": "19.3.0",
+        "location": {
+          "catalog": "default",
+          "name": "react"
+        },
+        "required": [
+          {
+            "from": "apps/admin 官方模板",
+            "range": "^19.2.8"
+          },
+          {
+            "from": "apps/extension 官方模板",
+            "range": "^19.2.8"
+          },
+          {
+            "from": "apps/web 官方模板",
+            "range": "^19.3.0"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "19.3.1",
+        "version": "19.3.1",
+        "reasons": []
+      },
+      {
+        "id": "catalog:default:react-dom",
+        "name": "react-dom",
+        "previous": "19.3.0",
+        "current": "19.3.0",
+        "location": {
+          "catalog": "default",
+          "name": "react-dom"
+        },
+        "required": [
+          {
+            "from": "apps/admin 官方模板",
+            "range": "^19.2.8"
+          },
+          {
+            "from": "apps/extension 官方模板",
+            "range": "^19.2.8"
+          },
+          {
+            "from": "apps/web 官方模板",
+            "range": "^19.3.0"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "19.3.1",
+        "version": "19.3.1",
+        "reasons": []
+      },
+      {
+        "id": "catalog:default:@types/react",
+        "name": "@types/react",
+        "previous": "^19.2.18",
+        "current": "19.3.0",
+        "location": {
+          "catalog": "default",
+          "name": "@types/react"
+        },
+        "required": [
+          {
+            "from": "apps/admin 官方模板",
+            "range": "^19.2.18"
+          },
+          {
+            "from": "apps/extension 官方模板",
+            "range": "^19.2.18"
+          },
+          {
+            "from": "apps/web 官方模板",
+            "range": "^19"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "19.3.0",
+        "version": "19.3.0",
+        "reasons": []
+      },
+      {
+        "id": "catalog:default:@types/react-dom",
+        "name": "@types/react-dom",
+        "previous": "^19.2.7",
+        "current": "19.3.0",
+        "location": {
+          "catalog": "default",
+          "name": "@types/react-dom"
+        },
+        "required": [
+          {
+            "from": "apps/admin 官方模板",
+            "range": "^19.2.7"
+          },
+          {
+            "from": "apps/extension 官方模板",
+            "range": "^19.2.7"
+          },
+          {
+            "from": "apps/web 官方模板",
+            "range": "^19"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "19.3.0",
+        "version": "19.3.0",
+        "reasons": []
+      },
+      {
+        "id": "catalog:default:tailwindcss",
+        "name": "tailwindcss",
+        "previous": "^4.1.0",
+        "current": "4.3.3",
+        "location": {
+          "catalog": "default",
+          "name": "tailwindcss"
+        },
+        "required": [
+          {
+            "from": "apps/admin Tailwind 接入",
+            "range": "^4.1.0"
+          },
+          {
+            "from": "apps/extension Tailwind 接入",
+            "range": "^4.1.0"
+          },
+          {
+            "from": "apps/web 官方模板",
+            "range": "^4"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "4.3.3",
+        "version": "4.3.3",
+        "reasons": []
+      },
+      {
+        "id": "catalog:default:@tailwindcss/vite",
+        "name": "@tailwindcss/vite",
+        "previous": "^4.1.0",
+        "current": "4.3.3",
+        "location": {
+          "catalog": "default",
+          "name": "@tailwindcss/vite"
+        },
+        "required": [
+          {
+            "from": "apps/admin Tailwind 接入",
+            "range": "^4.1.0"
+          },
+          {
+            "from": "apps/extension Tailwind 接入",
+            "range": "^4.1.0"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "4.3.3",
+        "version": "4.3.3",
+        "reasons": []
+      },
+      {
+        "id": "catalog:default:oxlint",
+        "name": "oxlint",
+        "previous": "^1.81.0",
+        "current": "1.87.0",
+        "location": {
+          "catalog": "default",
+          "name": "oxlint"
+        },
+        "required": [
+          {
+            "from": "apps/admin 官方模板",
+            "range": "^1.81.0"
+          },
+          {
+            "from": "apps/extension 官方模板",
+            "range": "^1.81.0"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "1.88.0",
+        "version": "1.88.0",
+        "reasons": []
+      },
+      {
+        "id": "catalog:default:eslint",
+        "name": "eslint",
+        "previous": "^9",
+        "current": "9.39.5",
+        "location": {
+          "catalog": "default",
+          "name": "eslint"
+        },
+        "required": [
+          {
+            "from": "apps/web 官方模板",
+            "range": "^9"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "10.12.0",
+        "version": "9.39.5",
+        "reasons": [
+          "apps/web 官方模板 要求 eslint ^9",
+          "packages/eslint-config: @browser-client/eslint-config 要求 eslint ^9，候选为 10.12.0",
+          "现有兼容版本被上游标记 deprecated：This version is no longer supported. Please see https://eslint.org/version-support for other options."
+        ]
+      },
+      {
+        "id": "catalog:default:@eslint/js",
+        "name": "@eslint/js",
+        "previous": "^9",
+        "current": "9.39.5",
+        "location": {
+          "catalog": "default",
+          "name": "@eslint/js"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "10.0.1",
+        "version": "9.39.5",
+        "reasons": [
+          "packages/eslint-config: @eslint/js@10.0.1 要求 eslint ^10.0.0，候选为 9.39.5"
+        ]
+      },
+      {
+        "id": "catalog:default:shadcn",
+        "name": "shadcn",
+        "previous": "4.21.4",
+        "current": "4.21.4",
+        "location": {
+          "catalog": "default",
+          "name": "shadcn"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "4.21.5",
+        "version": "4.21.5",
+        "reasons": []
+      },
+      {
+        "id": "catalog:next:typescript",
+        "name": "typescript",
+        "previous": "^5",
+        "current": "5.9.3",
+        "location": {
+          "catalog": "next",
+          "name": "typescript"
+        },
+        "required": [
+          {
+            "from": "apps/web 官方模板",
+            "range": "^5"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "7.0.2",
+        "version": "5.9.3",
+        "reasons": [
+          "apps/web 官方模板 要求 typescript ^5"
+        ]
+      },
+      {
+        "id": "catalog:next:@types/node",
+        "name": "@types/node",
+        "previous": "^20",
+        "current": "20.19.43",
+        "location": {
+          "catalog": "next",
+          "name": "@types/node"
+        },
+        "required": [
+          {
+            "from": "Node.js 运行时",
+            "range": "^24.0.0"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "26.6.5",
+        "version": "24.19.2",
+        "reasons": [
+          "Node.js 运行时 要求 @types/node ^24.0.0"
+        ]
+      },
+      {
+        "id": "catalog:vite:typescript",
+        "name": "typescript",
+        "previous": "~6.0.2",
+        "current": "6.0.3",
+        "location": {
+          "catalog": "vite",
+          "name": "typescript"
+        },
+        "required": [
+          {
+            "from": "apps/admin 官方模板",
+            "range": "~6.0.2"
+          },
+          {
+            "from": "apps/extension 官方模板",
+            "range": "~6.0.2"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "7.0.2",
+        "version": "6.0.3",
+        "reasons": [
+          "apps/admin 官方模板 要求 typescript ~6.0.2",
+          "apps/extension 官方模板 要求 typescript ~6.0.2"
+        ]
+      },
+      {
+        "id": "catalog:vite:@types/node",
+        "name": "@types/node",
+        "previous": "^24.13.3",
+        "current": "24.19.1",
+        "location": {
+          "catalog": "vite",
+          "name": "@types/node"
+        },
+        "required": [
+          {
+            "from": "Node.js 运行时",
+            "range": "^24.0.0"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "26.6.5",
+        "version": "24.19.2",
+        "reasons": [
+          "Node.js 运行时 要求 @types/node ^24.0.0"
+        ]
+      },
+      {
+        "id": ".:devDependencies:es-module-lexer",
+        "name": "es-module-lexer",
+        "previous": "^1.7.0",
+        "current": "1.7.0",
+        "location": {
+          "path": ".",
+          "field": "devDependencies",
+          "name": "es-module-lexer"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "3.0.3",
+        "version": "3.0.3",
+        "reasons": []
+      },
+      {
+        "id": ".:devDependencies:jsonc-parser",
+        "name": "jsonc-parser",
+        "previous": "^3.3.1",
+        "current": "3.3.1",
+        "location": {
+          "path": ".",
+          "field": "devDependencies",
+          "name": "jsonc-parser"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "3.3.1",
+        "version": "3.3.1",
+        "reasons": []
+      },
+      {
+        "id": ".:devDependencies:playwright",
+        "name": "playwright",
+        "previous": "1.62.1",
+        "current": "1.62.1",
+        "location": {
+          "path": ".",
+          "field": "devDependencies",
+          "name": "playwright"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "1.64.1",
+        "version": "1.64.1",
+        "reasons": []
+      },
+      {
+        "id": ".:devDependencies:semver",
+        "name": "semver",
+        "previous": "7.7.3",
+        "current": "7.7.3",
+        "location": {
+          "path": ".",
+          "field": "devDependencies",
+          "name": "semver"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "7.8.5",
+        "version": "7.8.5",
+        "reasons": []
+      },
+      {
+        "id": ".:devDependencies:turbo",
+        "name": "turbo",
+        "previous": "2.11.7",
+        "current": "2.11.7",
+        "location": {
+          "path": ".",
+          "field": "devDependencies",
+          "name": "turbo"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "2.11.8",
+        "version": "2.11.8",
+        "reasons": []
+      },
+      {
+        "id": ".:devDependencies:yaml",
+        "name": "yaml",
+        "previous": "^2.8.1",
+        "current": "2.9.1",
+        "location": {
+          "path": ".",
+          "field": "devDependencies",
+          "name": "yaml"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "2.9.1",
+        "version": "2.9.1",
+        "reasons": []
+      },
+      {
+        "id": "apps/admin:devDependencies:@vitejs/plugin-react",
+        "name": "@vitejs/plugin-react",
+        "previous": "^6.1.1",
+        "current": "6.1.2",
+        "location": {
+          "path": "apps/admin",
+          "field": "devDependencies",
+          "name": "@vitejs/plugin-react"
+        },
+        "required": [
+          {
+            "from": "apps/admin 官方模板",
+            "range": "^6.1.1"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "6.1.2",
+        "version": "6.1.2",
+        "reasons": []
+      },
+      {
+        "id": "apps/admin:devDependencies:vite",
+        "name": "vite",
+        "previous": "^8.3.0",
+        "current": "8.3.4",
+        "location": {
+          "path": "apps/admin",
+          "field": "devDependencies",
+          "name": "vite"
+        },
+        "required": [],
+        "strictLatest": true,
+        "latest": "8.3.4",
+        "version": "8.3.4",
+        "reasons": []
+      },
+      {
+        "id": "apps/extension:devDependencies:@crxjs/vite-plugin",
+        "name": "@crxjs/vite-plugin",
+        "previous": "3.0.0",
+        "current": "3.0.0",
+        "location": {
+          "path": "apps/extension",
+          "field": "devDependencies",
+          "name": "@crxjs/vite-plugin"
+        },
+        "required": [],
+        "strictLatest": true,
+        "latest": "3.0.0",
+        "version": "3.0.0",
+        "reasons": []
+      },
+      {
+        "id": "apps/extension:devDependencies:@types/chrome",
+        "name": "@types/chrome",
+        "previous": "^0.3.5",
+        "current": "0.3.5",
+        "location": {
+          "path": "apps/extension",
+          "field": "devDependencies",
+          "name": "@types/chrome"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "0.3.5",
+        "version": "0.3.5",
+        "reasons": []
+      },
+      {
+        "id": "apps/extension:devDependencies:@vitejs/plugin-react",
+        "name": "@vitejs/plugin-react",
+        "previous": "^6.1.1",
+        "current": "6.1.2",
+        "location": {
+          "path": "apps/extension",
+          "field": "devDependencies",
+          "name": "@vitejs/plugin-react"
+        },
+        "required": [
+          {
+            "from": "apps/extension 官方模板",
+            "range": "^6.1.1"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "6.1.2",
+        "version": "6.1.2",
+        "reasons": []
+      },
+      {
+        "id": "apps/extension:devDependencies:vite",
+        "name": "vite",
+        "previous": "^8.3.0",
+        "current": "8.3.4",
+        "location": {
+          "path": "apps/extension",
+          "field": "devDependencies",
+          "name": "vite"
+        },
+        "required": [],
+        "strictLatest": true,
+        "latest": "8.3.4",
+        "version": "8.3.4",
+        "reasons": []
+      },
+      {
+        "id": "apps/web:dependencies:next",
+        "name": "next",
+        "previous": "16.4.1",
+        "current": "16.4.0",
+        "location": {
+          "path": "apps/web",
+          "field": "dependencies",
+          "name": "next"
+        },
+        "required": [],
+        "strictLatest": true,
+        "latest": "16.4.1",
+        "version": "16.4.1",
+        "reasons": []
+      },
+      {
+        "id": "apps/web:devDependencies:@tailwindcss/turbopack",
+        "name": "@tailwindcss/turbopack",
+        "previous": "^4",
+        "current": "4.3.3",
+        "location": {
+          "path": "apps/web",
+          "field": "devDependencies",
+          "name": "@tailwindcss/turbopack"
+        },
+        "required": [
+          {
+            "from": "apps/web 官方模板",
+            "range": "^4"
+          }
+        ],
+        "strictLatest": false,
+        "latest": "4.3.3",
+        "version": "4.3.3",
+        "reasons": []
+      },
+      {
+        "id": "apps/web:devDependencies:eslint-config-next",
+        "name": "eslint-config-next",
+        "previous": "16.4.1",
+        "current": "16.4.0",
+        "location": {
+          "path": "apps/web",
+          "field": "devDependencies",
+          "name": "eslint-config-next"
+        },
+        "required": [],
+        "strictLatest": true,
+        "latest": "16.4.1",
+        "version": "16.4.1",
+        "reasons": []
+      },
+      {
+        "id": "packages/eslint-config:dependencies:globals",
+        "name": "globals",
+        "previous": "^16.4.0",
+        "current": "16.4.0",
+        "location": {
+          "path": "packages/eslint-config",
+          "field": "dependencies",
+          "name": "globals"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "17.13.0",
+        "version": "17.13.0",
+        "reasons": []
+      },
+      {
+        "id": "packages/ui:dependencies:@base-ui/react",
+        "name": "@base-ui/react",
+        "previous": "^1.8.0",
+        "current": "1.8.0",
+        "location": {
+          "path": "packages/ui",
+          "field": "dependencies",
+          "name": "@base-ui/react"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "1.9.0",
+        "version": "1.9.0",
+        "reasons": []
+      },
+      {
+        "id": "packages/ui:dependencies:class-variance-authority",
+        "name": "class-variance-authority",
+        "previous": "^0.7.1",
+        "current": "0.7.1",
+        "location": {
+          "path": "packages/ui",
+          "field": "dependencies",
+          "name": "class-variance-authority"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "0.7.1",
+        "version": "0.7.1",
+        "reasons": []
+      },
+      {
+        "id": "packages/ui:dependencies:clsx",
+        "name": "clsx",
+        "previous": "^2.1.1",
+        "current": "2.1.1",
+        "location": {
+          "path": "packages/ui",
+          "field": "dependencies",
+          "name": "clsx"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "2.1.1",
+        "version": "2.1.1",
+        "reasons": []
+      },
+      {
+        "id": "packages/ui:dependencies:cn",
+        "name": "cn",
+        "previous": "^0.4.0",
+        "current": "0.4.0",
+        "location": {
+          "path": "packages/ui",
+          "field": "dependencies",
+          "name": "cn"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "0.4.0",
+        "version": "0.4.0",
+        "reasons": []
+      },
+      {
+        "id": "packages/ui:dependencies:lucide-react",
+        "name": "lucide-react",
+        "previous": "^0.577.0",
+        "current": "0.577.0",
+        "location": {
+          "path": "packages/ui",
+          "field": "dependencies",
+          "name": "lucide-react"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "1.57.0",
+        "version": "1.57.0",
+        "reasons": []
+      },
+      {
+        "id": "packages/ui:dependencies:tailwind-merge",
+        "name": "tailwind-merge",
+        "previous": "^3.3.1",
+        "current": "3.7.0",
+        "location": {
+          "path": "packages/ui",
+          "field": "dependencies",
+          "name": "tailwind-merge"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "3.7.0",
+        "version": "3.7.0",
+        "reasons": []
+      },
+      {
+        "id": "packages/ui:dependencies:tw-animate-css",
+        "name": "tw-animate-css",
+        "previous": "^1.4.0",
+        "current": "1.4.0",
+        "location": {
+          "path": "packages/ui",
+          "field": "dependencies",
+          "name": "tw-animate-css"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "1.4.0",
+        "version": "1.4.0",
+        "reasons": []
+      }
+    ]
   }
 }
