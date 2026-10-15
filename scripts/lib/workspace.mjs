@@ -31,16 +31,21 @@ export async function preserveApp(from, to) {
 
 export async function fingerprint(root) {
   const hash = createHash("sha256")
+  hash.update("browser-client-source-tree-v2\n")
   async function visit(path, relative = "") {
     const stat = await lstat(path)
     if (stat.isSymbolicLink()) throw new Error(`拒绝迁移符号链接：${path}`)
-    hash.update(JSON.stringify([relative, stat.mode]))
+    // Hash file bytes separately, so content cannot impersonate the next
+    // path/mode record. JSON lines also preserve filename and type boundaries.
+    const type = stat.isDirectory() ? "directory" : stat.isFile() ? "file" : undefined
+    if (!type) throw new Error(`不支持的文件类型：${path}`)
+    const content = type === "file" ? createHash("sha256").update(await readFile(path)).digest("hex") : null
+    hash.update(JSON.stringify([relative, type, stat.mode, content]) + "\n")
     if (stat.isDirectory()) {
       for (const name of (await readdir(path)).sort()) {
         if (!ignored(name)) await visit(join(path, name), `${relative}/${name}`)
       }
-    } else if (stat.isFile()) hash.update(await readFile(path))
-    else throw new Error(`不支持的文件类型：${path}`)
+    }
   }
   await visit(root)
   return hash.digest("hex")

@@ -34,3 +34,6 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - '@types/chrome@0.3.5'
+
+patchedDependencies:
+  braces@3.0.3: patches/braces@3.0.3.patch

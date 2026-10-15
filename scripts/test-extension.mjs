@@ -1,13 +1,11 @@
 import assert from "node:assert/strict"
-import { createWriteStream } from "node:fs"
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { setTimeout as delay } from "node:timers/promises"
 import { fileURLToPath } from "node:url"
 import { chromium } from "playwright"
 import { copySource, exists, fingerprint, ignored } from "./lib/workspace.mjs"
-import { createCommandRunner, handleCancellation, positiveTimeout } from "./lib/commands.mjs"
-import { finishVerification } from "./lib/verification.mjs"
+import { handleCancellation, positiveTimeout } from "./lib/commands.mjs"
+import { createVerificationRunner, finishVerification } from "./lib/verification.mjs"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 const runDir = join(root, ".reinit/verification", `crxjs-${Date.now()}`)
@@ -16,7 +14,8 @@ const app = join(workspace, "apps/extension")
 const port = positiveTimeout(process.env.EXTENSION_TEST_PORT, 3102, "EXTENSION_TEST_PORT")
 assert(port < 65536, "EXTENSION_TEST_PORT 必须小于 65536")
 const report = { checks: [], errors: [], runDir }
-const runner = createCommandRunner({ cwd: workspace, timeoutMs: positiveTimeout(process.env.EXTENSION_TEST_COMMAND_TIMEOUT_MS, 180_000, "EXTENSION_TEST_COMMAND_TIMEOUT_MS") })
+const runner = createVerificationRunner({ cwd: workspace, logDir: runDir, timeoutMs: positiveTimeout(process.env.EXTENSION_TEST_COMMAND_TIMEOUT_MS, 180_000, "EXTENSION_TEST_COMMAND_TIMEOUT_MS") })
+const { start, run, until } = runner
 let server, context
 const removeSignalHandlers = handleCancellation(runner, () => {
   console.error("已请求取消；正在关闭浏览器及测试启动的进程。")
@@ -24,35 +23,6 @@ const removeSignalHandlers = handleCancellation(runner, () => {
 })
 const originalFingerprint = await fingerprint(root)
 await mkdir(workspace, { recursive: true })
-
-function start(command, args, logName, env = {}, timeoutMs) {
-  const log = createWriteStream(join(runDir, logName))
-  log.on("error", (error) => runner.cancel(error))
-  const handle = runner.start(command, args, { env, timeoutMs, stdio: ["ignore", "pipe", "pipe"] })
-  const { child } = handle
-  child.stdout.pipe(log, { end: false })
-  child.stderr.pipe(log, { end: false })
-  child.on("close", () => log.end())
-  return handle
-}
-
-async function run(command, args, logName) {
-  const result = await start(command, args, logName).done
-  if (result.reason) throw result.reason
-  if (result.error) throw result.error
-  assert.equal(result.code, 0, `${command} ${args.join(" ")} 失败；查看 ${join(runDir, logName)}`)
-}
-
-async function until(check, label, timeout = 30_000) {
-  const deadline = Date.now() + timeout
-  let lastError
-  while (Date.now() < deadline) {
-    runner.check()
-    try { if (await check()) return } catch (error) { lastError = error }
-    await delay(150)
-  }
-  throw new Error(`等待超时：${label}`, { cause: lastError })
-}
 
 function passed(message) {
   report.checks.push(message)

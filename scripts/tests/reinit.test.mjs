@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { mkdtemp, mkdir, readFile, writeFile, rm, symlink } from "node:fs/promises"
+import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, lstat } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -178,6 +178,23 @@ test("source symlinks are rejected instead of copying outside the workspace", as
   await symlink(join(root, "outside.txt"), join(root, "src/link"))
   await assert.rejects(copySource(join(root, "src"), join(root, "copy")), /符号链接/)
   await assert.rejects(fingerprint(join(root, "src")), /符号链接/)
+})
+
+test("fingerprint distinguishes file bytes from a following file record", async (t) => {
+  const root = await fixture(t)
+  await put(root, "a.ts", "")
+  const mode = (await lstat(join(root, "a.ts"))).mode
+  const prefix = "// original source "
+  const added = "export const added = 42;\n"
+  // These trees produced identical input bytes for the old streaming hash.
+  await put(root, "a.ts", prefix + JSON.stringify(["/b.ts", mode]) + added)
+  const before = await fingerprint(root)
+  await put(root, "a.ts", prefix)
+  await put(root, "b.ts", added)
+  assert.notEqual(await fingerprint(root), before, "an added file must invalidate the reinit snapshot")
+  await rm(join(root, "b.ts"))
+  await put(root, "a.ts", prefix + JSON.stringify(["/b.ts", mode]) + added)
+  assert.equal(await fingerprint(root), before)
 })
 
 test("successful promotion keeps an exact backup including untracked files", async (t) => {

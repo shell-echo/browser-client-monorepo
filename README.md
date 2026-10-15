@@ -80,6 +80,19 @@ ESLint 公共包统一生成目录忽略和未使用禁用指令的检查，不�
 
 普通安装遵循锁文件。`reinit` 会重新接入 catalog，并要求 catalog 允许的所有版本均满足模板的要求；仅有部分范围相交不足以保证已有锁定版本兼容。不兼容时停止重建，原目录保留，需要先调整公共版本策略。它不会把 `catalog:` 改回分散的版本号，也不会自动升级 catalog。兼容范围内仍需通过完整类型、lint 和构建检查。接入逻辑在 `scripts/lib/catalogs.mjs`。
 
+### 依赖安全检查
+
+```sh
+pnpm audit:security
+pnpm audit --prod
+```
+
+shadcn CLI 放在根和 UI 包的开发依赖中；UI 的 `shadcn/tailwind.css` 仍在构建阶段正常解析。其间接依赖 `braces@3.0.3` 的 [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) 尚无官方修复版本，本项目使用 `patches/braces@3.0.3.patch` 限制解析和递归 AST 遍历深度，覆盖字符串及直接传入 AST 的入口。补丁由 `pnpm-workspace.yaml#patchedDependencies` 注册并在唯一锁文件中固定，重建时保留。
+
+原始 `pnpm audit` 按版本判断，仍可能报告这条告警。`audit:security` 先核对补丁哈希、锁文件覆盖范围和实际安装依赖的行为，再读取完整审计响应；仅将该 GHSA 的已验证 `3.0.3` 记录为“本地补丁缓解”，不会设置全局忽略列表。其他包、版本、告警及 registry 错误均导致失败。相关回归测试也纳入 `pnpm check`。补丁只处理递归深度问题，不保证任意 glob / 正则表达式的资源消耗安全。
+
+上游发布修复后，升级依赖并同步移除本地补丁及对应验证策略；不能仅删除告警记录或修改版本号来宣称修复。
+
 ## shadcn/ui
 
 采用 `base-nova` 风格及 Base UI，已安装 Button、Card、Badge、Input、Label、Separator。三个应用的 `components.json` 均指向共享 UI 包。
@@ -128,7 +141,7 @@ pnpm reinit --apply --offline # 使用已记录且缓存的官方版本，不查
 
 执行前停止开发/构建进程并暂停编辑项目。脚本的步骤：
 
-1. 获取互斥锁，记录当前源码指纹；查询官方 `create-next-app@latest` / `create-vite@latest` 的实际版本。
+1. 获取互斥锁，记录当前源码指纹；逐文件计算内容摘要，再汇总路径、类型及权限，避免文件内容与相邻记录边界混淆。查询官方 `create-next-app@latest` / `create-vite@latest` 的实际版本。
 2. 在 `.reinit/staging/<id>` 创建独立 workspace，用解析出的精确版本运行官方脚手架，不创建 AGENTS.md。暂存目录建立独立 Git 边界以避免上级 ignore 规则干扰检查；不创建提交或远端，项目原 Git 元数据不变。此步骤需要 Git。
 3. 恢复业务文件与业务依赖，重新接入 workspace、共享 TypeScript / lint 配置、shadcn/ui、Tailwind 和 CRXJS；保留 `manifest.config.ts`。
 4. 安装依赖并执行 `pnpm check`，先检查实际安装的 Vite 是否满足 CRXJS 的 peerDependencies。检测原工作区是否在生成期间被编辑；有变化则拒绝替换。
@@ -182,7 +195,13 @@ pnpm build
 # 首次运行浏览器验收需下载匹配的 Chromium
 pnpm exec playwright install chromium
 pnpm test:extension
+pnpm test:web-admin
+pnpm audit:security
 ```
+
+`test:web-admin` 在 `.reinit/verification/web-admin-*/` 创建独立源码副本和 Git 边界，按锁文件离线安装并重新构建 Web / Admin，使用 Next.js 生产服务和 Vite preview 验证页面及共享组件样式。覆盖 Web 工作区导航、Admin 空白名称禁用 / 保存 / 页面状态重置、桌面和移动布局，以及浏览器异常、控制台和失败资源检查。报告、服务日志和截图保留在该目录；测试结束会关闭自己启动的浏览器和进程，检查原工作区源码未改变。
+
+默认端口为 3150 / 3151；可通过 `WEB_TEST_PORT` / `ADMIN_TEST_PORT` 修改，两者必须不同。测试会检查端口是否空闲；`WEB_ADMIN_TEST_COMMAND_TIMEOUT_MS` 设置子命令超时，默认 5 分钟。运行时暂停编辑项目，避免源码指纹检查失败。
 
 `test:extension` 在 `.reinit/verification/` 创建源码副本和隔离 Chromium profile，使用端口 3102 验证真实扩展加载、后台初始化、popup → options、本地设置保存，以及页面 / 共享组件 / 共享样式的热更新与 React 状态保留。随后停止开发服务，重新构建并加载生产扩展，检查运行错误与外部 HTTP 请求。测试只修改副本，日志和 `report.json` 保留在该目录。先完成根目录依赖安装；副本按锁文件离线安装。运行期间暂停编辑，以便最终源码指纹校验。可设置 `EXTENSION_TEST_PORT` 改测试端口，`EXTENSION_TEST_COMMAND_TIMEOUT_MS` 改子命令超时（默认 3 分钟）；中断会清理测试启动的进程与浏览器。
 
@@ -194,7 +213,7 @@ pnpm test:extension
 
 ## CI
 
-`.github/workflows/ci.yml` 配置 GitHub Actions：push / pull request 执行冻结锁文件安装和 `pnpm check`；Extension、共享 packages、工程脚本、依赖或 CI 配置变化时，额外安装 Chromium 并执行 `pnpm test:extension`。首次推送及手动触发也执行浏览器验收。失败时上传验证报告与日志，保留 7 天，不上传源码副本或浏览器 profile。工作流只检查项目，没有发布步骤。
+`.github/workflows/ci.yml` 配置 GitHub Actions：push / pull request 执行冻结锁文件安装、`pnpm check` 和 `pnpm audit:security`；基础检查通过后，在独立 job 执行 Web / Admin 的生产浏览器冒烟测试。Extension、共享 packages、工程脚本、依赖或 CI 配置变化时，再执行扩展浏览器验收；首次推送及手动触发也执行扩展验收。浏览器 job 保留验证报告、日志及 Web / Admin 截图 7 天，不上传源码副本或浏览器 profile。工作流只检查项目，没有发布步骤。
 
 ## 官方参考
 

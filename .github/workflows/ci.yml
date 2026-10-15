@@ -55,6 +55,37 @@ jobs:
           NODE
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - run: pnpm audit:security
+
+  web-admin:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:web-admin
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: web-admin-verification
+          include-hidden-files: true
+          path: |
+            .reinit/verification/web-admin-*/report.json
+            .reinit/verification/web-admin-*/*.log
+            .reinit/verification/web-admin-*/*.png
+          if-no-files-found: ignore
+          retention-days: 7
 
   extension:
     needs: check

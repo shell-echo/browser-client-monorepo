@@ -51,6 +51,9 @@ catalogs:
       specifier: ~6.0.2
       version: 6.0.3
 
+patchedDependencies:
+  braces@3.0.3: c447e8322ebfc609e425e6926141c0bcd0b5ab16132d4c495ef349d61a6f5b9e
+
 importers:
 
   .:
@@ -260,9 +263,6 @@ importers:
       lucide-react:
         specifier: ^0.577.0
         version: 0.577.0(react@19.3.0)
-      shadcn:
-        specifier: 'catalog:'
-        version: 4.21.4(supports-color@7.2.0)
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.7.0
@@ -294,6 +294,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.3.0(react@19.3.0)
+      shadcn:
+        specifier: 'catalog:'
+        version: 4.21.4(supports-color@7.2.0)
       typescript:
         specifier: catalog:vite
         version: 6.0.3
@@ -4891,7 +4894,7 @@ snapshots:
     dependencies:
       balanced-match: 4.0.4
 
-  braces@3.0.3:
+  braces@3.0.3(patch_hash=c447e8322ebfc609e425e6926141c0bcd0b5ab16132d4c495ef349d61a6f5b9e):
     dependencies:
       fill-range: 7.1.1
 
@@ -6171,7 +6174,7 @@ snapshots:
 
   micromatch@4.0.8:
     dependencies:
-      braces: 3.0.3
+      braces: 3.0.3(patch_hash=c447e8322ebfc609e425e6926141c0bcd0b5ab16132d4c495ef349d61a6f5b9e)
       picomatch: 2.3.2
 
   mime-db@1.54.0: {}
