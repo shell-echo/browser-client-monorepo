@@ -2,15 +2,19 @@ import Link from "next/link"
 import { Badge } from "@browser-client/ui/components/badge"
 import { Button } from "@browser-client/ui/components/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@browser-client/ui/components/card"
+import { ThemeSwitcher } from "@browser-client/ui/components/theme-switcher"
 
 export default function Home() {
   return (
     <main className="mx-auto max-w-5xl px-6 py-16 md:py-24">
-      <div className="mb-16 flex items-center justify-between border-b pb-6">
+      <div className="mb-16 flex flex-wrap items-center justify-between gap-3 border-b pb-6">
         <span className="font-semibold tracking-tight">
           browser-client<span className="text-primary">.</span>
         </span>
-        <Badge variant="outline">Web workspace</Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline">Web workspace</Badge>
+          <ThemeSwitcher />
+        </div>
       </div>
       <Badge variant="secondary">一个工作区，三种入口</Badge>
       <h1 className="mt-6 max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">

@@ -16,6 +16,7 @@
     "build": "turbo run build",
     "format": "prettier --ignore-path .prettierignore --write .",
     "format:check": "prettier --ignore-path .prettierignore --check .",
+    "theme:sync": "node scripts/sync-theme-assets.mjs",
     "lint": "pnpm lint:scripts && turbo run lint",
     "lint:scripts": "eslint scripts packages/eslint-config eslint.config.mjs",
     "typecheck": "turbo run typecheck",

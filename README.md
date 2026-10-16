@@ -14,9 +14,9 @@ pnpm dev
 | 入口               | 命令                     | 地址或产物                               |
 | ------------------ | ------------------------ | ---------------------------------------- |
 | Web                | `pnpm dev:web`           | http://127.0.0.1:3000                    |
-| Admin              | `pnpm dev:admin`         | http://127.0.0.1:3001                    |
+| Admin              | `pnpm dev:admin`         | http://127.0.0.1:5173                    |
 | Extension          | `pnpm dev:extension`     | 加载 `apps/extension/dist-dev`，支持 HMR |
-| Extension 网页预览 | `pnpm preview:extension` | http://127.0.0.1:3002                    |
+| Extension 网页预览 | `pnpm preview:extension` | http://127.0.0.1:5174                    |
 
 `pnpm dev` 同时运行前三项。开发服务默认仅监听本机。Web / Admin 是接入真实业务前的最小示例，没有后端、登录或生产数据。Admin 表单只更新当前页面。
 
@@ -134,6 +134,16 @@ import { Button } from "@browser-client/ui/components/button"
 
 主题在 `packages/ui/src/styles/globals.css`。各应用通过 `@source` 扫描自己的源码，共享样式同时扫描 UI 源码。需要 React hooks 或交互的共享组件须声明 `"use client"`，以兼容 Next.js Server Components。新增组件后运行 `pnpm check`。
 
+## 深浅主题
+
+Web、Admin、扩展 popup 和 options 的页头提供“主题模式”图标按钮，使用共享 shadcn `Button` + `DropdownMenu`，以单选菜单选择浅色、深色、跟随系统，默认跟随系统。菜单标记当前选择，支持键盘操作、Escape 关闭和焦点返回。共用 `packages/ui` 的配色、主题上下文和 `ThemeSwitcher`；Web 使用 shadcn 推荐的 `next-themes` 适配 Next.js SSR，Vite 页面使用共享的 `ThemeProvider`。原生表单控件的 `color-scheme` 也随主题切换。
+
+偏好存储在各自 origin 的 `localStorage["browser-client-theme"]`，刷新后保留。同源标签页以及同一扩展的 popup / options 会同步选择；Web 和 Admin 的不同端口属于不同 origin，偏好各自独立。跟随系统时会响应实时配色变化，手动选择优先于系统设置；Vite 页面在本地存储被禁用时仍可切换当前页面的主题。
+
+Web 的初始化脚本在 hydration 前应用主题，`html` 仅对主题导致的属性差异设置 `suppressHydrationWarning`。Admin 和扩展使用 `<head>` 中的阻塞式外部 `theme-init.js`，在 React 运行前应用颜色；扩展保留严格的 Manifest V3 CSP，不引入内联脚本或新增权限。共享初始化源码在 `packages/ui/src/lib/theme-init.js`，其发布副本随源码提交到两个应用的 `public/`。修改初始化源码后运行 `pnpm theme:sync`；回归测试会检查副本一致及脚本加载顺序。
+
+`reinit` 保留根布局、页面入口、HTML、初始化资源和共享主题组件；`next-themes` 作为共享 UI 依赖参与兼容性升级。浏览器验收覆盖主题切换、刷新、同源同步、系统变化、React / hydration 前首屏及存储不可用情形，扩展额外验证实际加载、CSP 与热更新。
+
 ## 浏览器扩展
 
 1. 运行 `pnpm dev:extension`，保持开发服务运行。
@@ -143,7 +153,7 @@ import { Button } from "@browser-client/ui/components/button"
 
 `manifest.config.ts` 是唯一的 manifest 源码，使用 CRXJS 的 `defineManifest`；`src/background.ts`、`index.html`、`options.html` 分别是后台、popup 和设置页入口。CRXJS 根据 manifest 自动收集入口和生成资源路径。不要再往 `public/` 放置 manifest。
 
-popup / options 支持 React Fast Refresh，共享 `packages/ui` 的组件与样式也会热更新，普通组件编辑可保留表单状态。后台或 manifest 的变化可能触发扩展重载，不能承诺保留运行状态。开发产物由 CRXJS 注入本机开发连接及对应权限 / CSP，只用于本地开发。端口默认 3002；需修改时使用 `EXTENSION_DEV_PORT=3202 pnpm dev:extension`，HTTP 与 WebSocket 端口会同步。不要单独使用 `--port` 覆盖。
+popup / options 支持 React Fast Refresh，共享 `packages/ui` 的组件与样式也会热更新，普通组件编辑可保留表单状态。后台或 manifest 的变化可能触发扩展重载，不能承诺保留运行状态。开发产物由 CRXJS 注入本机开发连接及对应权限 / CSP，只用于本地开发。端口默认 5174；需修改时使用 `EXTENSION_DEV_PORT=3202 pnpm dev:extension`，HTTP 与 WebSocket 端口会同步。不要单独使用 `--port` 覆盖。
 
 生产构建运行 `pnpm --filter @browser-client/extension build`，加载或打包 `apps/extension/dist`。生产包独立于开发服务，仍只有 `storage` 权限和严格 CSP，没有内容脚本、网站访问权限或 HMR 客户端。**发布使用 `dist`，不要使用 `dist-dev`。** 重新构建生产包后需在扩展管理页手动重新加载。
 

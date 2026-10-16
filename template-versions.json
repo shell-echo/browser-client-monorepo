@@ -763,6 +763,22 @@
         "latest": "1.4.0",
         "version": "1.4.0",
         "reasons": []
+      },
+      {
+        "id": "packages/ui:dependencies:next-themes",
+        "name": "next-themes",
+        "previous": "0.4.6",
+        "current": "0.4.6",
+        "location": {
+          "path": "packages/ui",
+          "field": "dependencies",
+          "name": "next-themes"
+        },
+        "required": [],
+        "strictLatest": false,
+        "latest": "0.4.6",
+        "version": "0.4.6",
+        "reasons": []
       }
     ]
   }

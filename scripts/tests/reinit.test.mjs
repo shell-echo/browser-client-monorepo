@@ -257,6 +257,9 @@ test("extension reinit reapplies CRXJS and shared UI while preserving the manife
   assert(config.includes("crx({ manifest })"))
   assert(config.includes('outDir: command === "serve" ? "dist-dev" : "dist"'))
   assert(config.includes("ws: { clientPort: port }"))
+  assert(config.includes('name: "browser-client:theme-bootstrap"'))
+  assert(config.includes('if (id === "/theme-init.js")'))
+  assert(config.includes('new URL("../../packages/ui/src/lib/theme-init.js", import.meta.url)'))
   assert(!config.includes("rollupOptions"))
   assert.deepEqual(JSON.parse(await readFile(join(app, "tsconfig.app.json"), "utf8")).compilerOptions.types, ["chrome"])
   assert.equal(

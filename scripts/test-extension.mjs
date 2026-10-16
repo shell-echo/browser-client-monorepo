@@ -6,6 +6,7 @@ import { chromium } from "playwright"
 import { copySource, exists, fingerprint, ignored } from "./lib/workspace.mjs"
 import { handleCancellation, positiveTimeout } from "./lib/commands.mjs"
 import { createVerificationRunner, finishVerification } from "./lib/verification.mjs"
+import { verifyThemes } from "./lib/theme-verification.mjs"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 const runDir = join(resolve(process.env.BROWSER_TEST_OUTPUT_ROOT ?? join(root, ".reinit/verification")), `crxjs-${Date.now()}`)
@@ -104,6 +105,10 @@ try {
   const { popup, options } = await extensionPages(context)
   await storageRoundTrip(popup, options, "开发设置验证")
   passed("开发扩展真实加载，后台初始化、popup → options 和 storage 往返正常")
+  await popup.setViewportSize({ width: 360, height: 640 })
+  await options.getByLabel("工作区名称").fill("主题切换保留的未保存输入")
+  await verifyThemes(options, { peer: popup, errors: report.errors, screenshot: join(runDir, "extension-dev-dark.png") })
+  passed("开发扩展深浅主题、popup / options 双向同步、刷新保存及跟随系统正常")
 
   const paths = ["apps/extension/src/App.tsx", "packages/ui/src/components/button.tsx", "packages/ui/src/styles/globals.css"]
   const originals = await Promise.all(paths.map((path) => readFile(join(workspace, path), "utf8")))
@@ -132,14 +137,15 @@ try {
     join(workspace, paths[1]),
     originals[1].replace('data-slot="button"', 'data-slot="button" data-hmr-shared="updated"'),
   )
-  await options.locator('button[data-hmr-shared="updated"]').waitFor()
-  await popup.locator('button[data-hmr-shared="updated"]').waitFor()
+  await options.getByRole("button", { name: "保存设置" }).and(options.locator('[data-hmr-shared="updated"]')).waitFor()
+  await popup.getByRole("button", { name: "打开设置" }).and(popup.locator('[data-hmr-shared="updated"]')).waitFor()
   await preserved()
   passed("共享 shadcn/ui Button 同时热更新 popup / options，保留 React 状态")
 
   await writeFile(join(workspace, paths[2]), `${originals[2]}\n[data-slot="button"] { border-top-width: 7px !important; }\n`)
   await until(
-    () => options.locator('[data-slot="button"]').evaluate((button) => getComputedStyle(button).borderTopWidth === "7px"),
+    () =>
+      options.getByRole("button", { name: "保存设置" }).evaluate((button) => getComputedStyle(button).borderTopWidth === "7px"),
     "共享主题 CSS 热更新",
   )
   await preserved()
@@ -160,6 +166,13 @@ try {
   })
   const production = await extensionPages(context)
   await storageRoundTrip(production.popup, production.options, "生产设置验证")
+  await production.popup.setViewportSize({ width: 360, height: 640 })
+  await verifyThemes(production.options, {
+    peer: production.popup,
+    errors: report.errors,
+    screenshot: join(runDir, "extension-production-dark.png"),
+  })
+  passed("生产扩展主题切换与页面同步正常，严格 CSP 下无需内联脚本")
   assert.deepEqual(network, [], "生产扩展请求了外部 HTTP 资源")
   assert.deepEqual(report.errors, [], "浏览器出现运行错误")
   passed("开发服务关闭后，生产扩展独立加载；后台、popup、options、storage 正常，无外部 HTTP 请求或运行错误")

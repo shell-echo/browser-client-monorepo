@@ -4,6 +4,7 @@ import { Button } from "@browser-client/ui/components/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@browser-client/ui/components/card"
 import { Input } from "@browser-client/ui/components/input"
 import { Label } from "@browser-client/ui/components/label"
+import { ThemeSwitcher } from "@browser-client/ui/components/theme-switcher"
 
 const isExtension = typeof chrome !== "undefined" && Boolean(chrome.runtime?.id)
 const isOptions = window.location.pathname.endsWith("options.html")
@@ -32,9 +33,12 @@ export default function App() {
   }
   return (
     <main className={isOptions ? "mx-auto max-w-xl p-8" : "w-[360px] p-5"}>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <span className="font-semibold">browser-client.</span>
-        <Badge variant="outline">{isExtension ? "Extension" : "Preview"}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline">{isExtension ? "Extension" : "Preview"}</Badge>
+          <ThemeSwitcher />
+        </div>
       </div>
       <Card>
         <CardHeader>

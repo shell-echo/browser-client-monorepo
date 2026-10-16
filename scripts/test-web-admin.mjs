@@ -7,6 +7,7 @@ import { chromium } from "playwright"
 import { handleCancellation, positiveTimeout } from "./lib/commands.mjs"
 import { copySource, fingerprint, ignored } from "./lib/workspace.mjs"
 import { createVerificationRunner, finishVerification } from "./lib/verification.mjs"
+import { verifyThemes, verifyThemeBeforeHydration, verifyUnavailableStorage } from "./lib/theme-verification.mjs"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 const runDir = join(
@@ -48,7 +49,8 @@ async function freePort(port) {
 }
 
 async function pageFor(name, url) {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const page = await context.newPage()
   page.on("pageerror", (error) => report.errors.push(`${name}: ${error.message}`))
   page.on("console", (message) => {
     if (message.type() === "error") report.errors.push(`${name}: ${message.text()} ${message.location().url}`)
@@ -161,6 +163,9 @@ try {
   await webPage.screenshot({ path: join(runDir, "web-desktop.png"), fullPage: true })
   await mobileLayout(webPage, "web")
   passed("Web 生产页面、共享组件样式、工作区导航及桌面 / 移动布局正常")
+  await verifyThemes(webPage, { errors: report.errors, screenshot: join(runDir, "web-dark.png") })
+  await verifyThemeBeforeHydration(browser, `http://127.0.0.1:${webPort}/`, false)
+  passed("Web 深浅主题、刷新保存、跨标签同步、实时跟随系统及 hydration 前深色首屏正常")
 
   const adminPage = await pageFor("admin", `http://127.0.0.1:${adminPort}`)
   const heading = adminPage.getByRole("heading", { level: 1 })
@@ -179,6 +184,11 @@ try {
   await adminPage.reload({ waitUntil: "networkidle" })
   assert.equal(await heading.innerText(), "Browser Client", "演示表单应仅保留当前页面状态")
   passed("Admin 生产页面、共享表单、空白校验、名称保存及桌面 / 移动布局正常")
+  await input.fill("主题切换保留的未保存输入")
+  await verifyThemes(adminPage, { errors: report.errors, screenshot: join(runDir, "admin-dark.png") })
+  await verifyThemeBeforeHydration(browser, `http://127.0.0.1:${adminPort}/`, true)
+  await verifyUnavailableStorage(adminPage)
+  passed("Admin 深浅主题、刷新保存、跨标签同步、实时跟随系统、React 前首屏及存储不可用降级正常")
   assert.deepEqual(report.errors, [], "浏览器存在运行、控制台或资源加载错误")
   passed("Web / Admin 无浏览器运行错误、控制台错误或失败资源")
   assert.equal(await fingerprint(root), originalFingerprint, "冒烟测试改变了原工作区源码")

@@ -4,6 +4,7 @@ import { Button } from "@browser-client/ui/components/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@browser-client/ui/components/card"
 import { Input } from "@browser-client/ui/components/input"
 import { Label } from "@browser-client/ui/components/label"
+import { ThemeSwitcher } from "@browser-client/ui/components/theme-switcher"
 
 export default function App() {
   const [name, setName] = useState("Browser Client")
@@ -12,11 +13,14 @@ export default function App() {
   return (
     <div className="min-h-screen">
       <header className="border-b bg-card">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-5">
           <span className="font-semibold">
             browser-client<span className="text-primary">.</span>
           </span>
-          <Badge variant="outline">Admin workspace</Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline">Admin workspace</Badge>
+            <ThemeSwitcher />
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-6 py-12">
@@ -74,7 +78,7 @@ export default function App() {
               </div>
               <div className="flex justify-between">
                 <span>Admin</span>
-                <code className="text-muted-foreground">localhost:3001</code>
+                <code className="text-muted-foreground">localhost:5173</code>
               </div>
               <div className="flex justify-between">
                 <span>共享组件</span>

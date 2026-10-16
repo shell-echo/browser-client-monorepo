@@ -6,6 +6,6 @@ import { defineConfig } from "vite"
 // https://vite.dev/config/
 export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
-  server: { host: "127.0.0.1", port: 3001, strictPort: true },
+  server: { host: "127.0.0.1", port: 5173, strictPort: true },
   plugins: [react(), tailwindcss()],
 })
