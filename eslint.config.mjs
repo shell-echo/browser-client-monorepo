@@ -10,6 +10,7 @@ export default [
       "scripts/test-web-admin.mjs",
       "scripts/lib/theme-verification.mjs",
       "scripts/lib/client-page-verification.mjs",
+      "scripts/lib/admin-verification.mjs",
     ],
     languageOptions: {
       globals: { chrome: "readonly", window: "readonly", document: "readonly", getComputedStyle: "readonly" },

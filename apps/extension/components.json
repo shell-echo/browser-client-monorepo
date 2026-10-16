@@ -16,5 +16,8 @@
     "lib": "@/lib",
     "utils": "@browser-client/ui/lib/utils",
     "ui": "@browser-client/ui/components"
-  }
+  },
+  "menuColor": "default",
+  "menuAccent": "subtle",
+  "rtl": false
 }

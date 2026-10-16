@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises"
+import { mkdtemp, mkdir, readFile, writeFile, rm, readdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { parse } from "yaml"
 import { createRegistry, solveUpdates, stableVersions, updateDependencies, verifyResolvedUpdates } from "../lib/updates.mjs"
 import { fingerprint, promote } from "../lib/workspace.mjs"
@@ -181,6 +182,48 @@ async function fixture(t) {
   await writeFile(join(root, "pnpm-lock.yaml"), "importers: {}\n")
   return root
 }
+
+test("the current workspace replays its shared Inter dependency offline without registry access", async (t) => {
+  const root = await fixture(t)
+  const source = fileURLToPath(new URL("../../", import.meta.url))
+  for (const path of ["package.json", "pnpm-workspace.yaml", "pnpm-lock.yaml"])
+    await writeFile(join(root, path), await readFile(join(source, path)))
+  for (const parent of ["apps", "packages"]) {
+    for (const entry of await readdir(join(source, parent), { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      const path = join(parent, entry.name)
+      await mkdir(join(root, path), { recursive: true })
+      await writeFile(join(root, path, "package.json"), await readFile(join(source, path, "package.json")))
+    }
+  }
+  const saved = JSON.parse(await readFile(join(source, "template-versions.json"), "utf8")).dependencies
+  const receipt = await updateDependencies({
+    root,
+    templates: {},
+    previous: {},
+    saved,
+    offline: true,
+    registry: new Proxy(
+      {},
+      {
+        get() {
+          throw Error("Offline replay queried the registry")
+        },
+      },
+    ),
+  })
+  await verifyResolvedUpdates(root, receipt)
+  const font = receipt.entries.find((entry) => entry.id === "packages/ui:dependencies:@fontsource-variable/inter")
+  assert(font, "The shared font needs an offline dependency receipt")
+  const ui = JSON.parse(await readFile(join(root, "packages/ui/package.json"), "utf8"))
+  assert.equal(ui.dependencies["@fontsource-variable/inter"], font.version)
+  assert.equal(
+    parse(await readFile(join(root, "pnpm-lock.yaml"), "utf8")).importers["packages/ui"].dependencies[
+      "@fontsource-variable/inter"
+    ].version,
+    font.version,
+  )
+})
 
 test("shared source and manifest contracts survive upgrades; offline replay never queries registry", async (t) => {
   const root = await fixture(t)

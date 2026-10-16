@@ -1,2 +1,7 @@
 @import "@browser-client/ui/styles.css";
 @source "./";
+
+/* Chromium injects an unlayered body font; keep the shared preset font. */
+html body {
+  font-family: var(--font-sans);
+}

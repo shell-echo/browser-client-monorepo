@@ -9,6 +9,7 @@ import { copySource, fingerprint, ignored } from "./lib/workspace.mjs"
 import { createVerificationRunner, finishVerification } from "./lib/verification.mjs"
 import { verifyThemes, verifyThemeBeforeHydration, verifyUnavailableStorage } from "./lib/theme-verification.mjs"
 import { verifyClientPage } from "./lib/client-page-verification.mjs"
+import { verifyAdminTemplates } from "./lib/admin-verification.mjs"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 const runDir = join(
@@ -148,6 +149,7 @@ try {
   await verifyThemeBeforeHydration(browser, `http://127.0.0.1:${adminPort}/`, true)
   await verifyUnavailableStorage(adminPage)
   passed("Admin themes, persistence, tab synchronization, system changes, early first paint and unavailable storage passed")
+  await verifyAdminTemplates({ pageFor, url: `http://127.0.0.1:${adminPort}`, runDir, errors: report.errors, passed })
   assert.deepEqual(report.errors, [], "Browser runtime, console or resource errors detected")
   passed("Web / Admin have no browser runtime, console or resource errors")
   assert.equal(await fingerprint(root), originalFingerprint, "Smoke test changed the original workspace source")

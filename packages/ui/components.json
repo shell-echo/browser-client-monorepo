@@ -16,5 +16,8 @@
     "ui": "@browser-client/ui/components",
     "lib": "@browser-client/ui/lib",
     "hooks": "@browser-client/ui/hooks"
-  }
+  },
+  "menuColor": "default",
+  "menuAccent": "subtle",
+  "rtl": false
 }

@@ -8,6 +8,16 @@ export async function verifyClientPage(page, title) {
   const main = page.getByRole("main")
   const heading = main.getByRole("heading", { level: 1 })
   await heading.waitFor()
+  const font = await page.evaluate(async () => {
+    const faces = await document.fonts.load('400 16px "Inter Variable"', "Browser Client")
+    await document.fonts.ready
+    return {
+      family: getComputedStyle(document.body).fontFamily.split(",")[0].replace(/["']/g, "").trim(),
+      loaded: faces.length > 0 && faces.every((face) => face.status === "loaded"),
+    }
+  })
+  assert.equal(font.family, "Inter Variable", "Pages must use the Inter font selected by shadcn preset b0")
+  assert(font.loaded, "The bundled Inter font did not load")
   assert.equal(await heading.innerText(), title)
   const link = main.getByRole("link", { name: "GitHub repository (opens in a new tab)", exact: true })
   assert.equal(await link.getAttribute("href"), repository)

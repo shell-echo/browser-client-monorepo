@@ -5,11 +5,32 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { runInNewContext } from "node:vm"
+import { execFileSync } from "node:child_process"
 import { normalizeTheme, THEME_STORAGE_KEY } from "../../packages/ui/src/lib/theme.ts"
 import { preserveApp } from "../lib/workspace.mjs"
 
 const root = fileURLToPath(new URL("../../", import.meta.url))
 const bootstrap = await readFile(join(root, "packages/ui/src/lib/theme-init.js"), "utf8")
+
+test("the shared design system resolves to official shadcn preset b0 without fallbacks", async () => {
+  const cli = join(root, "node_modules/shadcn/dist/index.js")
+  const preset = JSON.parse(
+    execFileSync(process.execPath, [cli, "preset", "resolve", "--json", "--cwd", join(root, "apps/admin")], {
+      encoding: "utf8",
+      timeout: 30_000,
+    }),
+  )
+  assert.equal(preset.code, "b0")
+  assert.deepEqual(preset.fallbacks, [])
+  const ui = JSON.parse(await readFile(join(root, "packages/ui/components.json"), "utf8"))
+  for (const app of ["web", "admin", "extension"]) {
+    const config = JSON.parse(await readFile(join(root, "apps", app, "components.json"), "utf8"))
+    for (const key of ["style", "iconLibrary", "menuColor", "menuAccent", "rtl"])
+      assert.equal(config[key], ui[key], `${app}/${key}`)
+    assert.equal(config.tailwind.baseColor, ui.tailwind.baseColor)
+    assert.equal(config.tailwind.css, "../../packages/ui/src/styles/globals.css")
+  }
+})
 
 test("the early CSP-safe bootstrap honors saved themes, system preference and unavailable storage", () => {
   for (const [saved, dark, expected] of [

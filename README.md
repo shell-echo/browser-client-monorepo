@@ -22,6 +22,23 @@ pnpm dev
 
 English is the default for UI text, accessibility labels, page metadata, extension descriptions, documentation, and development command output. HTML documents use `lang="en"`.
 
+## Admin templates
+
+Admin keeps its starter homepage at `/` and provides links to two ready-to-customize shadcn blocks:
+
+| Route        | Official block                                                | Behavior                                                                                                        |
+| ------------ | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `/login`     | [login-05](https://ui.shadcn.com/blocks/login#login-05)       | Email form with Apple / Google buttons; a centered, single-column layout with stacked buttons on narrow screens |
+| `/dashboard` | [sidebar-08](https://ui.shadcn.com/blocks/sidebar#sidebar-08) | Inset dashboard shell, collapsible navigation, project / user menus, breadcrumbs, and content placeholders      |
+
+Both use the existing Base UI / base-nova style, English text, and shared light / dark / system theme switcher. Below 768px, the sidebar becomes a modal drawer with a visible close button, backdrop dismissal, Escape handling, and focus restoration. Summary placeholders stack on mobile. Desktop navigation supports the sidebar toggle and Ctrl / Cmd + B.
+
+These are UI templates. Email / social sign-in, registration, and legal-policy buttons show explicit setup messages without sending credentials or creating a session. Dashboard navigation and menu actions are example placeholders; replace them when adding application features. The user menu's **Back to login** opens the template without implying a real logout. Neither route is access-controlled.
+
+Page and block source lives in `apps/admin/src/pages/` and `apps/admin/src/components/`; reusable primitives, the responsive hook, and sidebar colors live in `packages/ui`. React Router handles navigation, browser history, deep links, and the not-found page. Production hosts must rewrite non-asset routes such as `/login` and `/dashboard` to Admin's `index.html`; Vite development and preview already provide this SPA fallback.
+
+Reinit preserves these source directories, shared UI, and Admin-specific router / icon dependencies. Its required browser suite checks both templates before replacement, including form behavior, theme changes, direct URL reloads, mobile drawers, menus, and horizontal overflow at 320 / 390 / 768 / 1280px.
+
 ## Project structure
 
 ```text
@@ -120,7 +137,9 @@ When an upstream fix becomes available, upgrade and remove the patch and its ver
 
 ## shadcn/ui
 
-Uses `base-nova` and Base UI, with Button, Card, Badge, Input, Label, Separator, and DropdownMenu available. Each application's `components.json` points to the shared UI package.
+Uses the official [shadcn preset `b0`](https://ui.shadcn.com/create?preset=b0): Nova style, Neutral theme / base and chart colors, Inter font, Lucide icons, default radius and menu color, and subtle menu accents. The existing Base UI foundation is retained. Each application's `components.json` points to the shared UI package and uses the same preset settings.
+
+Preset CSS and primitives are generated with the official `shadcn apply --preset b0` command. Inter is bundled through `@fontsource-variable/inter` in the shared UI package, so Web, Admin, popup, and options use the same font without Google Fonts or other external font requests. Shared components retain their Next.js client boundaries and responsive drawer behavior. Run `pnpm exec shadcn preset resolve --json --cwd apps/admin` to verify the project resolves to `b0` without fallbacks. Reinit preserves this shared source and regenerates application shadcn configuration from `packages/ui/components.json`.
 
 ```sh
 # Resolve from Web; shared primitives are written to packages/ui
@@ -239,7 +258,7 @@ pnpm test:web-admin
 pnpm audit:security
 ```
 
-`test:web-admin` creates source copies and local Git boundaries under `.reinit/verification/web-admin-*/`, installs offline from the lockfile, and rebuilds Web / Admin. Next.js production and Vite preview servers verify English page content, language metadata, accessible GitHub icon links, shared component styles, desktop / mobile centering, theme interactions, and browser / console / resource errors. Reports, server logs, and screenshots remain in that directory. Tests close their own browsers and processes and verify the original source is unchanged.
+`test:web-admin` creates source copies and local Git boundaries under `.reinit/verification/web-admin-*/`, installs offline from the lockfile, and rebuilds Web / Admin. Next.js production and Vite preview servers verify English page content, language metadata, accessible GitHub icon links, shared component styles, desktop / mobile centering, theme interactions, and browser / console / resource errors. Admin additionally verifies the login and dashboard templates, native email validation, client-side navigation, deep links / reloads, unknown routes, and responsive drawer / menu behavior at 320 / 390 / 768 / 1280px. Reports, server logs, and screenshots remain in that directory. Tests close their own browsers and processes and verify the original source is unchanged.
 
 Default test ports are 3150 / 3151. Override with distinct `WEB_TEST_PORT` / `ADMIN_TEST_PORT` values; availability is checked before starting. `WEB_ADMIN_TEST_COMMAND_TIMEOUT_MS` sets the command timeout, defaulting to 5 minutes. Pause editing during tests to avoid fingerprint mismatches.
 

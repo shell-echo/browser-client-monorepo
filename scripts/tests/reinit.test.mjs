@@ -119,6 +119,26 @@ test("business trees retain generated-looking names while app build outputs stay
     assert.equal(await exists(join(stage, name)), false)
 })
 
+test("Admin routes, block components and router dependencies survive an official template refresh", async (t) => {
+  const root = await fixture(t)
+  const previous = join(root, "previous")
+  const candidate = join(root, "candidate")
+  const admin = fileURLToPath(new URL("../../apps/admin/", import.meta.url))
+  await copySource(join(admin, "src"), join(previous, "src"))
+  await put(candidate, "src/App.tsx", "official demo")
+  await put(candidate, "src/demo.ts", "official demo")
+  await put(candidate, "vite.config.ts", "new official config")
+  await preserveApp(previous, candidate)
+  assert.equal(await fingerprint(join(candidate, "src")), await fingerprint(join(previous, "src")))
+  assert.equal(await exists(join(candidate, "src/demo.ts")), false)
+  const manifest = JSON.parse(await readFile(join(admin, "package.json"), "utf8"))
+  const merged = mergeManifest({ dependencies: { react: "new stable" } }, manifest, "admin")
+  for (const name of ["react-router", "lucide-react", "@browser-client/ui"])
+    assert.equal(merged.dependencies[name], manifest.dependencies[name], name)
+  assert.equal(merged.dependencies.react, "new stable")
+  assert.equal(await readFile(join(candidate, "vite.config.ts"), "utf8"), "new official config")
+})
+
 test("workspace copies preserve nested business assets in apps and shared packages", async (t) => {
   const root = await fixture(t),
     stage = join(root, ".reinit/stage")
@@ -177,7 +197,14 @@ test("Next adapter retains upstream CSS settings and removes the nested workspac
   await put(
     root,
     "packages/ui/components.json",
-    JSON.stringify({ style: "base-nova", tailwind: { css: "src/styles/globals.css" } }),
+    JSON.stringify({
+      style: "base-nova",
+      menuColor: "default",
+      menuAccent: "subtle",
+      rtl: false,
+      iconLibrary: "lucide",
+      tailwind: { css: "src/styles/globals.css", baseColor: "neutral" },
+    }),
   )
   await put(root, "apps/web/package.json", JSON.stringify({ version: "0.1.0", scripts: {}, dependencies: {} }))
   await put(root, "apps/web/pnpm-workspace.yaml", "allowBuilds: {}")
@@ -202,6 +229,12 @@ test("Next adapter retains upstream CSS settings and removes the nested workspac
   assert(config.includes('transpilePackages: ["@browser-client/ui"]'))
   assert.equal(await exists(join(root, "apps/web/pnpm-workspace.yaml")), false)
   assert.equal(JSON.parse(await readFile(join(root, "apps/web/components.json"))).aliases.ui, "@browser-client/ui/components")
+  const componentConfig = JSON.parse(await readFile(join(root, "apps/web/components.json"), "utf8"))
+  assert.equal(componentConfig.menuColor, "default")
+  assert.equal(componentConfig.menuAccent, "subtle")
+  assert.equal(componentConfig.rtl, false)
+  assert.equal(componentConfig.iconLibrary, "lucide")
+  assert.equal(componentConfig.tailwind.baseColor, "neutral")
   const ts = JSON.parse(await readFile(join(root, "apps/web/tsconfig.json")))
   assert.equal(ts.extends, "@browser-client/typescript-config/nextjs.json")
   assert.deepEqual(ts.compilerOptions.plugins, [{ name: "next" }])
