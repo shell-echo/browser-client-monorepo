@@ -43,7 +43,7 @@ export async function copySource(from, to, { root = from } = {}) {
     recursive: true,
     filter: async (source) => {
       if (ignored(relative(root, source))) return false
-      if ((await lstat(source)).isSymbolicLink()) throw new Error(`拒绝迁移符号链接：${source}`)
+      if ((await lstat(source)).isSymbolicLink()) throw new Error(`Refusing to migrate a symbolic link: ${source}`)
       return true
     },
   })
@@ -63,11 +63,11 @@ export async function fingerprint(root) {
   hash.update("browser-client-source-tree-v3\n")
   async function visit(path, relative = "") {
     const stat = await lstat(path)
-    if (stat.isSymbolicLink()) throw new Error(`拒绝迁移符号链接：${path}`)
+    if (stat.isSymbolicLink()) throw new Error(`Refusing to migrate a symbolic link: ${path}`)
     // Hash file bytes separately, so content cannot impersonate the next
     // path/mode record. JSON lines also preserve filename and type boundaries.
     const type = stat.isDirectory() ? "directory" : stat.isFile() ? "file" : undefined
-    if (!type) throw new Error(`不支持的文件类型：${path}`)
+    if (!type) throw new Error(`Unsupported file type: ${path}`)
     const content =
       type === "file"
         ? createHash("sha256")

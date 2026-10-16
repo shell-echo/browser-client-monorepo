@@ -6,14 +6,15 @@ import { chromium } from "playwright"
 import { copySource, exists, fingerprint, ignored } from "./lib/workspace.mjs"
 import { handleCancellation, positiveTimeout } from "./lib/commands.mjs"
 import { createVerificationRunner, finishVerification } from "./lib/verification.mjs"
-import { verifyThemes } from "./lib/theme-verification.mjs"
+import { chooseTheme, verifyThemes } from "./lib/theme-verification.mjs"
+import { verifyClientPage } from "./lib/client-page-verification.mjs"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 const runDir = join(resolve(process.env.BROWSER_TEST_OUTPUT_ROOT ?? join(root, ".reinit/verification")), `crxjs-${Date.now()}`)
 const workspace = join(runDir, "workspace")
 const app = join(workspace, "apps/extension")
 const port = positiveTimeout(process.env.EXTENSION_TEST_PORT, 3102, "EXTENSION_TEST_PORT")
-assert(port < 65536, "EXTENSION_TEST_PORT 必须小于 65536")
+assert(port < 65536, "EXTENSION_TEST_PORT must be less than 65536")
 const report = { checks: [], errors: [], runDir }
 const runner = createVerificationRunner({
   cwd: workspace,
@@ -23,7 +24,7 @@ const runner = createVerificationRunner({
 const { start, run, until } = runner
 let server, context
 const removeSignalHandlers = handleCancellation(runner, () => {
-  console.error("已请求取消；正在关闭浏览器及测试启动的进程。")
+  console.error("Cancellation requested; closing the browser and test processes.")
   void context?.close().catch(() => {})
 })
 const originalFingerprint = await fingerprint(root)
@@ -54,30 +55,31 @@ async function extensionPages(context) {
   await until(() => {
     worker = context.serviceWorkers().find((item) => item.url().startsWith("chrome-extension://"))
     return Boolean(worker)
-  }, "扩展 service worker")
+  }, "Extension service worker")
   const id = new URL(worker.url()).host
   const popup = await context.newPage()
+  await popup.setViewportSize({ width: 360, height: 280 })
   await popup.goto(`chrome-extension://${id}/index.html`)
-  await popup.getByRole("button", { name: "打开设置" }).waitFor()
+  await verifyClientPage(popup, "Extension Client")
   const opened = context.waitForEvent("page")
-  await popup.getByRole("button", { name: "打开设置" }).click()
+  await popup.evaluate(() => chrome.runtime.openOptionsPage())
   const options = await opened
   await options.waitForURL(`chrome-extension://${id}/options.html`)
-  await until(async () => !(await options.getByRole("button", { name: "保存设置" }).isDisabled()), "设置完成加载")
+  await options.setViewportSize({ width: 1280, height: 900 })
+  await verifyClientPage(options, "Extension Client")
   await until(
     async () => (await options.evaluate(() => chrome.storage.local.get("workspaceName"))).workspaceName === "Browser Client",
-    "后台初始化本地存储",
+    "Background storage initialization",
   )
   return { popup, options }
 }
 
 async function storageRoundTrip(popup, options, name) {
-  await options.getByLabel("工作区名称").fill(name)
-  await options.getByRole("button", { name: "保存设置" }).click()
-  await options.getByRole("status").filter({ hasText: "设置已保存" }).waitFor()
+  await options.evaluate((workspaceName) => chrome.storage.local.set({ workspaceName }), name)
   assert.equal((await options.evaluate(() => chrome.storage.local.get("workspaceName"))).workspaceName, name)
   await popup.reload()
-  await popup.getByText(name, { exact: true }).waitFor()
+  await verifyClientPage(popup, "Extension Client")
+  assert.equal((await popup.evaluate(() => chrome.storage.local.get("workspaceName"))).workspaceName, name)
 }
 
 try {
@@ -90,66 +92,93 @@ try {
   server = start("pnpm", ["--filter", "@browser-client/extension", "dev"], "dev.log", { EXTENSION_DEV_PORT: String(port) }, 0)
   await until(
     async () => {
-      assert.equal(server.child.exitCode, null, `开发服务已退出：${join(runDir, "dev.log")}`)
+      assert.equal(server.child.exitCode, null, `Development server exited: ${join(runDir, "dev.log")}`)
       return (
         (await exists(join(app, "dist-dev/manifest.json"))) &&
         (await fetch(`http://127.0.0.1:${port}/@vite/client`, { signal: AbortSignal.timeout(2000) })).ok
       )
     },
-    "开发产物及 Vite 服务",
+    "Development output and Vite server",
     60_000,
   )
   context = await launch(join(app, "dist-dev"), "profile-dev")
   runner.check()
   report.chromium = context.browser().version()
   const { popup, options } = await extensionPages(context)
-  await storageRoundTrip(popup, options, "开发设置验证")
-  passed("开发扩展真实加载，后台初始化、popup → options 和 storage 往返正常")
-  await popup.setViewportSize({ width: 360, height: 640 })
-  await options.getByLabel("工作区名称").fill("主题切换保留的未保存输入")
+  await storageRoundTrip(popup, options, "Development storage test")
+  await popup.screenshot({ path: join(runDir, "extension-popup.png"), fullPage: true })
+  passed(
+    "Development extension loaded; popup / options pages, GitHub links, centering, background initialization and storage round trip passed",
+  )
   await verifyThemes(options, { peer: popup, errors: report.errors, screenshot: join(runDir, "extension-dev-dark.png") })
-  passed("开发扩展深浅主题、popup / options 双向同步、刷新保存及跟随系统正常")
+  passed("Development extension themes, popup / options synchronization, persistence and system preference passed")
 
   const paths = ["apps/extension/src/App.tsx", "packages/ui/src/components/button.tsx", "packages/ui/src/styles/globals.css"]
   const originals = await Promise.all(paths.map((path) => readFile(join(workspace, path), "utf8")))
-  const unsaved = "HMR 保留的未保存输入"
-  await options.getByLabel("工作区名称").fill(unsaved)
+  await options.emulateMedia({ colorScheme: "light" })
+  // An unavailable storage backend makes the selected theme a real React-only
+  // state probe: remounting the provider cannot restore dark mode from disk.
   await options.evaluate(() => {
     window.__hmrSentinel = "same-document"
+    Object.defineProperty(window, "localStorage", {
+      get: () => {
+        throw new DOMException("Storage disabled", "SecurityError")
+      },
+    })
   })
+  await chooseTheme(options, "dark")
+  const background = await options.evaluate(() => getComputedStyle(document.body).backgroundColor)
   let navigations = 0
   options.on("framenavigated", (frame) => {
     if (frame === options.mainFrame()) navigations++
   })
   const preserved = async () => {
-    assert.equal(await options.getByLabel("工作区名称").inputValue(), unsaved, "HMR 丢失 React 状态")
+    assert(
+      await options.locator("html").evaluate((element) => element.classList.contains("dark")),
+      "HMR lost React theme state",
+    )
+    assert.equal(await options.evaluate(() => getComputedStyle(document.body).backgroundColor), background)
+    await options.getByRole("button", { name: "Toggle theme", exact: true }).click()
+    assert.equal(await options.getByRole("menuitemradio", { name: "Dark", exact: true }).getAttribute("aria-checked"), "true")
+    await options.keyboard.press("Escape")
     assert.equal(await options.evaluate(() => window.__hmrSentinel), "same-document")
-    assert.equal(navigations, 0, "HMR 导致整页刷新")
+    assert.equal(navigations, 0, "HMR caused a full page reload")
   }
-  assert(originals[0].includes('"扩展设置"'))
-  await writeFile(join(workspace, paths[0]), originals[0].replace('"扩展设置"', '"扩展设置 · HMR"'))
-  await options.getByText("扩展设置 · HMR", { exact: true }).waitFor()
+  assert(originals[0].includes('title="Extension Client"'))
+  await writeFile(join(workspace, paths[0]), originals[0].replace('title="Extension Client"', 'title="Extension Client · HMR"'))
+  await options.getByRole("heading", { name: "Extension Client · HMR", exact: true }).waitFor()
   await preserved()
-  passed("扩展 React 页面热更新，保留未保存输入且没有整页刷新")
+  passed("Extension React HMR retained theme state without storage persistence or a full page reload")
 
   assert(originals[1].includes('data-slot="button"'))
   await writeFile(
     join(workspace, paths[1]),
     originals[1].replace('data-slot="button"', 'data-slot="button" data-hmr-shared="updated"'),
   )
-  await options.getByRole("button", { name: "保存设置" }).and(options.locator('[data-hmr-shared="updated"]')).waitFor()
-  await popup.getByRole("button", { name: "打开设置" }).and(popup.locator('[data-hmr-shared="updated"]')).waitFor()
+  await options
+    .getByRole("button", { name: "Toggle theme", exact: true })
+    .and(options.locator('[data-hmr-shared="updated"]'))
+    .waitFor()
+  await popup
+    .getByRole("button", { name: "Toggle theme", exact: true })
+    .and(popup.locator('[data-hmr-shared="updated"]'))
+    .waitFor()
   await preserved()
-  passed("共享 shadcn/ui Button 同时热更新 popup / options，保留 React 状态")
+  passed("Shared shadcn/ui Button HMR updated popup / options and retained React state")
 
-  await writeFile(join(workspace, paths[2]), `${originals[2]}\n[data-slot="button"] { border-top-width: 7px !important; }\n`)
+  await writeFile(
+    join(workspace, paths[2]),
+    `${originals[2]}\n[data-slot="dropdown-menu-trigger"] { border-top-width: 7px !important; }\n`,
+  )
   await until(
     () =>
-      options.getByRole("button", { name: "保存设置" }).evaluate((button) => getComputedStyle(button).borderTopWidth === "7px"),
-    "共享主题 CSS 热更新",
+      options
+        .getByRole("button", { name: "Toggle theme", exact: true })
+        .evaluate((button) => getComputedStyle(button).borderTopWidth === "7px"),
+    "Shared theme CSS HMR",
   )
   await preserved()
-  passed("共享 Tailwind / UI 样式热更新，保留 React 状态")
+  passed("Shared Tailwind / UI style HMR retained React state")
   await context.close()
   context = undefined
   await server.stop()
@@ -165,19 +194,20 @@ try {
     if (/^https?:/.test(request.url())) network.push(request.url())
   })
   const production = await extensionPages(context)
-  await storageRoundTrip(production.popup, production.options, "生产设置验证")
-  await production.popup.setViewportSize({ width: 360, height: 640 })
+  await storageRoundTrip(production.popup, production.options, "Production storage test")
   await verifyThemes(production.options, {
     peer: production.popup,
     errors: report.errors,
     screenshot: join(runDir, "extension-production-dark.png"),
   })
-  passed("生产扩展主题切换与页面同步正常，严格 CSP 下无需内联脚本")
-  assert.deepEqual(network, [], "生产扩展请求了外部 HTTP 资源")
-  assert.deepEqual(report.errors, [], "浏览器出现运行错误")
-  passed("开发服务关闭后，生产扩展独立加载；后台、popup、options、storage 正常，无外部 HTTP 请求或运行错误")
-  assert.equal(await fingerprint(root), originalFingerprint, "测试改变了原工作区源码")
-  passed("浏览器测试仅修改临时副本，原工作区源码保持不变")
+  passed("Production extension themes and page synchronization passed under strict CSP without inline scripts")
+  assert.deepEqual(network, [], "Production extension requested external HTTP resources")
+  assert.deepEqual(report.errors, [], "Browser runtime errors detected")
+  passed(
+    "Production extension loaded independently after stopping the dev server; background, popup, options and storage passed without external HTTP requests or runtime errors",
+  )
+  assert.equal(await fingerprint(root), originalFingerprint, "Test changed the original workspace source")
+  passed("Browser test only modified a temporary copy; original workspace source is unchanged")
   report.status = "passed"
 } catch (error) {
   report.status = "failed"

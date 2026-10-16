@@ -4,7 +4,7 @@ export default defineManifest({
   manifest_version: 3,
   name: "Browser Client",
   version: "0.1.0",
-  description: "Browser Client 的 Chrome / Edge 扩展",
+  description: "Browser Client extension for Chrome and Edge",
   permissions: ["storage"],
   action: { default_title: "Browser Client", default_popup: "index.html" },
   options_page: "options.html",

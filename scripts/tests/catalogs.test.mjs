@@ -31,14 +31,17 @@ test("common catalogs are reused while framework toolchains and custom dependenc
 })
 
 test("incompatible upstream upgrades and missing catalogs fail closed", () => {
-  assert.throws(() => applyCatalogs({ dependencies: { react: "^20" } }, workspace, "web"), /不兼容/)
-  assert.throws(() => applyCatalogs({ devDependencies: { typescript: "^7" } }, workspace, "extension"), /不兼容/)
-  assert.throws(() => catalogRange(workspace, "react", "catalog:missing"), /缺少有效版本/)
+  assert.throws(() => applyCatalogs({ dependencies: { react: "^20" } }, workspace, "web"), /incompatible/)
+  assert.throws(() => applyCatalogs({ devDependencies: { typescript: "^7" } }, workspace, "extension"), /incompatible/)
+  assert.throws(() => catalogRange(workspace, "react", "catalog:missing"), /has no valid version/)
 })
 
 test("overlapping ranges cannot lower the official template's requirements", () => {
   const broad = { catalog: { react: "^19.0.0" } }
-  assert.throws(() => applyCatalogs({ dependencies: { react: "^19.3.0" } }, broad, "web"), /完整范围须满足模板要求/)
+  assert.throws(
+    () => applyCatalogs({ dependencies: { react: "^19.3.0" } }, broad, "web"),
+    /full catalog range must satisfy template requirements/,
+  )
   const narrowed = { catalog: { react: "^19.3.0" } }
   assert.equal(applyCatalogs({ dependencies: { react: "^19.0.0" } }, narrowed, "web").dependencies.react, "catalog:")
 })

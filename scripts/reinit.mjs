@@ -10,28 +10,28 @@ import { createRegistry, updateDependencies, verifyResolvedUpdates } from "./lib
 import { validateBeforePromotion } from "./lib/reinit-validation.mjs"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
-const help = `用法：pnpm reinit [all|web|admin|extension] [--dry-run|--apply] [--offline]
+const help = `Usage: pnpm reinit [all|web|admin|extension] [--dry-run|--apply] [--offline]
 
-默认只显示计划，不联网、不写文件。--apply 才开始重建。
-使用官方 latest 脚手架，在隔离目录生成并通过完整检查后替换。
-Next / Vite / CRXJS 使用最新稳定版；公共依赖优先最新稳定版，冲突时选择最高兼容版本并记录原因。
-ESLint 最低为 10；联网候选、离线记录及实际锁定依赖均不得使用 9 或更低版本，不兼容时停止并保留原项目。
-保留业务源码、public、环境文件、业务依赖及共享 UI 源码；公共依赖清单和 catalog 会更新。
-重建框架配置及标准脚本；原始目录与锁文件保存到 .reinit/backups/。
-替换前必须通过 Web / Admin 及扩展浏览器验收；联网时准备 Chromium，离线时要求浏览器已缓存。
-仅格式化新生成的配置；业务源码及共享 UI 必须通过格式检查，不自动改写。
-执行前请停止开发/构建进程，并暂停编辑此项目。
---offline 重放 template-versions.json 已记录且缓存的版本，不查询 latest。
+Shows the plan by default without network access or file writes. Use --apply to rebuild.
+Generates official latest templates in an isolated directory and replaces the project after validation.
+Next / Vite / CRXJS use the latest stable releases; shared dependencies use the highest compatible stable versions with reasons recorded.
+ESLint must be 10 or newer for online candidates, offline receipts and installed dependencies. Incompatibility stops replacement and preserves the original project.
+Preserves application source, public assets, environment files, application dependencies and shared UI source; updates shared dependency manifests and catalogs.
+Regenerates framework configuration and standard scripts; backs up original directories and the lockfile to .reinit/backups/.
+Web / Admin and extension browser tests must pass before replacement. Online mode prepares Chromium; offline mode requires a cached browser.
+Formats generated configuration only; application and shared UI source must pass formatting checks without automatic changes.
+Stop development / build processes and pause editing before running.
+--offline replays recorded, cached versions from template-versions.json without querying latest.
 `
 
 export function parseArgs(args) {
   const positional = args.filter((arg) => !arg.startsWith("--"))
   for (const arg of args.filter((arg) => arg.startsWith("--"))) {
-    if (!["--apply", "--dry-run", "--help", "--offline"].includes(arg)) throw new Error(`未知选项：${arg}`)
+    if (!["--apply", "--dry-run", "--help", "--offline"].includes(arg)) throw new Error(`Unknown option: ${arg}`)
   }
   if (positional.length > 1 || (positional[0] && !["all", ...targets].includes(positional[0])))
-    throw new Error("目标必须为 all、web、admin 或 extension")
-  if (args.includes("--apply") && args.includes("--dry-run")) throw new Error("--apply 与 --dry-run 不能同时使用")
+    throw new Error("Target must be all, web, admin or extension")
+  if (args.includes("--apply") && args.includes("--dry-run")) throw new Error("--apply and --dry-run cannot be used together")
   return {
     selected: !positional[0] || positional[0] === "all" ? targets : positional,
     apply: args.includes("--apply"),
@@ -47,10 +47,10 @@ async function main() {
     return
   }
   const pkg = await readJson(join(root, "package.json"))
-  if (pkg.name !== "browser-client") throw new Error("项目根目录标识不匹配")
-  console.log(`项目：${root}\n重建：${options.selected.join(", ")}\n${help}`)
+  if (pkg.name !== "browser-client") throw new Error("Project root identifier does not match")
+  console.log(`Project: ${root}\nRebuild: ${options.selected.join(", ")}\n${help}`)
   if (!options.apply) return
-  if (Number(process.versions.node.split(".")[0]) !== 24) throw new Error("请使用 Node.js 24 LTS")
+  if (Number(process.versions.node.split(".")[0]) !== 24) throw new Error("Use Node.js 24 LTS")
 
   const commandTimeout = positiveTimeout(process.env.REINIT_COMMAND_TIMEOUT_MS, 600_000, "REINIT_COMMAND_TIMEOUT_MS")
   const installEnv = {
@@ -75,7 +75,7 @@ async function main() {
     },
   })
   const state = join(root, ".reinit")
-  if ((await exists(state)) && (await lstat(state)).isSymbolicLink()) throw new Error(".reinit 不允许是符号链接")
+  if ((await exists(state)) && (await lstat(state)).isSymbolicLink()) throw new Error(".reinit must not be a symbolic link")
   await mkdir(state, { recursive: true, mode: 0o700 })
   const lock = join(state, "lock")
   try {
@@ -83,7 +83,7 @@ async function main() {
   } catch (error) {
     if (error.code === "EEXIST")
       throw new Error(
-        "已有 reinit 锁。先检查 .reinit/lock/owner.json 和相关进程；若曾被强制中断，检查备份 journal 后再手工解除锁。",
+        "A reinit lock already exists. Inspect .reinit/lock/owner.json and related processes; after a forced interruption, review the backup journal before manually releasing the lock.",
         { cause: error },
       )
     throw error
@@ -93,7 +93,7 @@ async function main() {
   const backup = join(state, "backups", id)
   let leaveLock = false
   const removeSignalHandlers = handleCancellation(runner, () =>
-    console.error("已请求取消；正在停止当前命令及子进程，退出后恢复现场。"),
+    console.error("Cancellation requested; stopping the current command and child processes, then restoring the workspace."),
   )
   const checkInterrupted = runner.check
   const run = (args, cwd, capture = false, env = {}) => {
@@ -127,7 +127,7 @@ async function main() {
       if (options.offline) {
         const saved = versions[target]
         if (saved?.generator !== generator || !/^\d+\.\d+\.\d+([-+][\w.-]+)?$/.test(saved.version))
-          throw new Error(`缺少 ${target} 的官方模板版本记录，无法离线重建`)
+          throw new Error(`No official template version record for ${target}; cannot rebuild offline`)
         continue
       }
       if (!resolved[generator]) {
@@ -146,7 +146,7 @@ async function main() {
       }
       const generator = target === "web" ? "create-next-app" : "create-vite"
       const version = options.offline ? versions[target].version : resolved[generator]
-      console.log(`\n生成 ${target}：${generator}@${version}`)
+      console.log(`\nGenerating ${target}: ${generator}@${version}`)
       const flags =
         target === "web"
           ? [
@@ -209,7 +209,7 @@ async function main() {
       run,
       checkInterrupted,
       promote: async () => {
-        console.log(`\n验证通过，保存原始目录到 ${backup}`)
+        console.log(`\nValidation passed; backing up original directories to ${backup}`)
         try {
           await promote({
             root,
@@ -239,22 +239,23 @@ async function main() {
         } catch (error) {
           const journal = await readJson(join(backup, "journal.json")).catch(() => null)
           leaveLock = journal?.state !== "rolled-back"
-          if (leaveLock) console.error(`恢复未完成，保留锁与现场。请检查 ${backup}/journal.json`)
-          else console.error("最终验证失败，原始目录与依赖已恢复。")
+          if (leaveLock)
+            console.error(`Recovery is incomplete; retaining the lock and workspace. Inspect ${backup}/journal.json`)
+          else console.error("Final validation failed; original directories and dependencies have been restored.")
           throw error
         }
       },
     })
-    console.log(`\n重建完成。备份：${backup}\n脚手架版本：template-versions.json`)
+    console.log(`\nRebuild complete. Backup: ${backup}\nGenerator versions: template-versions.json`)
   } catch (error) {
-    console.error(`\n${error.message}\n诊断目录：${stage}`)
+    console.error(`\n${error.message}\nDiagnostics directory: ${stage}`)
     process.exitCode = 1
   } finally {
     try {
       await runner.close()
     } catch (error) {
       leaveLock = true
-      console.error(`进程退出未确认，保留锁与现场：${error.message}`)
+      console.error(`Process exit is unconfirmed; retaining the lock and workspace: ${error.message}`)
       process.exitCode = 1
     }
     removeSignalHandlers()

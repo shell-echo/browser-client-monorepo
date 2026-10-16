@@ -23,7 +23,9 @@ export async function validateBeforePromotion({
   await run(["test:web-admin"], stage, false, env)
   await run(["test:extension"], stage, false, env)
   if ((await fingerprint(root)) !== baseline)
-    throw new Error("生成期间工作区发生变化，停止替换。原项目完整保留，请停止编辑后重试。")
+    throw new Error(
+      "Workspace changed during generation; stopping replacement. The original project is preserved. Stop editing and retry.",
+    )
   checkInterrupted()
   await promote()
 }

@@ -7,11 +7,11 @@ import { init, parse } from "es-module-lexer"
 export function assetPath(dist, path, from = dist) {
   assert(
     typeof path === "string" && path.length && !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(path),
-    `扩展资源必须是本地路径：${path}`,
+    `Extension resource must use a local path: ${path}`,
   )
-  assert(!/[\\%?#]/.test(path), `扩展资源路径不明确：${path}`)
+  assert(!/[\\%?#]/.test(path), `Ambiguous extension resource path: ${path}`)
   const file = path.startsWith("/") ? resolve(dist, path.slice(1)) : resolve(from, path)
-  assert(file.startsWith(resolve(dist) + sep), `资源越界：${path}`)
+  assert(file.startsWith(resolve(dist) + sep), `Resource path escapes the output directory: ${path}`)
   return file
 }
 
@@ -23,9 +23,13 @@ export async function checkExtension(dist, source) {
   assert.equal(manifest.manifest_version, 3)
   assert.equal(manifest.background.type, "module")
   for (const field of ["permissions", "host_permissions", "optional_permissions", "optional_host_permissions"]) {
-    assert.deepEqual([...(manifest[field] ?? [])].sort(), [...(source[field] ?? [])].sort(), `生产权限与源码不同：${field}`)
+    assert.deepEqual(
+      [...(manifest[field] ?? [])].sort(),
+      [...(source[field] ?? [])].sort(),
+      `Production permissions differ from source: ${field}`,
+    )
   }
-  assert.deepEqual(manifest.content_security_policy, source.content_security_policy, "生产 CSP 与源码不同")
+  assert.deepEqual(manifest.content_security_policy, source.content_security_policy, "Production CSP differs from source")
   const localAsset = async (path, from = dist) => {
     const file = assetPath(dist, path, from)
     await access(file)
@@ -36,11 +40,11 @@ export async function checkExtension(dist, source) {
     const file = await localAsset(page)
     const html = await readFile(file, "utf8")
     const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]
-    assert(scripts.length > 0, `页面缺少入口脚本：${page}`)
+    assert(scripts.length > 0, `Page has no entry script: ${page}`)
     for (const [, attributes, body] of scripts) {
-      assert.equal(body.trim(), "", "MV3 不允许内联脚本")
+      assert.equal(body.trim(), "", "MV3 does not allow inline scripts")
       const src = attributes.match(/\bsrc="([^"]+)"/)?.[1]
-      assert(src, "脚本必须引用本地资源")
+      assert(src, "Scripts must reference local resources")
       await localAsset(src, dirname(file))
     }
     for (const [, href] of html.matchAll(/<link[^>]+href="([^"]+)"/g)) await localAsset(href, dirname(file))
@@ -53,7 +57,7 @@ export async function checkExtension(dist, source) {
         const content = await readFile(file, "utf8")
         assert(
           !/@vite\/client|@react-refresh|@crx\/client|__CRX_HMR_TOKEN__|crx:runtime-reload/.test(content),
-          `生产产物含开发客户端：${file}`,
+          `Production output contains a development client: ${file}`,
         )
         if (entry.name.endsWith(".js")) {
           const [imports] = parse(content, file)
@@ -68,7 +72,7 @@ export async function checkExtension(dist, source) {
     }
   }
   await scan(dist)
-  console.log("Manifest V3 产物检查通过：popup、options、service worker、JS 导入资源、生产权限与 CSP。")
+  console.log("Manifest V3 output check passed: popup, options, service worker, JS imports, production permissions and CSP.")
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

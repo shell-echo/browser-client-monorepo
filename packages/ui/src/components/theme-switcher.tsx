@@ -29,8 +29,8 @@ export function ThemeSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={<Button variant="outline" size="icon" className="relative shrink-0" />}
-        aria-label="主题模式"
-        title="切换主题"
+        aria-label="Toggle theme"
+        title="Toggle theme"
         disabled={!mounted}
       >
         <Sun aria-hidden="true" className="size-4 scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90" />
@@ -39,19 +39,19 @@ export function ThemeSwitcher() {
           className="absolute size-4 scale-0 rotate-90 transition-transform dark:scale-100 dark:rotate-0"
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-40" aria-label="主题模式选项">
+      <DropdownMenuContent align="end" sideOffset={8} className="w-40" aria-label="Theme options">
         <DropdownMenuRadioGroup value={mounted ? theme : "system"} onValueChange={(value) => setTheme(normalizeTheme(value))}>
           <DropdownMenuRadioItem value="light" closeOnClick>
             <Sun aria-hidden="true" />
-            浅色模式
+            Light
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="dark" closeOnClick>
             <Moon aria-hidden="true" />
-            深色模式
+            Dark
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="system" closeOnClick>
             <Monitor aria-hidden="true" />
-            跟随系统
+            System
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>

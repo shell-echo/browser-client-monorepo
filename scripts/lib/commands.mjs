@@ -40,9 +40,10 @@ async function waitForExit(child, timeoutMs) {
   return !alive(child)
 }
 
-export function positiveTimeout(value, fallback, label = "超时") {
+export function positiveTimeout(value, fallback, label = "Timeout") {
   const timeout = value === undefined ? fallback : Number(value)
-  if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > 2_147_483_647) throw new Error(`${label}必须为正整数毫秒`)
+  if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > 2_147_483_647)
+    throw new Error(`${label} must be a positive integer in milliseconds`)
   return timeout
 }
 
@@ -54,7 +55,7 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
   let disposed = false
   const check = () => {
     if (cancelled) throw cancelled
-    if (disposed) throw new Error("命令执行器已关闭")
+    if (disposed) throw new Error("Command runner is closed")
   }
   const start = (command, args = [], options = {}) => {
     check()
@@ -99,14 +100,18 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
         await killTree(child, "SIGTERM")
         if (!(await waitForExit(child, graceMs))) {
           await killTree(child, "SIGKILL")
-          if (!(await waitForExit(child, graceMs))) throw new Error(`无法确认进程树已退出：${command}（${child.pid}）`)
+          if (!(await waitForExit(child, graceMs)))
+            throw new Error(`Cannot confirm the process tree has exited: ${command} (${child.pid})`)
         }
         let closeTimer
         try {
           await Promise.race([
             closed,
             new Promise((_, reject) => {
-              closeTimer = setTimeout(() => reject(new Error(`进程流未关闭：${command}（${child.pid}）`)), graceMs)
+              closeTimer = setTimeout(
+                () => reject(new Error(`Process streams did not close: ${command} (${child.pid})`)),
+                graceMs,
+              )
             }),
           ])
         } finally {
@@ -137,7 +142,7 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
     })
     if (limit)
       timer = setTimeout(() => {
-        void stop(new Error(`${command} ${args.join(" ")} 超时（${limit}ms）`)).catch(() => {})
+        void stop(new Error(`${command} ${args.join(" ")} Timed out (${limit}ms)`)).catch(() => {})
       }, limit)
     return handle
   }
@@ -145,10 +150,10 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
     const result = await start(command, args, options).done
     if (result.reason) throw result.reason
     if (result.error) throw result.error
-    if (result.code !== 0) throw new Error(`${command} ${args.join(" ")} 失败（${result.signal ?? result.code}）`)
+    if (result.code !== 0) throw new Error(`${command} ${args.join(" ")} failed (${result.signal ?? result.code})`)
     return result.output
   }
-  const cancel = (reason = new Error("操作已取消")) => {
+  const cancel = (reason = new Error("Operation cancelled")) => {
     cancelled ??= reason
     for (const handle of active) void handle.stop(cancelled).catch(() => {})
   }
@@ -163,7 +168,7 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
 
 export function handleCancellation(runner, onCancel = () => {}) {
   const listener = (signal) => {
-    runner.cancel(new Error(`操作已取消（${signal}）`))
+    runner.cancel(new Error(`Operation cancelled (${signal})`))
     onCancel(signal)
   }
   process.on("SIGINT", listener)

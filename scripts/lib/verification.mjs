@@ -20,7 +20,7 @@ export function createVerificationRunner({ logDir, ...options }) {
   async function run(command, args, logName) {
     const result = await start(command, args, logName).done
     if (result.reason || result.error) throw result.reason ?? result.error
-    assert.equal(result.code, 0, `${command} ${args.join(" ")} 失败；查看 ${join(logDir, logName)}`)
+    assert.equal(result.code, 0, `${command} ${args.join(" ")} failed; see ${join(logDir, logName)}`)
   }
   async function until(check, label, timeout = 30_000) {
     const deadline = Date.now() + timeout
@@ -34,7 +34,7 @@ export function createVerificationRunner({ logDir, ...options }) {
       }
       await delay(150)
     }
-    throw new Error(`等待超时：${label}`, { cause: lastError })
+    throw new Error(`Timed out waiting for: ${label}`, { cause: lastError })
   }
   return { ...runner, start, run, until }
 }
@@ -54,6 +54,6 @@ export async function finishVerification(report, cleanup) {
   }
   const path = join(report.runDir, "report.json")
   await writeFile(path, JSON.stringify(report, null, 2) + "\n")
-  console.log(`浏览器验证报告：${path}`)
-  if (failures.length) throw new AggregateError(failures, "浏览器测试现场清理失败")
+  console.log(`Browser verification report: ${path}`)
+  if (failures.length) throw new AggregateError(failures, "Browser test workspace cleanup failed")
 }

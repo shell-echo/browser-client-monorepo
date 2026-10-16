@@ -11,13 +11,13 @@ export async function verifyBracesPatch(root) {
   const workspace = parse(await readFile(join(root, "pnpm-workspace.yaml"), "utf8"))
   const lock = parse(await readFile(join(root, "pnpm-lock.yaml"), "utf8"))
   const patch = "patches/braces@3.0.3.patch"
-  assert.equal(workspace.patchedDependencies?.["braces@3.0.3"], patch, "braces 的本地补丁未注册")
+  assert.equal(workspace.patchedDependencies?.["braces@3.0.3"], patch, "Local braces patch is not registered")
   const hash = createHash("sha256")
     .update(await readFile(join(root, patch)))
     .digest("hex")
-  assert.equal(lock.patchedDependencies?.["braces@3.0.3"], hash, "braces 补丁与锁文件不一致")
+  assert.equal(lock.patchedDependencies?.["braces@3.0.3"], hash, "braces patch does not match the lockfile")
   const snapshots = Object.keys(lock.snapshots).filter((name) => name.startsWith("braces@"))
-  assert.deepEqual(snapshots, [`braces@3.0.3(patch_hash=${hash})`], "发现未纳入本地补丁的 braces 版本")
+  assert.deepEqual(snapshots, [`braces@3.0.3(patch_hash=${hash})`], "Found a braces version without the local patch")
 
   // Resolve the same dependency chain used by shadcn, through pnpm's real paths.
   const cli = createRequire(await realpath(join(root, "node_modules/shadcn/package.json")))
@@ -32,7 +32,7 @@ export async function verifyBracesPatch(root) {
       assert.throws(
         () => braces[method](pattern),
         (error) => error.code === "ERR_BRACES_DEPTH",
-        `${method} 未限制 ${open} 嵌套深度`,
+        `${method} does not limit ${open} nesting depth`,
       )
     }
   }
@@ -42,7 +42,10 @@ export async function verifyBracesPatch(root) {
 }
 
 export function classifyAudit(audit, receipt) {
-  assert(audit.metadata?.vulnerabilities && audit.advisories && !audit.error, "依赖审计响应无效或 registry 请求失败")
+  assert(
+    audit.metadata?.vulnerabilities && audit.advisories && !audit.error,
+    "Dependency audit response is invalid or the registry request failed",
+  )
   const mitigated = [],
     unresolved = []
   for (const advisory of Object.values(audit.advisories)) {

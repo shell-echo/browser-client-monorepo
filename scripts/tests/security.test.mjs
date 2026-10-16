@@ -47,5 +47,5 @@ test("audit only accepts the exact advisory/version after patch verification; ot
   ]) {
     assert.equal(classifyAudit(audit({ advisory }), receipt).unresolved.length, 1)
   }
-  assert.throws(() => classifyAudit({ error: { message: "registry unavailable" } }, receipt), /响应无效/)
+  assert.throws(() => classifyAudit({ error: { message: "registry unavailable" } }, receipt), /response is invalid/)
 })

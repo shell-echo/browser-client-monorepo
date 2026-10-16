@@ -1,61 +1,63 @@
 # browser-client
 
-Next.js Web + Vite Admin + Vite / CRXJS Chrome / Edge Extension 的 pnpm monorepo。三个入口共享 `packages/ui` 中的 shadcn/ui 组件和 Tailwind CSS v4 主题。
+A pnpm monorepo with Next.js Web, Vite Admin, and a Vite / CRXJS Chrome / Edge extension. All three clients share shadcn/ui components and Tailwind CSS v4 themes from `packages/ui`.
 
-## 开始
+## Getting started
 
-需要 **Node.js 24 LTS** 和 **pnpm 11.25.0**（`packageManager` 固定版本）。`.tool-versions` 为 mise / asdf 固定项目 Node 版本，`.node-version` 提供 Node 24 版本约定。已有 mise 的环境先运行 `mise install`，即可在此目录执行以下命令；也可使用 `mise exec node@24 -- pnpm install`。
+Requires **Node.js 24 LTS** and **pnpm 11.25.0**, pinned by `packageManager`. `.tool-versions` pins Node for mise / asdf, and `.node-version` specifies Node 24. With mise installed, run `mise install` first, or use `mise exec node@24 -- pnpm install`.
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-| 入口               | 命令                     | 地址或产物                               |
-| ------------------ | ------------------------ | ---------------------------------------- |
-| Web                | `pnpm dev:web`           | http://127.0.0.1:3000                    |
-| Admin              | `pnpm dev:admin`         | http://127.0.0.1:5173                    |
-| Extension          | `pnpm dev:extension`     | 加载 `apps/extension/dist-dev`，支持 HMR |
-| Extension 网页预览 | `pnpm preview:extension` | http://127.0.0.1:5174                    |
+| Client               | Command                  | URL or output                               |
+| -------------------- | ------------------------ | ------------------------------------------- |
+| Web                  | `pnpm dev:web`           | http://127.0.0.1:3000                       |
+| Admin                | `pnpm dev:admin`         | http://127.0.0.1:5173                       |
+| Extension            | `pnpm dev:extension`     | Load `apps/extension/dist-dev`; HMR enabled |
+| Extension UI preview | `pnpm preview:extension` | http://127.0.0.1:5174                       |
 
-`pnpm dev` 同时运行前三项。开发服务默认仅监听本机。Web / Admin 是接入真实业务前的最小示例，没有后端、登录或生产数据。Admin 表单只更新当前页面。
+`pnpm dev` starts the first three services. Development servers listen on localhost. Each client uses the shared `ClientPage` from `packages/ui`, displaying `Web Client`, `Admin Client`, or `Extension Client` above a GitHub icon linking to this repository. Content is centered horizontally and vertically, with a theme switcher in the top right. The extension popup uses a compact 360 × 280 layout; options and the UI preview fill the viewport. The starter has no backend, authentication, or production data.
 
-## 目录
+English is the default for UI text, accessibility labels, page metadata, extension descriptions, documentation, and development command output. HTML documents use `lang="en"`.
+
+## Project structure
 
 ```text
 apps/
   web/          # Next.js App Router + TypeScript
-  admin/        # 官方 Vite React TypeScript 模板
-  extension/    # 官方 Vite React TypeScript 模板 + CRXJS + Manifest V3
+  admin/        # Official Vite React TypeScript template
+  extension/    # Official Vite React TypeScript template + CRXJS + Manifest V3
 packages/
-  ui/           # 共享 shadcn/ui 组件、工具和主题
-  typescript-config/ # 基础 / React / Next.js / Vite 的 TypeScript 预设
-  eslint-config/     # ESLint 公共配置，与应用的官方规则组合
-  oxlint-config/     # React 应用和共享 UI 的 Oxlint 预设
+  ui/           # Shared shadcn/ui components, utilities, and themes
+  typescript-config/ # Base / React / Next.js / Vite TypeScript presets
+  eslint-config/     # Shared ESLint configuration combined with framework rules
+  oxlint-config/     # React application and shared UI Oxlint presets
 scripts/
-  reinit.mjs    # 从官方最新模板重建
-  clean-reinit.mjs # 预览和清理旧的成功备份 / 浏览器副本
-  lib/          # 模板接入、公共依赖、命令执行、源码迁移与恢复
-  tests/        # 数据保留与失败恢复测试
-template-versions.json  # 实际脚手架版本与生成时间
+  reinit.mjs    # Rebuild from the latest official templates
+  clean-reinit.mjs # Preview and remove old successful backups / browser workspaces
+  lib/          # Template integration, dependencies, commands, migration, and recovery
+  tests/        # Source preservation and failure recovery tests
+template-versions.json  # Generator versions, timestamps, and dependency decisions
 ```
 
-保留各官方模板的工具选择；当前 Web 使用 ESLint，Vite 应用使用 Oxlint。Turborepo 调度各 workspace 的构建、lint 与类型检查。`pnpm-lock.yaml` 是唯一依赖锁文件。
+The project retains official template tooling: Web uses ESLint; Vite applications use Oxlint. Turborepo schedules builds, lint, and type checks. `pnpm-lock.yaml` is the only dependency lockfile.
 
-## 共享工程配置
+## Shared configuration
 
-公共规则在 `packages/` 维护，通过 `workspace:*` 开发依赖接入。各应用只保留环境和路径相关配置：
+Shared rules live in `packages/` and are consumed through `workspace:*` development dependencies. Applications retain environment-specific and path-specific settings:
 
-| 使用方                 | TypeScript 预设                                    | lint 配置                                                       |
-| ---------------------- | -------------------------------------------------- | --------------------------------------------------------------- |
-| Web                    | `@browser-client/typescript-config/nextjs.json`    | `@browser-client/eslint-config/base` + 当前 Next.js 官方规则    |
-| Admin / Extension 页面 | `@browser-client/typescript-config/vite.json`      | `@browser-client/oxlint-config/react-app.json`                  |
-| Vite 配置文件          | `@browser-client/typescript-config/vite-node.json` | 与所在应用共用 lint                                             |
-| UI                     | `@browser-client/typescript-config/react.json`     | `@browser-client/oxlint-config/react.json`，并保留 Unicorn 检查 |
+| Consumer                | TypeScript preset                                  | Lint configuration                                                   |
+| ----------------------- | -------------------------------------------------- | -------------------------------------------------------------------- |
+| Web                     | `@browser-client/typescript-config/nextjs.json`    | `@browser-client/eslint-config/base` + official Next.js rules        |
+| Admin / Extension pages | `@browser-client/typescript-config/vite.json`      | `@browser-client/oxlint-config/react-app.json`                       |
+| Vite configuration      | `@browser-client/typescript-config/vite-node.json` | Same lint rules as its application                                   |
+| UI                      | `@browser-client/typescript-config/react.json`     | `@browser-client/oxlint-config/react.json`, including Unicorn checks |
 
-`base.json` 统一严格类型检查、`skipLibCheck` 和 `noEmit`；React、Next.js、Vite 预设逐层继承。`vite-common.json` 复用页面与构建配置共同的检查选项。`paths`、`types`、`include/exclude`、project references、`tsBuildInfoFile` 和 Next.js 插件留在使用方，避免相对路径解析到共享包。应用的本地选项优先于共享默认值。
+`base.json` supplies strict checking, `skipLibCheck`, and `noEmit`; React, Next.js, and Vite presets extend it. `vite-common.json` shares options between page and build configurations. Keep `paths`, environment `types`, `include/exclude`, project references, `tsBuildInfoFile`, and the Next.js plugin in each consumer so relative paths resolve correctly. Local application settings override shared defaults.
 
-ESLint 公共包统一生成目录忽略和未使用禁用指令的检查，不绑定 Next.js 版本；Next.js 插件和规则依赖继续由 Web 的官方模板管理。Oxlint 的 React 预设统一 Hooks 规则，应用预设增加 Fast Refresh 导出检查；共享 UI 可同时导出组件与工具函数。当前 Oxlint JSON 的 `extends` 使用文件路径，因此消费方通过 `./node_modules/@browser-client/oxlint-config/...` 引用 workspace 包。
+The ESLint package shares generated-file ignores and unused-disable checks without coupling to a Next.js version. The Web template manages Next.js rules and their dependencies. Oxlint's React preset shares Hooks rules; the application preset adds Fast Refresh checks. Shared UI can export both components and utilities. Oxlint JSON `extends` currently uses file paths, so consumers reference `./node_modules/@browser-client/oxlint-config/...`.
 
 ```json
 {
@@ -68,63 +70,63 @@ ESLint 公共包统一生成目录忽略和未使用禁用指令的检查，不�
 }
 ```
 
-修改公共规则后执行 `pnpm check`。三个配置包都纳入 Turbo 的 `globalDependencies`，配置修改会使相关检查及构建缓存失效。根目录脚本和 ESLint 配置由同一个共享包的 `node` 预设检查，`pnpm lint:scripts` 可单独执行。
+Run `pnpm check` after changing shared rules. All three configuration packages are included in Turbo's `globalDependencies`, invalidating affected checks and build caches. Root scripts and the root ESLint configuration use the shared `node` preset; run `pnpm lint:scripts` independently when needed.
 
-各应用的 `.env*` 纳入构建缓存输入，修改后会重新构建；环境文件放在相应应用目录，实际值不提交 Git。Turbo 会自动识别 `NEXT_PUBLIC_*` / `VITE_*`；以后新增影响构建的服务端环境变量时，还需将变量名加入 `build.env`。`EXTENSION_DEV_PORT` 会透传给 `pnpm dev` 中的扩展开发服务。
+Each application's `.env*` files are build cache inputs. Store them in the corresponding application and keep real values out of Git. Turbo recognizes `NEXT_PUBLIC_*` / `VITE_*`; add future build-affecting server variables to `build.env`. `EXTENSION_DEV_PORT` is passed through to the extension service started by `pnpm dev`.
 
-`reinit` 会重新添加配置包依赖并接入公共预设。共享预设已管理的 TypeScript 选项和 Oxlint 规则以项目设置为准，避免你修改公共规则后又被模板默认值覆盖；若模板给出不同值，脚本会打印提示供核对。上游新增且尚未纳入共享预设的选项、额外继承链、环境类型和 lint overrides 会保留。接入逻辑位于 `scripts/lib/tooling.mjs`；公共规则在配置包修改，框架接入差异在脚本修改，均会随下一次 reinit 保留。直接编辑应用配置可以临时覆盖共享默认值，但这些框架配置仍会在 reinit 时重建。
+`reinit` reconnects the shared presets and their package dependencies. Project-managed TypeScript options and Oxlint rules take precedence over template defaults; differences are reported. New upstream options, additional inheritance, environment types, and lint overrides are preserved. Integration lives in `scripts/lib/tooling.mjs`. Edit shared rules in configuration packages and framework adapters in scripts to retain changes across reinit. Direct application overrides remain temporary because framework configuration is regenerated.
 
-## 格式化与编辑器
+## Formatting and editors
 
-根目录的 `.prettierrc.json` 为三个应用、共享包和脚本提供统一格式：两空格、双引号、不加分号、128 列换行。使用项目安装且精确锁定的 Prettier；Tailwind 排序插件通过 `packages/ui/src/styles/globals.css` 读取 v4 主题，同时整理 JSX、`cn`、`clsx` 和 `cva` 中的类名。无需在每个 workspace 重复安装或另建格式配置包。
+The root `.prettierrc.json` formats applications, shared packages, and scripts with two spaces, double quotes, no semicolons, and a 128-column width. Prettier is installed locally and pinned. The Tailwind plugin reads the v4 theme from `packages/ui/src/styles/globals.css` and sorts classes in JSX, `cn`, `clsx`, and `cva`. No separate formatting package or per-workspace installation is required.
 
 ```sh
-pnpm format          # 统一源码、配置与文档的格式
-pnpm format:check    # 只检查；pnpm check 和 CI 均包含它
+pnpm format          # Format source, configuration, and documentation
+pnpm format:check    # Check only; included in pnpm check and CI
 ```
 
-两条命令显式读取 `.prettierignore`，避免 Git 的宽泛 `dist/` 忽略规则隐藏 `src/dist/` 等业务源码。格式化只排除指定的工作区生成目录、依赖、锁文件、自动生成的版本记录、静态 `public/` 资源、私有 `.reinit/`、补丁和 `AGENTS.md`；不会改写静态资源或仓库指令。`.editorconfig` 统一 UTF-8、LF、两空格和末尾换行，保留 Markdown 换行及补丁的有意义空白。
+Both commands explicitly use `.prettierignore`, preventing broad Git `dist/` rules from hiding application paths such as `src/dist/`. Exclusions cover workspace build outputs, dependencies, lockfiles, generated version records, static `public/` assets, private `.reinit/` data, patches, and `AGENTS.md`. Static assets and repository instructions are not reformatted. `.editorconfig` sets UTF-8, LF, two spaces, and a final newline while preserving meaningful Markdown and patch whitespace.
 
-用 VS Code 打开仓库根目录后，按 `.vscode/extensions.json` 的推荐安装 Prettier、ESLint、Oxc 和 Tailwind CSS IntelliSense。保存时使用本地 Prettier 格式化，并执行相应 linter 的修复。Web 和工程脚本使用 ESLint；根 `.oxlintrc.json` 为 Oxc 编辑器排除这些文件，Admin、Extension 和 UI 继续使用各自的公共规则。根目录安装的 Oxlint 与应用共用 catalog 版本，供编辑器发现本地语言服务。Oxfmt 格式化已关闭，TypeScript 不使用 Nightly；最终类型检查仍由各工作区锁定的 TypeScript 执行。编辑器插件仅列为推荐，不自动安装或修改个人设置。
+Open the repository root in VS Code and install the recommended Prettier, ESLint, Oxc, and Tailwind CSS IntelliSense extensions from `.vscode/extensions.json`. Saving uses local Prettier and the appropriate lint fixes. Web and scripts use ESLint; the root `.oxlintrc.json` excludes them from Oxc editor checks. Admin, Extension, and UI keep their shared rules. Root Oxlint uses the same catalog version as the applications so the editor can locate its language service. Oxfmt formatting and TypeScript Nightly are disabled; final type checks use each workspace's pinned TypeScript. Recommendations do not automatically install extensions or change personal settings.
 
-`reinit` 在隔离候选目录安装依赖后，仅格式化被重建应用的托管配置，以及更新后的根配置和 workspace 依赖清单，再执行完整检查和浏览器验收。业务源码、共享 shadcn/ui、manifest、静态资源与编辑器配置不会被这一步重写。新增格式依赖自动参与联网兼容性升级；离线模式重放已验证的版本。如果升级后的规则要求业务文件调整，或生成配置不能格式化，检查会中止并保留原项目，需要审核格式调整后再重试。新增格式依赖后，先成功运行一次联网 reinit，才会生成包含这些依赖的离线重放记录。
+After installing the isolated candidate, `reinit` formats regenerated application configuration and updated root configuration / workspace manifests, then runs full checks and browser tests. It does not rewrite application source, shared shadcn/ui, manifests, static assets, or editor settings. Formatting dependencies participate in compatible online upgrades; offline mode replays recorded versions. If updated rules require source changes or generated configuration cannot be formatted, validation stops and preserves the original project. Review formatting changes before retrying. After adding formatting dependencies, a successful online reinit is needed to record them for offline replay.
 
-## 公共依赖版本
+## Shared dependency versions
 
-`pnpm-workspace.yaml` 的 `catalog` 集中维护 React、React DOM、React 类型、Tailwind、Oxlint、ESLint 和 shadcn。使用方通过 `catalog:` 引用；`catalog:next` 和 `catalog:vite` 分别维护框架工具链。Next.js、Vite、框架插件和 CRXJS 在应用声明版本。联网 reinit 会更新 catalog、根工具依赖和 `packages/*` 的直接依赖，写入经过验证的精确版本；共享组件源码、导出、脚本和 peer 契约保留。
+`pnpm-workspace.yaml` catalogs manage React, React DOM, React types, Tailwind, Oxlint, ESLint, and shadcn. Consumers use `catalog:`; `catalog:next` and `catalog:vite` manage framework toolchains. Applications declare Next.js, Vite, framework plugins, and CRXJS. Online reinit upgrades catalogs, root tooling, and direct dependencies in `packages/*` to verified exact versions while preserving shared component source, exports, scripts, and peer contracts.
 
-普通安装遵循锁文件，不追随 latest。联网 reinit 优先选择发布者 latest 通道中的稳定版，过滤 beta / rc 等预发布，不自动追随 next 通道。Next.js、Vite 和 CRXJS 必须使用最新稳定版；公共依赖若不满足 Node 引擎、模板工具链要求或 peer 契约，则选择最高兼容稳定版并记录原因。React / React DOM 版本必须一致；Node 类型对齐当前 Node 主版本；TypeScript 保留模板要求，未重建应用的 TypeScript 工具链保留当前兼容范围。
+Regular installs follow the lockfile. Online reinit selects stable releases from each publisher's latest channel, excludes beta / rc prereleases, and does not follow next channels. Next.js, Vite, and CRXJS must use the latest stable versions. Shared dependencies fall back to the highest stable version satisfying Node engines, template toolchains, and peer contracts, with reasons recorded. React / React DOM versions must match. Node types follow the active Node major. TypeScript retains template requirements, and toolchains for applications outside the rebuild retain their compatible ranges.
 
-已弃用版本不会被新引入。若当前已经使用的版本因兼容要求暂时必须保留，其 deprecated 状态会明确记录。决策、版本和保留原因保存在 `template-versions.json#dependencies`。求解后还会严格安装 peer dependencies、核对锁文件实际版本，并执行完整检查及联网安全审计；不兼容时停止替换，不自动降级 Next / Vite / CRXJS，也不会用旧缓存冒充联网 latest。
+New deprecated versions are rejected. If compatibility requires retaining an already-used deprecated release, the receipt records its status. Decisions and reasons live in `template-versions.json#dependencies`. Strict peer installation, resolved-lockfile verification, full checks, and online security auditing follow dependency solving. Incompatibility stops replacement without downgrading Next / Vite / CRXJS or treating old caches as online latest.
 
-ESLint 使用 10，公共配置通过 peer 契约和 catalog 开发依赖统一版本，Web 保留完整的 Next 官方 Core Web Vitals / TypeScript 规则。模板中的 ESLint 默认版本不作为硬约束，实际兼容性由配置包的 peer、严格安装和规则回归测试共同检查。Next 16.4.1 自带 [ESLint 10 规则上下文兼容层](https://github.com/vercel/next.js/blob/v16.4.1/packages/eslint-config-next/src/rule-context.ts)；React 7.37.5、Import 2.32.0、JSX a11y 6.10.2 三个 ESLint 插件的上游 peer 声明尚未包含 10，因此只对这些固定插件版本设置 `peerDependencyRules.allowedVersions` 例外，其余 peer 检查保持严格。`pnpm test` 会实际执行 React、Hooks、无障碍、Import、Next 和 TypeScript 规则，并确认共享 shadcn/ui 的合法用法正常；后续插件升级仍须通过同样检查，不自动扩大例外。
+The project uses ESLint 10. Shared peer contracts and catalog development dependencies align its version; Web retains all official Next.js Core Web Vitals / TypeScript rules. Template ESLint defaults are not hard constraints: actual configuration peers, strict installation, and rule regression tests determine compatibility. Next 16.4.1 provides an [ESLint 10 rule context compatibility layer](https://github.com/vercel/next.js/blob/v16.4.1/packages/eslint-config-next/src/rule-context.ts). React 7.37.5, Import 2.32.0, and JSX a11y 6.10.2 do not declare ESLint 10 peers upstream, so `peerDependencyRules.allowedVersions` grants exceptions only to those exact plugin versions; other peers remain strict. `pnpm test` executes React, Hooks, accessibility, Import, Next, and TypeScript rules, including valid shared shadcn/ui usage. Future plugin upgrades must pass the same checks without automatically broadening exceptions.
 
-ESLint 的项目最低版本为 `10.0.0`，当前公共配置的 peer 为 `^10`。联网求解、离线记录重放、无依赖记录的旧锁文件以及安装后的实际依赖图均检查此底线；ESLint 9 即使已缓存、原先已安装或没有 deprecated 标记，也不能被选用。无法找到兼容组合时停止并保留原项目；离线记录低于底线或无法确认版本时，需先联网 reinit 更新记录。安装后的检查发生在替换前，替换后的复验失败仍按备份流程恢复。
+ESLint's minimum version is `10.0.0`; the current shared configuration peer is `^10`. Online solving, offline receipts, legacy lockfiles without receipts, and the installed dependency graph all enforce this floor. Cached or previously installed ESLint 9 is rejected even without a deprecation marker. Failure to find a compatible combination preserves the original project. Offline records below the floor or without a verifiable version require an online reinit first. Installed-version checks happen before replacement; final validation failures restore the backup.
 
-应用专属业务依赖保留声明；`packages/ui` 内的 Base UI、图标库、样式工具及 shadcn CLI 等公共依赖会参与升级，但不会重新生成现有 shadcn 组件。Node / pnpm 工具版本、业务源码和 API 不会自动迁移。版本决策位于 `scripts/lib/updates.mjs`，catalog 接入位于 `scripts/lib/catalogs.mjs`。
+Application-specific dependency declarations are retained. Shared UI dependencies, including Base UI, icons, styling utilities, and shadcn CLI, participate in upgrades without regenerating existing components. Node / pnpm versions, application source, and APIs are not automatically migrated. Version policy lives in `scripts/lib/updates.mjs`; catalog integration lives in `scripts/lib/catalogs.mjs`.
 
-### 依赖安全检查
+### Dependency security
 
 ```sh
 pnpm audit:security
 pnpm audit --prod
 ```
 
-shadcn CLI 放在根和 UI 包的开发依赖中；UI 的 `shadcn/tailwind.css` 仍在构建阶段正常解析。其间接依赖 `braces@3.0.3` 的 [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) 尚无官方修复版本，本项目使用 `patches/braces@3.0.3.patch` 限制解析和递归 AST 遍历深度，覆盖字符串及直接传入 AST 的入口。补丁由 `pnpm-workspace.yaml#patchedDependencies` 注册并在唯一锁文件中固定，重建时保留。
+shadcn CLI is a root and UI development dependency; `shadcn/tailwind.css` still resolves during builds. Its transitive `braces@3.0.3` dependency has no upstream fix for [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm). `patches/braces@3.0.3.patch` limits parser and recursive AST traversal depth for both strings and direct AST inputs. The patch is registered in `pnpm-workspace.yaml#patchedDependencies`, pinned in the single lockfile, and preserved by reinit.
 
-原始 `pnpm audit` 按版本判断，仍可能报告这条告警。`audit:security` 先核对补丁哈希、锁文件覆盖范围和实际安装依赖的行为，再读取完整审计响应；仅将该 GHSA 的已验证 `3.0.3` 记录为“本地补丁缓解”，不会设置全局忽略列表。其他包、版本、告警及 registry 错误均导致失败。相关回归测试也纳入 `pnpm check`。补丁只处理递归深度问题，不保证任意 glob / 正则表达式的资源消耗安全。
+Raw `pnpm audit` uses package versions and may still report this advisory. `audit:security` first verifies the patch hash, lockfile coverage, and installed behavior, then reads the complete audit response. Only the verified `3.0.3` instance of this GHSA is classified as locally mitigated; no global ignore list is applied. Other packages, versions, advisories, or registry errors fail the check. Regression tests are included in `pnpm check`. The patch addresses recursion depth, not arbitrary glob / regular-expression resource consumption.
 
-上游发布修复后，升级依赖并同步移除本地补丁及对应验证策略；不能仅删除告警记录或修改版本号来宣称修复。
+When an upstream fix becomes available, upgrade and remove the patch and its verification policy together. Removing an advisory record or changing a version string does not establish a fix.
 
 ## shadcn/ui
 
-采用 `base-nova` 风格及 Base UI，已安装 Button、Card、Badge、Input、Label、Separator。三个应用的 `components.json` 均指向共享 UI 包。
+Uses `base-nova` and Base UI, with Button, Card, Badge, Input, Label, Separator, and DropdownMenu available. Each application's `components.json` points to the shared UI package.
 
 ```sh
-# 从 Web 工作区解析依赖，基础组件自动写入 packages/ui
+# Resolve from Web; shared primitives are written to packages/ui
 pnpm ui:add dialog
 
-# 页面 blocks 可从对应应用中添加
+# Add page blocks from the corresponding application
 pnpm exec shadcn add login-01 --cwd apps/admin
 ```
 
@@ -132,138 +134,138 @@ pnpm exec shadcn add login-01 --cwd apps/admin
 import { Button } from "@browser-client/ui/components/button"
 ```
 
-主题在 `packages/ui/src/styles/globals.css`。各应用通过 `@source` 扫描自己的源码，共享样式同时扫描 UI 源码。需要 React hooks 或交互的共享组件须声明 `"use client"`，以兼容 Next.js Server Components。新增组件后运行 `pnpm check`。
+Themes live in `packages/ui/src/styles/globals.css`. Applications use `@source` to scan their own source; shared styles also scan UI source. Shared components using React hooks or interaction must declare `"use client"` for Next.js Server Component compatibility. Run `pnpm check` after adding components.
 
-## 深浅主题
+## Light and dark themes
 
-Web、Admin、扩展 popup 和 options 的页头提供“主题模式”图标按钮，使用共享 shadcn `Button` + `DropdownMenu`，以单选菜单选择浅色、深色、跟随系统，默认跟随系统。菜单标记当前选择，支持键盘操作、Escape 关闭和焦点返回。共用 `packages/ui` 的配色、主题上下文和 `ThemeSwitcher`；Web 使用 shadcn 推荐的 `next-themes` 适配 Next.js SSR，Vite 页面使用共享的 `ThemeProvider`。原生表单控件的 `color-scheme` 也随主题切换。
+Web, Admin, extension popup, and options provide a top-right `Toggle theme` button using the shared shadcn `Button` and `DropdownMenu`. The radio menu offers `Light`, `Dark`, and `System`, defaulting to `System`. It marks the current selection and supports keyboard navigation, Escape, and focus restoration. Clients share colors, context, and `ThemeSwitcher` from `packages/ui`. Web uses `next-themes` for Next.js SSR; Vite pages use the shared `ThemeProvider`. Native form controls follow the active `color-scheme`.
 
-偏好存储在各自 origin 的 `localStorage["browser-client-theme"]`，刷新后保留。同源标签页以及同一扩展的 popup / options 会同步选择；Web 和 Admin 的不同端口属于不同 origin，偏好各自独立。跟随系统时会响应实时配色变化，手动选择优先于系统设置；Vite 页面在本地存储被禁用时仍可切换当前页面的主题。
+Preferences are stored per origin in `localStorage["browser-client-theme"]` and survive reloads. Same-origin tabs and popup / options within one extension synchronize changes. Web and Admin use different ports and therefore keep separate preferences. System mode follows live OS changes; manual selection takes priority. Vite pages remain usable when local storage is disabled.
 
-Web 的初始化脚本在 hydration 前应用主题，`html` 仅对主题导致的属性差异设置 `suppressHydrationWarning`。Admin 和扩展使用 `<head>` 中的阻塞式外部 `theme-init.js`，在 React 运行前应用颜色；扩展保留严格的 Manifest V3 CSP，不引入内联脚本或新增权限。共享初始化源码在 `packages/ui/src/lib/theme-init.js`，其发布副本随源码提交到两个应用的 `public/`。修改初始化源码后运行 `pnpm theme:sync`；回归测试会检查副本一致及脚本加载顺序。
+Web applies its theme before hydration and uses `suppressHydrationWarning` on `html` for theme-related attribute differences. Admin and Extension use a blocking external `theme-init.js` in `<head>` before React runs. The extension retains strict Manifest V3 CSP without inline scripts or additional permissions. Bootstrap source lives in `packages/ui/src/lib/theme-init.js`; committed copies live in both Vite applications' `public/` directories. Run `pnpm theme:sync` after editing it. Regression tests verify identical copies and script ordering.
 
-`reinit` 保留根布局、页面入口、HTML、初始化资源和共享主题组件；`next-themes` 作为共享 UI 依赖参与兼容性升级。浏览器验收覆盖主题切换、刷新、同源同步、系统变化、React / hydration 前首屏及存储不可用情形，扩展额外验证实际加载、CSP 与热更新。
+`reinit` preserves root layouts, page entries, HTML, bootstrap assets, and shared theme components. `next-themes` participates in compatible shared dependency upgrades. Browser tests cover switching, persistence, same-origin synchronization, OS changes, early first paint, and unavailable storage; extension tests also cover actual loading, CSP, and HMR.
 
-## 浏览器扩展
+## Browser extension
 
-1. 运行 `pnpm dev:extension`，保持开发服务运行。
-2. 打开 `chrome://extensions` 或 `edge://extensions`，开启开发者模式。
-3. 选择“加载已解压的扩展程序”，选择 `apps/extension/dist-dev`。
-4. 点击扩展图标打开 popup；“打开设置”进入 options。名称保存在 `chrome.storage.local`。
+1. Run `pnpm dev:extension` and keep the service running.
+2. Open `chrome://extensions` or `edge://extensions` and enable Developer mode.
+3. Choose **Load unpacked** and select `apps/extension/dist-dev`.
+4. Open the popup from the extension icon; use **Extension options** in the extension management page to open options. Both show centered `Extension Client` content and a GitHub icon link, with theme switching. The background retains a `chrome.storage.local` initialization example for future application code.
 
-`manifest.config.ts` 是唯一的 manifest 源码，使用 CRXJS 的 `defineManifest`；`src/background.ts`、`index.html`、`options.html` 分别是后台、popup 和设置页入口。CRXJS 根据 manifest 自动收集入口和生成资源路径。不要再往 `public/` 放置 manifest。
+`manifest.config.ts`, using CRXJS `defineManifest`, is the only manifest source. `src/background.ts`, `index.html`, and `options.html` are the background, popup, and options entries. CRXJS discovers entries and generates resource paths from the manifest; do not add another manifest under `public/`.
 
-popup / options 支持 React Fast Refresh，共享 `packages/ui` 的组件与样式也会热更新，普通组件编辑可保留表单状态。后台或 manifest 的变化可能触发扩展重载，不能承诺保留运行状态。开发产物由 CRXJS 注入本机开发连接及对应权限 / CSP，只用于本地开发。端口默认 5174；需修改时使用 `EXTENSION_DEV_PORT=3202 pnpm dev:extension`，HTTP 与 WebSocket 端口会同步。不要单独使用 `--port` 覆盖。
+Popup / options support React Fast Refresh, including shared UI components and styles. Ordinary component edits can retain React state. Background or manifest changes may reload the extension and reset state. CRXJS injects localhost development connections, permissions, and CSP into development output only. The default port is 5174. Override it with `EXTENSION_DEV_PORT=3202 pnpm dev:extension` to keep HTTP and WebSocket ports synchronized; do not override only `--port`.
 
-生产构建运行 `pnpm --filter @browser-client/extension build`，加载或打包 `apps/extension/dist`。生产包独立于开发服务，仍只有 `storage` 权限和严格 CSP，没有内容脚本、网站访问权限或 HMR 客户端。**发布使用 `dist`，不要使用 `dist-dev`。** 重新构建生产包后需在扩展管理页手动重新加载。
+Build production output with `pnpm --filter @browser-client/extension build` and load or package `apps/extension/dist`. Production is independent of the development server, retains only `storage` permission and strict CSP, and has no content scripts, website host permissions, or HMR client. **Publish `dist`, not `dist-dev`.** Reload the extension manually after rebuilding production output.
 
-`pnpm preview:extension` 在普通网页中预览 UI，不启用 CRXJS，也不具有扩展 API；它与扩展开发默认共用端口，不要同时运行。
+`pnpm preview:extension` previews UI in a normal web page without CRXJS or extension APIs. It shares the extension development port, so run only one of these services at a time.
 
-## reinit：从官方最新模板重建
+## reinit: rebuild from official templates
 
-参照 HomeFull 重建框架后恢复业务代码的工作方式。这里直接保留当前磁盘文件，包括未提交和未跟踪源码，不依赖 Git 提交或 `git restore`。
+Following HomeFull's rebuild-and-restore approach, reinit preserves current files on disk, including uncommitted and untracked source, without relying on Git commits or `git restore`.
 
 ```sh
-pnpm reinit                  # 只显示计划，不联网、不写文件
-pnpm reinit web --dry-run    # 查看指定目标
-pnpm reinit --apply          # 重建全部三个应用
-pnpm reinit admin --apply    # 更新 Admin 模板及全仓公共依赖，仍检查全部应用
+pnpm reinit                  # Show the plan without network access or writes
+pnpm reinit web --dry-run    # Preview a specific target
+pnpm reinit --apply          # Rebuild all three applications
+pnpm reinit admin --apply    # Refresh Admin and shared dependencies; check all applications
 pnpm reinit extension --apply
-pnpm reinit --apply --offline # 使用已记录且缓存的官方版本，不查询 latest
+pnpm reinit --apply --offline # Replay recorded, cached versions without querying latest
 ```
 
-执行前停止开发/构建进程并暂停编辑项目。脚本的步骤：
+Stop development / build processes and pause editing before applying reinit. The workflow:
 
-1. 获取互斥锁，记录当前源码指纹；逐文件计算内容摘要，再汇总路径、类型及权限，避免文件内容与相邻记录边界混淆。解析官方 `create-next-app` / `create-vite` latest 通道的稳定版本。
-2. 在 `.reinit/staging/<id>` 创建独立 workspace，用解析出的精确版本运行官方脚手架，不创建 AGENTS.md。暂存目录建立独立 Git 边界以避免上级 ignore 规则干扰检查；不创建提交或远端，项目原 Git 元数据不变。此步骤需要 Git。
-3. 解析最新稳定版框架、CRXJS 和公共依赖，求解模板、Node / peer 兼容约束，记录未采用 latest 的原因。更新 catalog 和依赖清单；恢复业务文件，重新接入 workspace、共享 TypeScript / lint 配置、shadcn/ui、Tailwind 和 CRXJS，保留 `manifest.config.ts`。
-4. 严格安装 peer dependencies，核对实际版本并执行 `pnpm check`，包括实际 Vite / CRXJS 兼容性。联网模式追加 `pnpm audit:security` 并用候选项目的 Playwright 准备 Chromium；随后必须通过 `pnpm test:web-admin` 和 `pnpm test:extension`，包括页面交互、共享样式、扩展存储、热更新及独立生产加载。所有目标（包括单独重建一个应用）都执行这两组验收，因为公共依赖可能影响整个仓库。缺少浏览器、验收失败或清理失败时停止，原项目不替换。最后检测原工作区是否在生成期间被编辑；有变化则拒绝替换。
-5. 将原 apps、packages、根 `package.json`、`pnpm-workspace.yaml`、node_modules、锁文件和版本记录一起移动到 `.reinit/backups/<id>`，安装经过验证的新目录。
-6. 在最终目录按冻结锁文件严格安装并再次检查；联网模式继续联网完成 pnpm 供应链元数据校验，离线模式只使用缓存。失败则恢复原目录，备份与失败候选均保留，便于排查。
+1. Acquire a lock and fingerprint source contents, paths, types, and permissions. Separate file digests prevent content from impersonating adjacent records. Resolve stable versions from the official `create-next-app` / `create-vite` latest channels.
+2. Create an isolated workspace under `.reinit/staging/<id>` and run the exact generator versions without creating AGENTS.md. Initialize a local Git boundary so parent ignore rules cannot hide source from checks. No commits or remotes are created; original Git metadata is preserved. Git is required.
+3. Solve latest stable framework, CRXJS, and shared dependency constraints against templates, Node, and peers. Record reasons for any shared dependency fallback. Update catalogs and manifests, restore application files, and reconnect workspaces, TypeScript / lint presets, shadcn/ui, Tailwind, and CRXJS while preserving `manifest.config.ts`.
+4. Install with strict peers, verify resolved versions, and run `pnpm check`, including actual Vite / CRXJS compatibility. Online mode also runs `pnpm audit:security` and prepares Chromium using the candidate's Playwright version. Both `pnpm test:web-admin` and `pnpm test:extension` must pass for every target, including a single-application rebuild, because shared dependencies can affect all clients. Missing browsers, test failures, or cleanup failures stop replacement. A final fingerprint check rejects concurrent edits to the original workspace.
+5. Move original apps, packages, root `package.json`, `pnpm-workspace.yaml`, node_modules, lockfile, and version records into `.reinit/backups/<id>`, then install the validated candidate directories.
+6. Run a strict frozen-lockfile install and checks at the final location. Online mode retains network access for pnpm supply-chain metadata checks; offline mode uses cached data only. Failure restores original directories, retaining backups and failed candidates for diagnosis.
 
-| 内容                                                                                                                          | 重建行为                                                                                                      |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `src/`、`public/`、`.env*`、`manifest.config.ts`、HTML 入口、测试及其他业务文件                                               | 从当前磁盘保留，整个目录覆盖模板的示例目录                                                                    |
-| `packages/` 的组件 / 配置源码、导出、脚本和 peer 契约；根文档、Git 元数据                                                     | 保留；UI 不会被重新初始化                                                                                     |
-| 根 / `packages/*/package.json` 直接依赖及 `pnpm-workspace.yaml` catalog                                                       | 联网时升级到最高兼容稳定版本，保留其他字段和现有 workspace 设置                                               |
-| app `package.json`                                                                                                            | 保留业务依赖、非标准 scripts、自定义字段与项目版本；官方模板同名依赖和标准 scripts 优先                       |
-| app `tsconfig*.json`、`next/vite/eslint/postcss.config.*`、`.oxlintrc.json`、`next-env.d.ts`、`components.json`               | 用新模板和接入逻辑重建                                                                                        |
-| app `README.md`、`.gitignore`                                                                                                 | 使用新模板版本；项目说明请维护在根 README 或 docs                                                             |
-| app 内独立的 `pnpm-workspace.yaml` 与锁文件                                                                                   | 移除，统一使用仓库根 workspace 与锁文件                                                                       |
-| 仓库根目录及 `apps/*` / `packages/*` 根目录的 `node_modules`、`.next`、`dist`、`dist-dev`、`.turbo`、`*.tsbuildinfo` 等生成物 | 重新生成；只在这些边界排除。`public/dist/`、`src/dist/`、共享组件内的同名业务路径完整保留，并纳入内容指纹检查 |
+| Content                                                                                                                    | Rebuild behavior                                                                                                                                                             |
+| -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/`, `public/`, `.env*`, `manifest.config.ts`, HTML entries, tests, and application files                               | Preserve from disk, replacing entire template demo directories                                                                                                               |
+| Component / configuration source, exports, scripts, and peer contracts in `packages/`; root documentation and Git metadata | Preserve; shared UI is not reinitialized                                                                                                                                     |
+| Direct dependencies in root / `packages/*/package.json` and workspace catalogs                                             | Upgrade online to highest compatible stable versions, preserving other fields and workspace settings                                                                         |
+| Application `package.json`                                                                                                 | Preserve application dependencies, nonstandard scripts, custom fields, and project versions; official template dependencies and standard scripts take precedence             |
+| Application `tsconfig*.json`, `next/vite/eslint/postcss.config.*`, `.oxlintrc.json`, `next-env.d.ts`, `components.json`    | Regenerate using the new template and integration adapters                                                                                                                   |
+| Application `README.md`, `.gitignore`                                                                                      | Use the new template; keep project documentation in the root README or docs                                                                                                  |
+| Nested application `pnpm-workspace.yaml` and lockfiles                                                                     | Remove in favor of the repository's single workspace and lockfile                                                                                                            |
+| Generated `node_modules`, `.next`, `dist`, `dist-dev`, `.turbo`, `*.tsbuildinfo` at repository / workspace roots           | Regenerate; only exclude at those boundaries. Application paths such as `public/dist/`, `src/dist/`, and matching names within shared source are preserved and fingerprinted |
 
-自定义框架配置应固化到 `scripts/lib/integrate.mjs`，否则它只留在备份中，不会自动迁入新配置。`reinit` 是框架底座更新，不是清空业务源码，也不会自动迁移业务 API。上游模板结构或 API 出现不兼容变化时，脚本会停在暂存目录，由你调整接入逻辑或业务代码后重试。首次版本和以后每次生成的版本均记录在 `template-versions.json`；普通安装遵循锁文件，不追随 latest。
+Persist custom framework configuration in `scripts/lib/integrate.mjs`; otherwise it remains only in backups. Reinit updates framework foundations while preserving application source; it does not automatically migrate application APIs. Incompatible upstream structures or APIs stop at staging so adapters or source can be adjusted before retrying. Generator versions are recorded in `template-versions.json` on each successful generation; ordinary installs follow the lockfile.
 
-扩展从官方 `create-vite` 最新稳定模板 `--template react-ts` 重建，同时解析 Vite 和 CRXJS 的最新稳定版，再接入共享 UI。每次成功后将精确版本写入应用清单和版本记录；下次联网 reinit 会重新查询。若最新 Vite 与最新 CRXJS 的 peer 范围冲突，会停止并保留原项目，等待上游兼容或调整接入方案。
+Extension reinit uses the latest stable official `create-vite --template react-ts`, resolves latest stable Vite and CRXJS, then reconnects shared UI. Exact versions are saved to manifests and version records. Each online run queries again. Conflicting latest Vite / CRXJS peer ranges stop replacement and preserve the original project until compatibility or integration is resolved.
 
-网络不可用时可显式使用 `--offline`，重放 `template-versions.json` 中已记录的模板及依赖决策，不请求 registry、下载浏览器或执行联网审计。建议先完成一次全部应用的联网 reinit；对应脚手架、全部依赖及当前 Playwright 对应的 Chromium 必须已缓存，缺少记录或缓存会停止。可提前运行 `pnpm exec playwright install chromium`；Linux 若缺系统库，需先按 Playwright 的诊断安装运行依赖。升级前的旧版记录仍按原依赖策略离线重建，并标记为 `legacy-offline`，不会冒充最新版本。离线模式执行相同的严格安装、浏览器验收、备份和恢复流程。默认模式的网络错误会报告，不自动退回旧版本。
+Use `--offline` explicitly when needed. It replays recorded templates and dependency decisions without registry queries, browser downloads, or online auditing. Complete an online reinit of all applications first to populate records and caches. Generators, dependencies, and the matching Chromium must be cached; missing records or caches stop the run. Prepare Chromium with `pnpm exec playwright install chromium`; on Linux, install missing system libraries following Playwright diagnostics. Older records without dependency receipts retain legacy behavior, marked `legacy-offline`, and still enforce the ESLint floor. Offline mode uses the same strict installation, browser tests, backup, and recovery steps. Default online failures do not fall back to old versions.
 
-reinit 的浏览器报告、日志和截图保存在原项目的 `.reinit/verification/`，不会随候选目录的替换而丢失。单独运行浏览器测试默认也使用此位置；`BROWSER_TEST_OUTPUT_ROOT` 可指定其他报告父目录，reinit 会固定使用原项目的该目录以保留诊断现场。
+Browser reports, logs, and screenshots are written to the original project's `.reinit/verification/` and survive candidate replacement. Standalone browser tests use the same default; `BROWSER_TEST_OUTPUT_ROOT` can override their report parent. Reinit explicitly uses the original project's directory to retain diagnostics.
 
-### 失败与备份
+### Failure recovery and backups
 
-生成或暂存检查失败时原目录未替换；最终目录检查失败时自动恢复。Ctrl-C / SIGTERM 会取消当前命令并停止它的进程树，先等待退出，必要时强制终止，再恢复目录。若无法确认进程已经退出，则保留锁与现场，禁止自动恢复以免与后台写入冲突。命令执行逻辑在 `scripts/lib/commands.mjs`，也用于浏览器验收。
+Generation or staging-check failures leave original directories untouched. Final-location validation failures restore them. Ctrl-C / SIGTERM cancels the current command and its process tree, waits for exit, forces termination if necessary, then restores directories. If exit cannot be confirmed, the lock and workspace remain; automatic recovery is withheld to avoid concurrent writes. `scripts/lib/commands.mjs` also manages browser test commands.
 
-每个 reinit 子命令默认总超时 10 分钟，可用 `REINIT_COMMAND_TIMEOUT_MS` 设置正整数毫秒。版本查询默认 30 秒，安装下载默认 120 秒；两者均最多重试两次，重试间隔为 1–5 秒。安装默认最多 4 个网络请求并发。可通过 pnpm 11 的 `pnpm_config_fetch_timeout` / `pnpm_config_fetch_retries` 等覆盖。`.reinit` 不纳入 Git，其中可能包含环境文件，应按本地私有备份管理。它不是跨磁盘备份或断电原子事务。
+Reinit commands have a default 10-minute total timeout; set `REINIT_COMMAND_TIMEOUT_MS` to a positive integer in milliseconds to override. Registry queries default to 30 seconds and install downloads to 120 seconds, with at most two retries and 1–5 second retry delays. Install network concurrency defaults to 4. pnpm 11 settings such as `pnpm_config_fetch_timeout` / `pnpm_config_fetch_retries` can override these defaults. `.reinit` is Git-ignored and may contain environment files; treat it as private local backup data. It is neither an off-disk backup nor a power-loss-atomic transaction.
 
-pnpm 可能为本次明确选中的新发布版本追加精确的 `minimumReleaseAgeExclude`，包括对应的平台包。这些例外随 workspace 配置一并备份和回滚；不会全局关闭发布年龄限制。脚手架 `dlx` 临时增加的例外不会迁入项目。
+pnpm may add exact `minimumReleaseAgeExclude` entries for explicitly selected new releases, including platform packages. These exceptions are backed up and rolled back with workspace configuration; release-age protection is not globally disabled. Temporary generator `dlx` exceptions are not copied into the project.
 
-若强制结束进程或断电，先查看 `.reinit/lock/owner.json` 和对应备份的 `journal.json`，核对原目录、备份与候选的位置后恢复，**不要直接删除锁或备份**。正常失败会释放锁；备份不会自动回收。
+After a forced termination or power loss, inspect `.reinit/lock/owner.json` and the relevant backup `journal.json`, then confirm the locations of originals, backups, and candidates before recovering. **Do not simply delete locks or backups.** Normal failure releases the lock; backups are not automatically removed.
 
-需要手动恢复时，停止相关进程，先将当前 `apps/`、`packages/`、`package.json`、`pnpm-workspace.yaml`、`node_modules/`、`pnpm-lock.yaml`、`template-versions.json` 移到新的保留目录，再按备份 `journal.json#paths` 把同一份成功备份中的对应项目移回根目录，最后运行 `pnpm install --frozen-lockfile` 和 `pnpm check`。旧备份可能不包含根清单和 workspace 配置，按其 journal 恢复，不混用不同时间点的锁文件与源码。
+For manual recovery, stop related processes and move current `apps/`, `packages/`, `package.json`, `pnpm-workspace.yaml`, `node_modules/`, `pnpm-lock.yaml`, and `template-versions.json` to a new preservation directory. Restore matching paths from one successful backup according to `journal.json#paths`, then run `pnpm install --frozen-lockfile` and `pnpm check`. Older backups may omit root manifests or workspace settings; follow their journals and do not mix lockfiles and source from different snapshots.
 
-### 清理旧的成功现场
+### Cleaning old successful workspaces
 
 ```sh
-pnpm reinit:clean                       # 默认预览：每类保留最近 3 份、最近 7 天
-pnpm reinit:clean --keep=1 --days=0      # 预览更少的保留数量
+pnpm reinit:clean                       # Preview; keep the latest 3 per category and the last 7 days
+pnpm reinit:clean --keep=1 --days=0      # Preview a smaller retention window
 pnpm reinit:clean --keep=1 --days=0 --apply
 ```
 
-只有超出保留数量且早于保留天数的成功备份及关联 staging 可以删除。浏览器验证只回收成功记录中的 workspace 和 profile，保留 `report.json` 与日志。失败、恢复未完成、缺少有效记录的目录和迁移基线均保留。存在维护锁时拒绝清理；执行清理也使用同一把锁。至少保留每类最近 1 份成功记录，符号链接拒绝进入清理计划。Ctrl+C / SIGTERM 会等待当前删除结束，然后停止后续清理并释放锁；已删除的旧现场不会恢复，SIGKILL 或断电仍需手工检查锁。
+Only successful backups and their staging directories beyond both retention limits are eligible. For successful browser verification records, cleanup removes workspace copies and profiles while retaining `report.json` and logs. Failed / incomplete recovery records, directories without valid records, and migration baselines are protected. Cleanup refuses an existing maintenance lock and acquires the same lock itself. At least one recent successful record per category is retained; symbolic links are rejected. Ctrl-C / SIGTERM finishes the current deletion, stops further cleanup, and releases the lock. Deleted old workspaces are not restored; SIGKILL or power loss requires manual lock inspection.
 
-## 验证
+## Validation
 
 ```sh
-pnpm check       # CRXJS 兼容性 + 脚本测试 + lint + typecheck + 三应用构建 + 扩展产物检查
-pnpm test        # 数据保留、失败恢复、命令取消 / 超时、清理、catalog、配置及产物检查
+pnpm check       # Formatting, compatibility, tests, lint, types, all builds, and extension output
+pnpm test        # Preservation, recovery, cancellation / timeouts, cleanup, catalogs, and configuration
 pnpm lint:scripts
 pnpm build
 
-# 首次运行浏览器验收需下载匹配的 Chromium
+# Install the matching Chromium before the first browser test
 pnpm exec playwright install chromium
 pnpm test:extension
 pnpm test:web-admin
 pnpm audit:security
 ```
 
-`test:web-admin` 在 `.reinit/verification/web-admin-*/` 创建独立源码副本和 Git 边界，按锁文件离线安装并重新构建 Web / Admin，使用 Next.js 生产服务和 Vite preview 验证页面及共享组件样式。覆盖 Web 工作区导航、Admin 空白名称禁用 / 保存 / 页面状态重置、桌面和移动布局，以及浏览器异常、控制台和失败资源检查。报告、服务日志和截图保留在该目录；测试结束会关闭自己启动的浏览器和进程，检查原工作区源码未改变。
+`test:web-admin` creates source copies and local Git boundaries under `.reinit/verification/web-admin-*/`, installs offline from the lockfile, and rebuilds Web / Admin. Next.js production and Vite preview servers verify English page content, language metadata, accessible GitHub icon links, shared component styles, desktop / mobile centering, theme interactions, and browser / console / resource errors. Reports, server logs, and screenshots remain in that directory. Tests close their own browsers and processes and verify the original source is unchanged.
 
-默认端口为 3150 / 3151；可通过 `WEB_TEST_PORT` / `ADMIN_TEST_PORT` 修改，两者必须不同。测试会检查端口是否空闲；`WEB_ADMIN_TEST_COMMAND_TIMEOUT_MS` 设置子命令超时，默认 5 分钟。运行时暂停编辑项目，避免源码指纹检查失败。
+Default test ports are 3150 / 3151. Override with distinct `WEB_TEST_PORT` / `ADMIN_TEST_PORT` values; availability is checked before starting. `WEB_ADMIN_TEST_COMMAND_TIMEOUT_MS` sets the command timeout, defaulting to 5 minutes. Pause editing during tests to avoid fingerprint mismatches.
 
-`test:extension` 在 `.reinit/verification/` 创建源码副本和隔离 Chromium profile，使用端口 3102 验证真实扩展加载、后台初始化、popup → options、本地设置保存，以及页面 / 共享组件 / 共享样式的热更新与 React 状态保留。随后停止开发服务，重新构建并加载生产扩展，检查运行错误与外部 HTTP 请求。测试只修改副本，日志和 `report.json` 保留在该目录。先完成根目录依赖安装；副本按锁文件离线安装。运行期间暂停编辑，以便最终源码指纹校验。可设置 `EXTENSION_TEST_PORT` 改测试端口，`EXTENSION_TEST_COMMAND_TIMEOUT_MS` 改子命令超时（默认 3 分钟）；中断会清理测试启动的进程与浏览器。
+`test:extension` creates a source copy and isolated Chromium profiles under `.reinit/verification/`. Port 3102 tests actual extension loading, background initialization, popup / options, storage round trips, and page / shared component / shared style HMR with React state preservation. It stops the dev server, rebuilds production output, then tests independent loading, runtime errors, and external HTTP requests. Only copies are modified; logs and `report.json` are retained. Install root dependencies first; copies install offline from the lockfile. Pause editing for the final source fingerprint check. `EXTENSION_TEST_PORT` overrides the port; `EXTENSION_TEST_COMMAND_TIMEOUT_MS` sets the command timeout, defaulting to 3 minutes. Cancellation closes test processes and browsers.
 
-生产产物检查解析所有输出 JS 的静态导入、重新导出和字符串形式的动态导入，拒绝缺失、远程或越界的资源。运行时计算的动态路径仍须由浏览器验收覆盖。
+Production output checks resolve static imports, re-exports, and string dynamic imports from every emitted JS file, rejecting missing, remote, or escaping resources. Computed runtime paths still require browser coverage.
 
-`pnpm check` 和 reinit 的自动检查不启动浏览器；升级 Vite / CRXJS 后再运行 `pnpm test:extension`。自动浏览器验收使用 Playwright Chromium，Chrome / Edge 的扩展管理界面和商店发布仍需在对应浏览器中验收。
+`pnpm check` does not launch browsers. Reinit separately requires both browser suites before replacement. Run `pnpm test:extension` after Vite / CRXJS changes. Automated tests use Playwright Chromium; Chrome / Edge extension management and store publication still require verification in those browsers.
 
-配置测试会实际调用 TypeScript、ESLint 和 Oxlint，检查路径与环境类型解析、React Hooks 错误是否被拒绝、继承的规则参数是否生效，以及 reinit 是否保留上游新增选项。
+Configuration tests invoke TypeScript, ESLint, and Oxlint to verify path / environment resolution, rejected Hooks violations, inherited rule arguments, and preservation of new upstream options during reinit.
 
 ## CI
 
-`.github/workflows/ci.yml` 配置 GitHub Actions：push / pull request 执行冻结锁文件安装、`pnpm check` 和 `pnpm audit:security`；基础检查通过后，在独立 job 执行 Web / Admin 的生产浏览器冒烟测试。Extension、共享 packages、工程脚本、依赖或 CI 配置变化时，再执行扩展浏览器验收；首次推送及手动触发也执行扩展验收。浏览器 job 保留验证报告、日志及 Web / Admin 截图 7 天，不上传源码副本或浏览器 profile。工作流只检查项目，没有发布步骤。
+`.github/workflows/ci.yml` runs frozen installation, `pnpm check`, and `pnpm audit:security` on push / pull request. Web / Admin production browser tests run in a separate job after base checks pass. Extension, shared package, script, dependency, or CI changes also trigger extension tests; first pushes and manual runs do too. Browser jobs retain reports, logs, and Web / Admin screenshots for 7 days without uploading source copies or profiles. The workflow validates the project and has no deployment step.
 
-## 官方参考
+## Official references
 
 - [Next.js create-next-app](https://nextjs.org/docs/app/api-reference/cli/create-next-app)
-- [Vite 官方模板](https://vite.dev/guide/)
-- [CRXJS 安装与配置](https://crxjs.dev/guide/installation/from-scratch/)
-- [Vite WebSocket 配置](https://vite.dev/config/server-options.html#server-ws)
+- [Vite templates](https://vite.dev/guide/)
+- [CRXJS installation and configuration](https://crxjs.dev/guide/installation/from-scratch/)
+- [Vite WebSocket configuration](https://vite.dev/config/server-options.html#server-ws)
 - [shadcn/ui monorepo](https://ui.shadcn.com/docs/monorepo)
 - [Chrome Manifest V3 CSP](https://developer.chrome.com/docs/extensions/reference/manifest/content-security-policy)
-- [pnpm 11 配置变更](https://pnpm.io/blog/releases/11.0)
+- [pnpm 11 configuration changes](https://pnpm.io/blog/releases/11.0)
 - [pnpm catalogs](https://pnpm.io/catalogs)
-- [Playwright Chrome 扩展验收](https://playwright.dev/docs/chrome-extensions)
-- [TypeScript 配置继承](https://www.typescriptlang.org/tsconfig/extends.html)
-- [ESLint 共享配置](https://eslint.org/docs/latest/extend/shareable-configs)
-- [Oxlint 配置继承](https://oxc.rs/docs/guide/usage/linter/config.html#extend-shared-configs)
+- [Playwright Chrome extensions](https://playwright.dev/docs/chrome-extensions)
+- [TypeScript configuration inheritance](https://www.typescriptlang.org/tsconfig/extends.html)
+- [ESLint shareable configuration](https://eslint.org/docs/latest/extend/shareable-configs)
+- [Oxlint configuration inheritance](https://oxc.rs/docs/guide/usage/linter/config.html#extend-shared-configs)

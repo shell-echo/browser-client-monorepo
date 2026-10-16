@@ -71,7 +71,7 @@ test("invalid generated configuration fails before writing any candidate files",
   await put(root, "apps/extension/vite.config.ts", "export default {broken:")
   await assert.rejects(formatReinitFiles(root, ["extension"]), /SyntaxError/)
   assert.equal(await readFile(join(root, "package.json"), "utf8"), original)
-  await assert.rejects(formatReinitFiles(root, ["../../outside"]), /未知/)
+  await assert.rejects(formatReinitFiles(root, ["../../outside"]), /Unknown/)
 })
 
 test("format checks include nested business dist trees even when Git ignores dist", async (t) => {

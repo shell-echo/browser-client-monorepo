@@ -73,8 +73,8 @@ test("an active maintenance lock blocks preview and deletion", async (t) => {
   const root = await fixture(t)
   await mkdir(join(root, ".reinit/lock"), { recursive: true })
   await writeFile(join(root, ".reinit/lock/owner.json"), JSON.stringify({ operation: "reinit", id: "active" }))
-  await assert.rejects(planCleanup(root), /维护锁/)
-  await assert.rejects(cleanReinit(root, { apply: true }), /维护锁/)
+  await assert.rejects(planCleanup(root), /Maintenance lock/)
+  await assert.rejects(cleanReinit(root, { apply: true }), /Maintenance lock/)
   assert.equal(await exists(join(root, ".reinit/lock/owner.json")), true)
 })
 
@@ -82,7 +82,7 @@ test("cleanup rejects symlinked state or a symlinked verification workspace", as
   const root = await fixture(t)
   await mkdir(join(root, "outside"))
   await symlink(join(root, "outside"), join(root, ".reinit"), "dir")
-  await assert.rejects(planCleanup(root), /真实目录/)
+  await assert.rejects(planCleanup(root), /real directory/)
   await rm(join(root, ".reinit"))
   const old = await verification(root, "old", "passed", 20)
   await verification(root, "new", "passed", 1)
@@ -90,7 +90,7 @@ test("cleanup rejects symlinked state or a symlinked verification workspace", as
   await symlink(join(root, "outside"), join(old, "workspace"), "dir")
   const oldTime = new Date(Date.now() - 20 * 86_400_000)
   await utimes(old, oldTime, oldTime)
-  await assert.rejects(planCleanup(root, { keep: 1, days: 0 }), /真实目录/)
+  await assert.rejects(planCleanup(root, { keep: 1, days: 0 }), /real directory/)
   assert.equal(await exists(join(root, "outside")), true)
 })
 
@@ -124,7 +124,7 @@ test("SIGINT during cleanup releases the owned lock and keeps pending backups", 
   const result = await handle.done
   assert.equal(signalled, true, stderr)
   assert.equal(result.code, 1, stderr)
-  assert.match(stderr, /操作已取消（SIGINT）/)
+  assert.match(stderr, /Operation cancelled \(SIGINT\)/)
   assert.equal(await exists(join(root, ".reinit/lock")), false)
   assert.equal(await exists(oldest), true)
 })

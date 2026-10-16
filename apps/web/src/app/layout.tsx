@@ -4,12 +4,12 @@ import "./globals.css"
 
 export const metadata: Metadata = {
   title: "Browser Client",
-  description: "Web、管理台和浏览器扩展的共享工作区",
+  description: "A shared workspace for web, admin, and browser extension clients.",
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body>
         <NextThemeProvider>{children}</NextThemeProvider>
       </body>

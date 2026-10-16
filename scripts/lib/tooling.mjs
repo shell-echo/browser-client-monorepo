@@ -6,7 +6,8 @@ import { parse } from "jsonc-parser"
 export async function readConfig(file) {
   const errors = []
   const config = parse(await readFile(file, "utf8"), errors, { allowTrailingComma: true })
-  if (errors.length || !config || typeof config !== "object" || Array.isArray(config)) throw new Error(`无法解析配置：${file}`)
+  if (errors.length || !config || typeof config !== "object" || Array.isArray(config))
+    throw new Error(`Cannot parse configuration: ${file}`)
   return config
 }
 
@@ -16,11 +17,11 @@ const list = (value) => (value === undefined ? [] : Array.isArray(value) ? value
 // Read our presets before installing the staged workspace's dependencies.
 async function inherited(file, field, seen = new Set()) {
   file = resolve(file)
-  if (seen.has(file)) throw new Error(`共享配置存在循环继承：${file}`)
+  if (seen.has(file)) throw new Error(`Shared configuration has circular inheritance: ${file}`)
   const config = await readConfig(file)
   const result = {}
   for (const parent of list(config.extends)) {
-    if (!parent.startsWith("./")) throw new Error(`共享预设必须使用包内相对继承：${parent}`)
+    if (!parent.startsWith("./")) throw new Error(`Shared presets must use relative inheritance within the package: ${parent}`)
     Object.assign(result, await inherited(resolve(dirname(file), parent), field, new Set([...seen, file])))
   }
   return { ...result, ...config[field] }
@@ -46,7 +47,7 @@ export async function shareTypeScript(root, app, filename, preset) {
   for (const [key, value] of Object.entries(config.compilerOptions ?? {})) {
     if (!Object.hasOwn(defaults, key)) continue
     if (!sameCompilerOption(key, value, defaults[key]))
-      console.log(`${filename}: ${key} 使用共享预设；官方模板值有差异，请按需核对。`)
+      console.log(`${filename}: ${key} uses the shared preset; the official template differs. Review as needed.`)
     delete config.compilerOptions[key]
   }
   config.extends = parents.length ? [...parents, shared] : shared
@@ -72,7 +73,7 @@ async function shareOxlint(root, app, preset) {
   for (const [key, value] of Object.entries(config.rules ?? {})) {
     if (!Object.hasOwn(rules, key)) continue
     if (!isDeepStrictEqual(value, rules[key]))
-      console.log(`.oxlintrc.json: ${key} 使用共享规则；官方模板值有差异，请按需核对。`)
+      console.log(`.oxlintrc.json: ${key} uses shared rules; the official template differs. Review as needed.`)
     delete config.rules[key]
   }
   if (config.rules && !Object.keys(config.rules).length) delete config.rules
@@ -87,7 +88,8 @@ export async function integrateTooling(root, target) {
     const file = join(app, "eslint.config.mjs")
     let config = await readFile(file, "utf8")
     if (!config.includes('"@browser-client/eslint-config/base"')) {
-      if (!config.includes("defineConfig([")) throw new Error(`官方模板结构已变化，无法接入 ${file} 的共享 ESLint 配置。`)
+      if (!config.includes("defineConfig(["))
+        throw new Error(`Official template structure changed; cannot integrate shared ESLint configuration into ${file}.`)
       config =
         'import sharedConfig from "@browser-client/eslint-config/base";\n' +
         config.replace("defineConfig([", "defineConfig([\n  ...sharedConfig,")

@@ -9,8 +9,8 @@ import { assetPath, checkExtension } from "../check-extension.mjs"
 test("unsupported Vite upgrades are rejected before promotion", () => {
   const crx = { version: "3.0.0", peerDependencies: { vite: "^8.0.0" } }
   assert.doesNotThrow(() => assertCompatible({ version: "8.3.4" }, crx))
-  assert.throws(() => assertCompatible({ version: "9.0.0" }, crx), /不支持 Vite/)
-  assert.throws(() => assertCompatible({ version: "8.3.4" }, { version: "unknown" }), /不支持 Vite/)
+  assert.throws(() => assertCompatible({ version: "9.0.0" }, crx), /does not support Vite/)
+  assert.throws(() => assertCompatible({ version: "8.3.4" }, { version: "unknown" }), /does not support Vite/)
 })
 
 test("CRX root-relative assets work; remote and escaping paths fail", () => {
@@ -49,12 +49,12 @@ test("production checker rejects leaked dev permissions, CSP, clients and missin
     await writeFile(join(dist, page), '<script type="module" src="/assets/main.js"></script>')
   await checkExtension(dist, source)
   await manifest({ ...source, host_permissions: ["http://localhost/*"] })
-  await assert.rejects(checkExtension(dist, source), /生产权限/)
+  await assert.rejects(checkExtension(dist, source), /Production permissions/)
   await manifest({ ...source, content_security_policy: { extension_pages: "script-src 'self' http://localhost:*" } })
-  await assert.rejects(checkExtension(dist, source), /生产 CSP/)
+  await assert.rejects(checkExtension(dist, source), /Production CSP/)
   await manifest(source)
   await writeFile(join(dist, "worker.js"), 'import "/@vite/client"')
-  await assert.rejects(checkExtension(dist, source), /开发客户端/)
+  await assert.rejects(checkExtension(dist, source), /development client/)
   await writeFile(join(dist, "worker.js"), "export {}")
   await writeFile(join(dist, "worker.js"), 'import "./assets/missing-background.js"')
   await assert.rejects(checkExtension(dist, source), /ENOENT/)
@@ -72,7 +72,7 @@ test("production checker rejects leaked dev permissions, CSP, clients and missin
   )
   await checkExtension(dist, source)
   await writeFile(join(dist, "assets/lazy.js"), 'import "https://example.com/runtime.js"')
-  await assert.rejects(checkExtension(dist, source), /本地路径/)
+  await assert.rejects(checkExtension(dist, source), /local path/)
   await writeFile(join(dist, "assets/lazy.js"), "export {}")
   await rm(join(dist, "assets/main.js"))
   await assert.rejects(checkExtension(dist, source), /ENOENT/)

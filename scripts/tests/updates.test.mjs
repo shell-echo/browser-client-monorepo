@@ -28,7 +28,7 @@ test("stable selection rejects prereleases and does not follow next channels", a
   const registry = registryFixture({ tool: releases({ "3.0.0-rc.1": {}, "2.1.0": { deprecated: "retired" }, "2.0.0": {} }) })
   assert.equal((await registry.latest("tool")).version, "2.0.0")
   const invalid = createRegistry(async () => ({ version: "not-semver" }))
-  await assert.rejects(invalid.latest("tool"), /响应无效/)
+  await assert.rejects(invalid.latest("tool"), /response is invalid/)
 })
 
 test("frameworks stay latest while shared dependencies choose highest compatible stable versions", async () => {
@@ -85,7 +85,7 @@ test("incompatible latest CRXJS/Vite stops instead of silently downgrading a fra
       variables: [variable("vite", { strictLatest: true }), variable("crx", { strictLatest: true })],
       scopes: [{ path: ".", dependencies: { vite: "vite", crx: "crx" } }],
     }),
-    /crx@3.0.0 要求 vite \^8/,
+    /crx@3.0.0 requires vite \^8/,
   )
 })
 
@@ -152,7 +152,7 @@ test("React and React DOM align even when their loose peer range would permit a 
   })
   assert.equal(entries[0].version, "19.3.0")
   assert.equal(entries[1].version, "19.3.0")
-  assert(entries[0].reasons.some((reason) => reason.includes("运行时版本必须一致")))
+  assert(entries[0].reasons.some((reason) => reason.includes("runtime versions must match")))
 })
 
 async function fixture(t) {
@@ -215,7 +215,7 @@ test("shared source and manifest contracts survive upgrades; offline replay neve
     join(root, "pnpm-lock.yaml"),
     "catalogs:\n  default:\n    react:\n      version: 19.3.0\nimporters:\n  .:\n    devDependencies:\n      tool:\n        version: 2.0.0\n  packages/ui:\n    dependencies:\n      helper:\n        version: 2.0.0\n",
   )
-  await assert.rejects(verifyResolvedUpdates(root, receipt), /实际安装版本与更新计划不一致/)
+  await assert.rejects(verifyResolvedUpdates(root, receipt), /installed version differs from the update plan/)
 })
 
 test("rollback restores root manifest and catalogs alongside source, receipt and lockfile", async (t) => {
@@ -288,7 +288,7 @@ test("partial reinit retains the compiler constraints of applications it does no
   assert.equal(receipt.entries.find((entry) => entry.id === "catalog:next:typescript").version, "5.9.3")
   assert.equal(receipt.entries.find((entry) => entry.id === "catalog:vite:typescript").version, "6.0.3")
   for (const entry of receipt.entries.filter((entry) => entry.name === "typescript"))
-    assert(entry.reasons.some((reason) => reason.includes("未重建的")))
+    assert(entry.reasons.some((reason) => reason.includes("Unrebuilt")))
 })
 
 test("reinit selects ESLint by runtime config peers while retaining template compiler constraints", async (t) => {
@@ -345,9 +345,9 @@ test("reinit selects ESLint by runtime config peers while retaining template com
   const before = await fingerprint(root)
   await assert.rejects(
     updateDependencies({ ...args, registry: registryFixture(packages) }),
-    /eslint-config-next@16\.4\.1 要求 eslint \^9/,
+    /eslint-config-next@16\.4\.1 requires eslint \^9/,
   )
-  assert.equal(await fingerprint(root), before, "不兼容时不得降级或改写原项目")
+  assert.equal(await fingerprint(root), before, "Incompatibility must not downgrade or modify the original project")
 })
 
 test("ESLint's minimum overrides legacy peers, existing releases and fixed versions", async (t) => {
@@ -362,7 +362,7 @@ test("ESLint's minimum overrides legacy peers, existing releases and fixed versi
           variables: [variable("eslint", extra)],
           scopes: [{ path: ".", dependencies: { eslint: "eslint" }, peers: { eslint: ">=9" } }],
         }),
-        /最低版本.*eslint.*>=10\.0\.0/,
+        /minimum version.*eslint.*>=10\.0\.0/,
       )
     })
   }
@@ -413,9 +413,9 @@ test("offline ESLint 9 receipts and legacy locks are rejected before any project
           saved,
           registry: { latest: () => assert.fail("offline registry request") },
         }),
-        /最低版本.*eslint.*>=10\.0\.0/,
+        /minimum version.*eslint.*>=10\.0\.0/,
       )
-      assert.equal(await fingerprint(root), before, "失败时不得改写清单、源码、锁文件或共享 UI")
+      assert.equal(await fingerprint(root), before, "Failure must not modify manifests, source, the lockfile or shared UI")
     })
   }
 })
@@ -448,7 +448,7 @@ test("resolved ESLint 9 is rejected even without dependency receipts", async (t)
       const root = await fixture(t)
       await writeFile(join(root, "pnpm-lock.yaml"), lock)
       const before = await fingerprint(root)
-      await assert.rejects(verifyResolvedUpdates(root, { entries: [] }), /最低版本.*eslint.*>=10\.0\.0/)
+      await assert.rejects(verifyResolvedUpdates(root, { entries: [] }), /minimum version.*eslint.*>=10\.0\.0/)
       assert.equal(await fingerprint(root), before)
     })
   }

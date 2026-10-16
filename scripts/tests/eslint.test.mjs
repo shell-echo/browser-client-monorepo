@@ -66,8 +66,8 @@ test("official Next rules remain effective with the shared ESLint version", asyn
         const [result] = await eslint.lintText(source, { filePath: "src/lint-regression.tsx" })
         assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages))
         const message = result.messages.find((message) => message.ruleId === rule)
-        assert(message, `规则 ${rule} 未检出错误：${JSON.stringify(result.messages)}`)
-        assert.equal(message.severity, severity, `${rule} 的严重级别发生变化`)
+        assert(message, `Rule ${rule} did not detect an error: ${JSON.stringify(result.messages)}`)
+        assert.equal(message.severity, severity, `${rule} severity changed`)
       })
     }
     await t.test("valid shared shadcn/ui usage", async () => {

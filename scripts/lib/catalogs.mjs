@@ -12,14 +12,14 @@ export async function readCatalogs(root) {
     throw error
   }
   const document = parseDocument(source)
-  if (document.errors.length) throw new Error(`无法解析 pnpm-workspace.yaml：${document.errors[0].message}`)
+  if (document.errors.length) throw new Error(`Cannot parse pnpm-workspace.yaml: ${document.errors[0].message}`)
   return document.toJS()
 }
 
 export function catalogRange(workspace, name, specifier) {
   const catalog = specifier.slice("catalog:".length) || "default"
   const range = (catalog === "default" ? workspace.catalog : workspace.catalogs?.[catalog])?.[name]
-  if (!range || !semver.validRange(range)) throw new Error(`catalog 缺少有效版本：${name} (${specifier})`)
+  if (!range || !semver.validRange(range)) throw new Error(`catalog has no valid version: ${name} (${specifier})`)
   return range
 }
 
@@ -42,7 +42,7 @@ export function applyCatalogs(manifest, workspace, target) {
       // An intersection alone can still reuse an incompatible locked version.
       if (!semver.validRange(required) || !semver.subset(shared, required)) {
         throw new Error(
-          `公共依赖与模板不兼容：${name}，模板 ${required}，${specifier} ${shared}。catalog 的完整范围须满足模板要求，请更新 catalog 后重试。`,
+          `Shared dependency is incompatible with the template: ${name}, template ${required}, ${specifier} ${shared}. The full catalog range must satisfy template requirements; update the catalog and retry.`,
         )
       }
       manifest[field][name] = specifier

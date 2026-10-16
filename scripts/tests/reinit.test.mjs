@@ -216,7 +216,7 @@ test("unsupported upstream layout fails instead of silently omitting integration
   await put(root, "packages/ui/components.json", JSON.stringify({ tailwind: {} }))
   await put(root, "apps/admin/package.json", JSON.stringify({ scripts: {}, dependencies: {} }))
   await put(root, "apps/admin/vite.config.ts", "export default newConfigAPI()")
-  await assert.rejects(integrate(root, "admin"), /官方模板结构已变化/)
+  await assert.rejects(integrate(root, "admin"), /Official template structure changed/)
 })
 
 test("extension reinit reapplies CRXJS and shared UI while preserving the manifest", async (t) => {
@@ -323,8 +323,8 @@ test("source symlinks are rejected instead of copying outside the workspace", as
   await mkdir(join(root, "src"))
   await put(root, "outside.txt", "private")
   await symlink(join(root, "outside.txt"), join(root, "src/link"))
-  await assert.rejects(copySource(join(root, "src"), join(root, "copy")), /符号链接/)
-  await assert.rejects(fingerprint(join(root, "src")), /符号链接/)
+  await assert.rejects(copySource(join(root, "src"), join(root, "copy")), /symbolic link/)
+  await assert.rejects(fingerprint(join(root, "src")), /symbolic link/)
 })
 
 test("fingerprint distinguishes file bytes from a following file record", async (t) => {

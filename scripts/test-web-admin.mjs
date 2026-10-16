@@ -8,6 +8,7 @@ import { handleCancellation, positiveTimeout } from "./lib/commands.mjs"
 import { copySource, fingerprint, ignored } from "./lib/workspace.mjs"
 import { createVerificationRunner, finishVerification } from "./lib/verification.mjs"
 import { verifyThemes, verifyThemeBeforeHydration, verifyUnavailableStorage } from "./lib/theme-verification.mjs"
+import { verifyClientPage } from "./lib/client-page-verification.mjs"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 const runDir = join(
@@ -18,12 +19,12 @@ const workspace = join(runDir, "workspace")
 const report = { runDir, checks: [], errors: [] }
 const port = (value, fallback, label) => {
   const number = positiveTimeout(value, fallback, label)
-  assert(number < 65536, `${label} 必须小于 65536`)
+  assert(number < 65536, `${label} must be less than 65536`)
   return number
 }
 const webPort = port(process.env.WEB_TEST_PORT, 3150, "WEB_TEST_PORT")
 const adminPort = port(process.env.ADMIN_TEST_PORT, 3151, "ADMIN_TEST_PORT")
-assert.notEqual(webPort, adminPort, "Web / Admin 测试端口不能相同")
+assert.notEqual(webPort, adminPort, "Web / Admin test ports must be different")
 const runner = createVerificationRunner({
   cwd: workspace,
   logDir: runDir,
@@ -66,30 +67,9 @@ async function pageFor(name, url) {
   return page
 }
 
-async function sharedStyles(page, button) {
-  assert.equal(await button.getAttribute("data-slot"), "button")
-  const styles = await button.evaluate((element) => {
-    const style = getComputedStyle(element)
-    return {
-      display: style.display,
-      alignItems: style.alignItems,
-      justifyContent: style.justifyContent,
-      radius: style.borderRadius,
-    }
-  })
-  // Flex items blockify inline-flex to flex. Check the rendered treatment too,
-  // so an unstyled element cannot pass by merely carrying component attributes.
-  assert(["flex", "inline-flex"].includes(styles.display), "共享 Button 布局样式未生效")
-  assert.equal(styles.alignItems, "center")
-  assert.equal(styles.justifyContent, "center")
-  assert(parseFloat(styles.radius) > 0, "共享 Button 圆角样式未生效")
-  assert((await page.locator('[data-slot="card"]').count()) > 0, "共享 Card 未渲染")
-}
-
 async function mobileLayout(page, name) {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByRole("heading", { level: 1 }).waitFor()
-  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${name} 移动端出现水平溢出`)
+  await verifyClientPage(page, `${name === "web" ? "Web" : "Admin"} Client`)
   await page.screenshot({ path: join(runDir, `${name}-mobile.png`), fullPage: true })
 }
 
@@ -138,10 +118,10 @@ try {
   ]) {
     await runner.until(
       async () => {
-        assert.equal(server.child.exitCode, null, "生产服务提前退出，请查看日志")
+        assert.equal(server.child.exitCode, null, "Production server exited early; check the logs")
         return (await fetch(`http://127.0.0.1:${port}`, { signal: AbortSignal.timeout(2000) })).ok
       },
-      `生产服务 ${port}`,
+      `Production server ${port}`,
       60_000,
     )
   }
@@ -151,48 +131,27 @@ try {
 
   const webPage = await pageFor("web", `http://127.0.0.1:${webPort}`)
   assert.equal(await webPage.title(), "Browser Client")
-  assert.match(await webPage.getByRole("heading", { level: 1 }).innerText(), /构建你的下一款产品/)
-  // Base UI renders this anchor with the button role; verify both semantics
-  // exposed to the user and the actual navigation target.
-  const workspaceLink = webPage.getByRole("button", { name: "查看工作区", exact: true })
-  assert.equal(await workspaceLink.getAttribute("href"), "#workspaces")
-  await sharedStyles(webPage, workspaceLink)
-  await workspaceLink.click()
-  await webPage.waitForURL(`http://127.0.0.1:${webPort}/#workspaces`)
-  assert.equal(await webPage.locator('#workspaces [data-slot="card"]').count(), 3)
+  await verifyClientPage(webPage, "Web Client")
   await webPage.screenshot({ path: join(runDir, "web-desktop.png"), fullPage: true })
   await mobileLayout(webPage, "web")
-  passed("Web 生产页面、共享组件样式、工作区导航及桌面 / 移动布局正常")
+  passed("Web production page, GitHub link, shared styles and desktop / mobile centering passed")
   await verifyThemes(webPage, { errors: report.errors, screenshot: join(runDir, "web-dark.png") })
   await verifyThemeBeforeHydration(browser, `http://127.0.0.1:${webPort}/`, false)
-  passed("Web 深浅主题、刷新保存、跨标签同步、实时跟随系统及 hydration 前深色首屏正常")
+  passed("Web themes, persistence, tab synchronization, system changes and dark first paint before hydration passed")
 
   const adminPage = await pageFor("admin", `http://127.0.0.1:${adminPort}`)
-  const heading = adminPage.getByRole("heading", { level: 1 })
-  assert.equal(await heading.innerText(), "Browser Client")
-  const input = adminPage.getByLabel("工作区名称"),
-    save = adminPage.getByRole("button", { name: "保存名称", exact: true })
-  await sharedStyles(adminPage, save)
-  await input.fill("   ")
-  await runner.until(() => save.isDisabled(), "Admin 空白名称禁用")
-  await input.fill("  冒烟测试工作区  ")
-  await save.click()
-  await runner.until(async () => (await heading.innerText()) === "冒烟测试工作区", "Admin 表单保存")
-  assert.equal(await adminPage.getByRole("status").innerText(), "已更新当前页面")
+  await verifyClientPage(adminPage, "Admin Client")
   await adminPage.screenshot({ path: join(runDir, "admin-desktop.png"), fullPage: true })
   await mobileLayout(adminPage, "admin")
-  await adminPage.reload({ waitUntil: "networkidle" })
-  assert.equal(await heading.innerText(), "Browser Client", "演示表单应仅保留当前页面状态")
-  passed("Admin 生产页面、共享表单、空白校验、名称保存及桌面 / 移动布局正常")
-  await input.fill("主题切换保留的未保存输入")
+  passed("Admin production page, GitHub link, shared styles and desktop / mobile centering passed")
   await verifyThemes(adminPage, { errors: report.errors, screenshot: join(runDir, "admin-dark.png") })
   await verifyThemeBeforeHydration(browser, `http://127.0.0.1:${adminPort}/`, true)
   await verifyUnavailableStorage(adminPage)
-  passed("Admin 深浅主题、刷新保存、跨标签同步、实时跟随系统、React 前首屏及存储不可用降级正常")
-  assert.deepEqual(report.errors, [], "浏览器存在运行、控制台或资源加载错误")
-  passed("Web / Admin 无浏览器运行错误、控制台错误或失败资源")
-  assert.equal(await fingerprint(root), originalFingerprint, "冒烟测试改变了原工作区源码")
-  passed("冒烟测试仅使用临时副本，原工作区源码保持不变")
+  passed("Admin themes, persistence, tab synchronization, system changes, early first paint and unavailable storage passed")
+  assert.deepEqual(report.errors, [], "Browser runtime, console or resource errors detected")
+  passed("Web / Admin have no browser runtime, console or resource errors")
+  assert.equal(await fingerprint(root), originalFingerprint, "Smoke test changed the original workspace source")
+  passed("Smoke test used a temporary copy; original workspace source is unchanged")
   report.status = "passed"
 } catch (error) {
   report.status = "failed"

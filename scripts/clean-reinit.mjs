@@ -6,30 +6,30 @@ import { exists } from "./lib/workspace.mjs"
 import { handleCancellation } from "./lib/commands.mjs"
 
 const help =
-  "用法：pnpm reinit:clean [--keep=3] [--days=7] [--dry-run|--apply]\n默认只预览；保留每类最近 N 份记录和最近 N 天的目录。失败、未知和正在使用的现场不清理；浏览器报告及日志保留。"
+  "Usage: pnpm reinit:clean [--keep=3] [--days=7] [--dry-run|--apply]\nPreview only by default; keeps the latest N records per category and directories from the last N days. Failed, unknown or active workspaces are protected; browser reports and logs are retained."
 const digest = (value) => createHash("sha256").update(value).digest("hex")
 
 export function parseCleanupArgs(args) {
   const options = { keep: 3, days: 7, apply: false, help: false }
-  if (args.includes("--apply") && args.includes("--dry-run")) throw new Error("--apply 与 --dry-run 不能同时使用")
+  if (args.includes("--apply") && args.includes("--dry-run")) throw new Error("--apply and --dry-run cannot be used together")
   for (const arg of args) {
     if (arg === "--apply") options.apply = true
     else if (arg === "--dry-run") options.apply = false
     else if (arg === "--help") options.help = true
     else {
       const match = /^--(keep|days)=(\d+)$/.exec(arg)
-      if (!match || !Number.isSafeInteger(Number(match[2]))) throw new Error(`未知或无效选项：${arg}`)
+      if (!match || !Number.isSafeInteger(Number(match[2]))) throw new Error(`Unknown or invalid option: ${arg}`)
       options[match[1]] = Number(match[2])
     }
   }
-  if (options.keep < 1) throw new Error("至少保留最近 1 份记录")
+  if (options.keep < 1) throw new Error("Keep at least 1 recent record")
   return options
 }
 
 async function directory(path) {
   const stat = await lstat(path)
   if (stat.isSymbolicLink() || !stat.isDirectory() || (await realpath(path)) !== resolve(path))
-    throw new Error(`清理目标必须是项目内的真实目录：${path}`)
+    throw new Error(`Cleanup target must be a real directory inside the project: ${path}`)
   return stat
 }
 
@@ -70,7 +70,7 @@ export async function planCleanup(root, { keep = 3, days = 7, lockOwner } = {}) 
   if (await exists(lock)) {
     const owner = JSON.parse(await readFile(join(lock, "owner.json"), "utf8").catch(() => "null"))
     if (!lockOwner || owner?.id !== lockOwner || owner.operation !== "cleanup")
-      throw new Error("已有维护锁，拒绝清理；先确认 reinit、清理或恢复已结束。")
+      throw new Error("Maintenance lock exists; cleanup refused. Confirm reinit, cleanup or recovery has finished first.")
   }
   const plan = { candidates: [], protected: [] }
   const cutoff = Date.now() - days * 86_400_000
@@ -84,7 +84,7 @@ export async function planCleanup(root, { keep = 3, days = 7, lockOwner } = {}) 
   const retained = new Set(successful.slice(0, keep).map((record) => record.id))
   for (const record of backups) {
     if (!successful.includes(record) || retained.has(record.id) || record.time > cutoff) {
-      plan.protected.push({ path: record.path, reason: "近期、失败或未知备份" })
+      plan.protected.push({ path: record.path, reason: "Recent, failed or unknown backup" })
       continue
     }
     const stage = join(state, "staging", record.id)
@@ -99,7 +99,7 @@ export async function planCleanup(root, { keep = 3, days = 7, lockOwner } = {}) 
   const recent = new Set(passed.slice(0, keep).map((record) => record.id))
   for (const record of verification) {
     if (!passed.includes(record) || recent.has(record.id) || record.time > cutoff) {
-      plan.protected.push({ path: record.path, reason: "近期、失败或未知验证" })
+      plan.protected.push({ path: record.path, reason: "Recent, failed or unknown verification" })
       continue
     }
     for (const child of ["workspace", "profile-dev", "profile-production"]) {
@@ -125,7 +125,7 @@ export async function cleanReinit(root, options) {
   try {
     await mkdir(lock, { mode: 0o700 })
   } catch (error) {
-    if (error.code === "EEXIST") throw new Error("已有维护锁，拒绝清理", { cause: error })
+    if (error.code === "EEXIST") throw new Error("Maintenance lock exists; cleanup refused", { cause: error })
     throw error
   }
   try {
@@ -136,7 +136,7 @@ export async function cleanReinit(root, options) {
     for (const candidate of plan.candidates) {
       checkInterrupted()
       if (digest(await readFile(candidate.marker, "utf8")) !== candidate.digest)
-        throw new Error("清理计划生成后现场发生变化，停止清理")
+        throw new Error("Workspace changed after the cleanup plan was generated; stopping cleanup")
     }
     for (const candidate of plan.candidates) {
       checkInterrupted()
@@ -159,7 +159,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
       const controller = new AbortController()
       const dispose = handleCancellation({ cancel: (reason) => controller.abort(reason) }, () =>
-        console.error("已请求取消；完成当前删除后停止清理并释放维护锁。"),
+        console.error("Cancellation requested; stopping after the current deletion and releasing the maintenance lock."),
       )
       let plan
       try {
@@ -168,10 +168,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         dispose()
       }
       console.log(
-        `${options.apply ? "已清理" : "待清理"} ${plan.candidates.length} 个目录；保护 ${plan.protected.length} 份记录。`,
+        `${options.apply ? "Removed" : "Will remove"} ${plan.candidates.length} directories; protecting ${plan.protected.length} records.`,
       )
       for (const candidate of plan.candidates) console.log(`${candidate.kind}: ${candidate.path}`)
-      if (!options.apply) console.log("预览完成，未删除文件。确认计划后追加 --apply。")
+      if (!options.apply) console.log("Preview complete; no files deleted. Review the plan, then add --apply to proceed.")
     }
   } catch (error) {
     console.error(error.message)

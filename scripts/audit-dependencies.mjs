@@ -14,13 +14,15 @@ try {
   const receipt = await verifyBracesPatch(root)
   const result = await runner.start("pnpm", ["audit", "--json"], { capture: true }).done
   if (result.reason || result.error) throw result.reason ?? result.error
-  assert(result.code === 0 || result.code === 1, "依赖审计命令执行失败")
+  assert(result.code === 0 || result.code === 1, "Dependency audit command failed")
   const { mitigated, unresolved } = classifyAudit(JSON.parse(result.output), receipt)
-  console.log(`braces 本地补丁已验证：${receipt.patchHash}`)
-  for (const advisory of mitigated) console.log(`已由本地补丁缓解（上游版本告警仍存在）：${advisory.url}`)
-  for (const advisory of unresolved) console.error(`未处理：${advisory.module_name} / ${advisory.severity} / ${advisory.url}`)
-  assert.equal(unresolved.length, 0, "依赖审计发现未处理的安全告警")
-  console.log(`依赖审计通过：${mitigated.length} 项已验证本地补丁，0 项未处理告警。`)
+  console.log(`Verified local braces patch: ${receipt.patchHash}`)
+  for (const advisory of mitigated)
+    console.log(`Mitigated by a local patch (upstream version advisory remains): ${advisory.url}`)
+  for (const advisory of unresolved)
+    console.error(`Unresolved: ${advisory.module_name} / ${advisory.severity} / ${advisory.url}`)
+  assert.equal(unresolved.length, 0, "Dependency audit found unresolved security advisories")
+  console.log(`Dependency audit passed: ${mitigated.length} verified local mitigations, 0 unresolved advisories.`)
 } catch (error) {
   console.error(error.message)
   process.exitCode = 1

@@ -47,7 +47,9 @@ export function mergeManifest(template, previous, target) {
 
 function replaceRequired(text, from, to, filename) {
   if (!text.includes(from))
-    throw new Error(`官方模板结构已变化，无法接入 ${filename}。请更新 scripts/lib/integrate.mjs；当前应用未替换。`)
+    throw new Error(
+      `Official template structure changed; cannot integrate ${filename}. Update scripts/lib/integrate.mjs; the original app has not been replaced.`,
+    )
   return text.replace(from, to)
 }
 

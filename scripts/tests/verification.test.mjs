@@ -23,7 +23,7 @@ test("cleanup failures persist a failed report and still close the other owned r
         handlersRemoved = true
       },
     ]),
-    /现场清理失败/,
+    /workspace cleanup failed/,
   )
   assert.equal(runnerClosed, true)
   assert.equal(handlersRemoved, true)

@@ -131,7 +131,7 @@ test("editing a generated-looking business asset during browser verification pre
         if (args[0] === "test:web-admin") await put(f.root, f.asset, "user edit")
       },
     }),
-    /工作区发生变化/,
+    /Workspace changed/,
   )
   assert.equal(f.promoted(), false)
   assert.equal(await exists(f.backup), false)

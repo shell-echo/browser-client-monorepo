@@ -5,7 +5,12 @@ export default [
   { ignores: ["apps/**", "packages/ui/**"] },
   {
     // These names run inside Playwright page.evaluate callbacks.
-    files: ["scripts/test-extension.mjs", "scripts/test-web-admin.mjs", "scripts/lib/theme-verification.mjs"],
+    files: [
+      "scripts/test-extension.mjs",
+      "scripts/test-web-admin.mjs",
+      "scripts/lib/theme-verification.mjs",
+      "scripts/lib/client-page-verification.mjs",
+    ],
     languageOptions: {
       globals: { chrome: "readonly", window: "readonly", document: "readonly", getComputedStyle: "readonly" },
     },
