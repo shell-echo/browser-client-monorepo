@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { integrateTooling, readConfig } from "./tooling.mjs"
 import { applyCatalogs, readCatalogs } from "./catalogs.mjs"
+import { integrateGitignore } from "./gitignore.mjs"
 
 export const targets = ["web", "admin", "extension"]
 export const readJson = async (path) => JSON.parse(await readFile(path, "utf8"))
@@ -61,6 +62,7 @@ async function patchJsonc(path, edit) {
 
 export async function integrate(root, target, previous = {}, prepared) {
   const app = join(root, "apps", target)
+  await integrateGitignore(app)
   // create-next-app may emit a standalone pnpm workspace. Keep one root only,
   // otherwise adding a dependency from apps/web cannot resolve workspace:*.
   await rm(join(app, "pnpm-workspace.yaml"), { force: true })

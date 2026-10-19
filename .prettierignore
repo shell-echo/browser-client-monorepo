@@ -1,4 +1,4 @@
-# Use this file explicitly so broad Git ignore rules do not hide source files.
+# Use this file explicitly to keep formatting exclusions independent from Git.
 **/node_modules/
 **/.git/
 /.reinit/

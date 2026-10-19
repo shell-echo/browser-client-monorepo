@@ -717,13 +717,12 @@
         "reasons": []
       },
       {
-        "id": "packages/ui:dependencies:lucide-react",
+        "id": "catalog:default:lucide-react",
         "name": "lucide-react",
         "previous": "1.57.0",
         "current": "1.57.0",
         "location": {
-          "path": "packages/ui",
-          "field": "dependencies",
+          "catalog": "default",
           "name": "lucide-react"
         },
         "required": [],
@@ -795,6 +794,27 @@
         "latest": "5.3.0",
         "version": "5.3.0",
         "reasons": []
+      },
+      {
+        "id": "apps/admin:dependencies:react-router",
+        "name": "react-router",
+        "previous": "8.4.0",
+        "current": "8.4.0",
+        "location": {
+          "path": "apps/admin",
+          "field": "dependencies",
+          "name": "react-router"
+        },
+        "required": [
+          {
+            "from": "apps/admin project integration",
+            "range": "^8.0.0"
+          }
+        ],
+        "strictLatest": false,
+        "version": "8.4.0",
+        "reasons": [],
+        "origin": "Existing verified lockfile baseline; latest was not queried during policy migration."
       }
     ]
   }

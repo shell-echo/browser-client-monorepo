@@ -183,7 +183,7 @@ async function fixture(t) {
   return root
 }
 
-test("the current workspace replays its shared Inter dependency offline without registry access", async (t) => {
+test("the current workspace replays its font, shared icons and managed Admin router offline without registry access", async (t) => {
   const root = await fixture(t)
   const source = fileURLToPath(new URL("../../", import.meta.url))
   for (const path of ["package.json", "pnpm-workspace.yaml", "pnpm-lock.yaml"])
@@ -223,6 +223,18 @@ test("the current workspace replays its shared Inter dependency offline without 
     ].version,
     font.version,
   )
+  const icons = receipt.entries.find((entry) => entry.id === "catalog:default:lucide-react")
+  const router = receipt.entries.find((entry) => entry.id === "apps/admin:dependencies:react-router")
+  assert(icons, "Shared icons need a catalog dependency receipt")
+  assert(router, "The managed Admin router needs an offline dependency receipt")
+  assert.equal(ui.dependencies["lucide-react"], "catalog:")
+  const admin = JSON.parse(await readFile(join(root, "apps/admin/package.json"), "utf8"))
+  assert.equal(admin.dependencies["lucide-react"], "catalog:")
+  assert.equal(admin.dependencies["react-router"], router.version)
+  assert.equal(
+    receipt.entries.some((entry) => entry.id === "packages/ui:dependencies:lucide-react"),
+    false,
+  )
 })
 
 test("shared source and manifest contracts survive upgrades; offline replay never queries registry", async (t) => {
@@ -259,6 +271,107 @@ test("shared source and manifest contracts survive upgrades; offline replay neve
     "catalogs:\n  default:\n    react:\n      version: 19.3.0\nimporters:\n  .:\n    devDependencies:\n      tool:\n        version: 2.0.0\n  packages/ui:\n    dependencies:\n      helper:\n        version: 2.0.0\n",
   )
   await assert.rejects(verifyResolvedUpdates(root, receipt), /installed version differs from the update plan/)
+})
+
+test("managed Admin dependencies upgrade compatibly on full and partial rebuilds; business dependencies stay locked", async (t) => {
+  for (const rebuildAdmin of [true, false]) {
+    await t.test(rebuildAdmin ? "Admin rebuild" : "another target rebuild", async (t) => {
+      const root = await fixture(t)
+      await writeFile(
+        join(root, "pnpm-workspace.yaml"),
+        "catalog:\n  react: 19.3.0\n  lucide-react: 1.57.0\n  tailwindcss: 4.3.3\n  '@tailwindcss/vite': 4.3.3\n",
+      )
+      const admin = {
+        dependencies: {
+          react: "catalog:",
+          "lucide-react": "catalog:",
+          "react-router": "8.4.0",
+          business: "^1",
+          constructor: "^1",
+        },
+      }
+      await mkdir(join(root, "apps/admin"))
+      await writeFile(join(root, "apps/admin/package.json"), JSON.stringify(admin))
+      await writeFile(
+        join(root, "packages/ui/package.json"),
+        JSON.stringify({ name: "ui", dependencies: { "lucide-react": "catalog:" }, peerDependencies: { react: "^19" } }),
+      )
+      await writeFile(
+        join(root, "pnpm-lock.yaml"),
+        "catalogs:\n  default:\n    react:\n      version: 19.3.0\n    lucide-react:\n      version: 1.57.0\nimporters:\n  apps/admin:\n    dependencies:\n      react-router:\n        version: 8.4.0\n      business:\n        version: 1.2.0\n      constructor:\n        version: 1.2.0\n",
+      )
+      const registry = registryFixture({
+        react: releases({ "19.3.0": {} }),
+        tool: releases({ "2.0.0": {} }),
+        tailwindcss: releases({ "4.3.3": {} }),
+        "@tailwindcss/vite": releases({ "4.3.3": {} }),
+        "lucide-react": releases({ "2.0.0": { peerDependencies: { react: "^20" } }, "1.58.0": {} }),
+        "react-router": releases({
+          "9.0.0": {},
+          "8.5.0": { peerDependencies: { react: "^20" } },
+          "8.4.1": { peerDependencies: { react: "^19" } },
+          "8.4.0": {},
+        }),
+        business: releases({ "2.0.0": {}, "1.2.0": {} }),
+        constructor: releases({ "2.0.0": {}, "1.2.0": {} }),
+      })
+      const args = {
+        root,
+        templates: rebuildAdmin ? { admin: { dependencies: { react: "^19" } } } : {},
+        previous: { admin },
+      }
+      const receipt = await updateDependencies({ ...args, registry })
+      const router = receipt.entries.find((entry) => entry.id === "apps/admin:dependencies:react-router")
+      assert.equal(router?.version, "8.4.1")
+      assert(router.reasons.length, "An incompatible latest release must have a recorded explanation")
+      assert.equal(receipt.entries.find((entry) => entry.id === "catalog:default:lucide-react")?.version, "1.58.0")
+      const actual = JSON.parse(await readFile(join(root, "apps/admin/package.json")))
+      assert.equal(actual.dependencies["react-router"], "8.4.1")
+      assert.equal(actual.dependencies["lucide-react"], "catalog:")
+      assert.equal(actual.dependencies.business, "^1")
+      assert.equal(actual.dependencies.constructor, "^1")
+      assert.equal(
+        receipt.entries.some((entry) => entry.name === "constructor"),
+        false,
+      )
+      assert.equal(
+        receipt.entries.some((entry) => entry.name === "business"),
+        false,
+      )
+      const replay = await updateDependencies({
+        ...args,
+        previous: { admin: actual },
+        offline: true,
+        saved: receipt,
+        registry: new Proxy({}, { get: () => assert.fail("Offline replay queried the registry") }),
+      })
+      assert.equal(replay.entries.find((entry) => entry.id === router.id)?.version, "8.4.1")
+      const before = await fingerprint(root)
+      const invalid = structuredClone(receipt)
+      invalid.entries.find((entry) => entry.id === router.id).version = "9.0.0"
+      await assert.rejects(
+        updateDependencies({ ...args, offline: true, saved: invalid }),
+        /project integration.*react-router.*\^8/,
+      )
+      assert.equal(await fingerprint(root), before, "An incompatible offline router must leave the project untouched")
+      const missing = structuredClone(receipt)
+      missing.entries = missing.entries.filter((entry) => entry.id !== router.id)
+      await assert.rejects(
+        updateDependencies({ ...args, offline: true, saved: missing }),
+        /Offline receipt is missing apps\/admin:dependencies:react-router/,
+      )
+      const incompatible = {
+        ...registry,
+        latest: (name) => (name === "react-router" ? Promise.resolve({ version: "9.0.0" }) : registry.latest(name)),
+        versions: (name) => (name === "react-router" ? Promise.resolve(["9.0.0"]) : registry.versions(name)),
+      }
+      await assert.rejects(
+        updateDependencies({ ...args, registry: incompatible }),
+        /No stable compatible dependency combination/,
+      )
+      assert.equal(await fingerprint(root), before, "Missing receipts and online incompatibility must not write project files")
+    })
+  }
 })
 
 test("rollback restores root manifest and catalogs alongside source, receipt and lockfile", async (t) => {

@@ -10,6 +10,9 @@ const stable = (version) => Boolean(semver.valid(version) && !semver.prerelease(
 const deprecated = (metadata) => typeof metadata.deprecated === "string"
 const supports = (version, range) => Boolean(semver.validRange(range) && semver.satisfies(version, range))
 const minimumVersions = { eslint: "10.0.0" }
+// These application dependencies belong to the starter integration. Keep
+// user-added dependencies locked unless explicitly added to this policy.
+const applicationDependencies = { "apps/admin": { "react-router": "^8.0.0" } }
 const minimumRequirements = (name) =>
   Object.hasOwn(minimumVersions, name) ? [{ from: "Project minimum version policy", range: `>=${minimumVersions[name]}` }] : []
 
@@ -272,7 +275,7 @@ export async function updateDependencies({ root, templates, previous, registry, 
             : Object.hasOwn(workspace.catalogs?.[toolchain] ?? {}, name)
               ? toolchain
               : undefined
-        const declared = template?.[field]?.[name]
+        const declared = Object.hasOwn(template?.[field] ?? {}, name) ? template[field][name] : undefined
         // A starter's ESLint default is not a framework requirement. The actual
         // config peers, strict install and rule regression tests enforce support.
         const required =
@@ -284,6 +287,11 @@ export async function updateDependencies({ root, templates, previous, registry, 
                 },
               ]
             : []
+        const applicationRange =
+          field === "dependencies" && Object.hasOwn(applicationDependencies[path] ?? {}, name)
+            ? applicationDependencies[path][name]
+            : undefined
+        if (applicationRange) required.push({ from: `${path} project integration`, range: applicationRange })
         if (template && ["tailwindcss", "@tailwindcss/vite"].includes(name) && !template[field]?.[name])
           required.push({ from: `${path} Tailwind integration`, range: "^4.1.0" })
         let id
@@ -296,10 +304,10 @@ export async function updateDependencies({ root, templates, previous, registry, 
           const managed =
             path === "." ||
             path.startsWith("packages/") ||
+            Boolean(applicationRange) ||
             Boolean(
               template &&
-              (template[field]?.[name] ||
-                ["@crxjs/vite-plugin", "@types/chrome", "@tailwindcss/vite", "tailwindcss"].includes(name)),
+              (declared || ["@crxjs/vite-plugin", "@types/chrome", "@tailwindcss/vite", "tailwindcss"].includes(name)),
             )
           const fixed = managed
             ? undefined

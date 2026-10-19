@@ -208,6 +208,7 @@ test("Next adapter retains upstream CSS settings and removes the nested workspac
   )
   await put(root, "apps/web/package.json", JSON.stringify({ version: "0.1.0", scripts: {}, dependencies: {} }))
   await put(root, "apps/web/pnpm-workspace.yaml", "allowBuilds: {}")
+  await put(root, "apps/web/.gitignore", ".next/\n*.tsbuildinfo\n.env*\n/custom-output/\n")
   await put(
     root,
     "apps/web/next.config.ts",
@@ -228,6 +229,11 @@ test("Next adapter retains upstream CSS settings and removes the nested workspac
   assert(config.includes("upstream-loader"))
   assert(config.includes('transpilePackages: ["@browser-client/ui"]'))
   assert.equal(await exists(join(root, "apps/web/pnpm-workspace.yaml")), false)
+  const gitignore = await readFile(join(root, "apps/web/.gitignore"), "utf8")
+  assert(gitignore.includes("/.next/\n"))
+  assert(gitignore.includes("/*.tsbuildinfo\n"))
+  assert(gitignore.includes("/custom-output/\n"))
+  assert(gitignore.endsWith("!.env.example\n!.env.*.example\n"))
   assert.equal(JSON.parse(await readFile(join(root, "apps/web/components.json"))).aliases.ui, "@browser-client/ui/components")
   const componentConfig = JSON.parse(await readFile(join(root, "apps/web/components.json"), "utf8"))
   assert.equal(componentConfig.menuColor, "default")
@@ -275,6 +281,7 @@ test("extension reinit reapplies CRXJS and shared UI while preserving the manife
   for (const file of ["tsconfig.json", "tsconfig.app.json", "tsconfig.node.json"])
     await put(app, file, '{"compilerOptions":{}}')
   await put(app, ".oxlintrc.json", '{"plugins":["react","typescript","oxc"],"rules":{"react/rules-of-hooks":"error"}}')
+  await put(app, ".gitignore", "node_modules\ndist\n.env*\n")
   const previous = { devDependencies: { "@crxjs/vite-plugin": "3.0.0" }, scripts: { "preview:ui": "vite" } }
   await integrate(root, "extension", previous)
   const pkg = JSON.parse(await readFile(join(app, "package.json"), "utf8"))
@@ -285,6 +292,10 @@ test("extension reinit reapplies CRXJS and shared UI while preserving the manife
   assert.equal(pkg.dependencies.react, "catalog:")
   assert.equal(pkg.devDependencies.tailwindcss, "catalog:")
   assert.equal(pkg.devDependencies["@browser-client/oxlint-config"], "workspace:*")
+  assert.equal(
+    await readFile(join(app, ".gitignore"), "utf8"),
+    "/node_modules/\n/dist/\n.env*\n!.env.example\n!.env.*.example\n",
+  )
   const config = await readFile(join(app, "vite.config.ts"), "utf8")
   assert(config.includes('import manifest from "./manifest.config.ts"'))
   assert(config.includes("crx({ manifest })"))
