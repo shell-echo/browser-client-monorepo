@@ -49,6 +49,7 @@ test("online preflight completes both browser suites before replacing the origin
   assert.deepEqual(
     f.calls.map(({ command }) => command),
     [
+      "install --frozen-lockfile --strict-peer-dependencies",
       "exec node scripts/format-reinit.mjs extension",
       "check",
       "audit:security",
@@ -79,6 +80,7 @@ test("offline preflight runs browser verification without downloading browsers o
 
 test("failed candidate checks never promote and preserve the original source, lock and dependencies", async (t) => {
   const sequence = [
+    "install --frozen-lockfile --strict-peer-dependencies",
     "exec node scripts/format-reinit.mjs extension",
     "check",
     "audit:security",

@@ -7,7 +7,7 @@ import { copySource, exists, fingerprint, ignored } from "./lib/workspace.mjs"
 import { handleCancellation, positiveTimeout } from "./lib/commands.mjs"
 import { createVerificationRunner, finishVerification } from "./lib/verification.mjs"
 import { chooseTheme, verifyThemes } from "./lib/theme-verification.mjs"
-import { verifyClientPage } from "./lib/client-page-verification.mjs"
+import { loadBrowserConfig, prepareHmrUpdate } from "./lib/browser-config.mjs"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 const runDir = join(resolve(process.env.BROWSER_TEST_OUTPUT_ROOT ?? join(root, ".reinit/verification")), `crxjs-${Date.now()}`)
@@ -15,14 +15,14 @@ const workspace = join(runDir, "workspace")
 const app = join(workspace, "apps/extension")
 const port = positiveTimeout(process.env.EXTENSION_TEST_PORT, 3102, "EXTENSION_TEST_PORT")
 assert(port < 65536, "EXTENSION_TEST_PORT must be less than 65536")
-const report = { checks: [], errors: [], runDir }
+const report = { checks: [], errors: [], runDir, startedAt: new Date().toISOString() }
 const runner = createVerificationRunner({
   cwd: workspace,
   logDir: runDir,
   timeoutMs: positiveTimeout(process.env.EXTENSION_TEST_COMMAND_TIMEOUT_MS, 180_000, "EXTENSION_TEST_COMMAND_TIMEOUT_MS"),
 })
 const { start, run, until } = runner
-let server, context
+let server, context, config
 const removeSignalHandlers = handleCancellation(runner, () => {
   console.error("Cancellation requested; closing the browser and test processes.")
   void context?.close().catch(() => {})
@@ -60,26 +60,25 @@ async function extensionPages(context) {
   const popup = await context.newPage()
   await popup.setViewportSize({ width: 360, height: 280 })
   await popup.goto(`chrome-extension://${id}/index.html`)
-  await verifyClientPage(popup, "Extension Client")
+  await config.extension.verifyPage({ page: popup, kind: "popup" })
   const opened = context.waitForEvent("page")
   await popup.evaluate(() => chrome.runtime.openOptionsPage())
   const options = await opened
   await options.waitForURL(`chrome-extension://${id}/options.html`)
   await options.setViewportSize({ width: 1280, height: 900 })
-  await verifyClientPage(options, "Extension Client")
-  await until(
-    async () => (await options.evaluate(() => chrome.storage.local.get("workspaceName"))).workspaceName === "Browser Client",
-    "Background storage initialization",
-  )
+  await config.extension.verifyPage({ page: options, kind: "options" })
+  await config.extension.verifyBackground({ page: options, until })
   return { popup, options }
 }
 
 async function storageRoundTrip(popup, options, name) {
-  await options.evaluate((workspaceName) => chrome.storage.local.set({ workspaceName }), name)
-  assert.equal((await options.evaluate(() => chrome.storage.local.get("workspaceName"))).workspaceName, name)
+  const key = "__browser_client_verification__"
+  await options.evaluate(({ key, name }) => chrome.storage.local.set({ [key]: name }), { key, name })
+  assert.equal(await options.evaluate(async (key) => (await chrome.storage.local.get(key))[key], key), name)
   await popup.reload()
-  await verifyClientPage(popup, "Extension Client")
-  assert.equal((await popup.evaluate(() => chrome.storage.local.get("workspaceName"))).workspaceName, name)
+  await config.extension.verifyPage({ page: popup, kind: "popup" })
+  assert.equal(await popup.evaluate(async (key) => (await chrome.storage.local.get(key))[key], key), name)
+  await options.evaluate((key) => chrome.storage.local.remove(key), key)
 }
 
 try {
@@ -88,6 +87,7 @@ try {
   }
   await run("git", ["init", "--quiet"], "git.log")
   await run("pnpm", ["install", "--offline", "--frozen-lockfile"], "install.log")
+  config = await loadBrowserConfig(workspace)
   await run("node", ["scripts/check-extension-compat.mjs"], "compat.log")
   server = start("pnpm", ["--filter", "@browser-client/extension", "dev"], "dev.log", { EXTENSION_DEV_PORT: String(port) }, 0)
   await until(
@@ -107,13 +107,12 @@ try {
   const { popup, options } = await extensionPages(context)
   await storageRoundTrip(popup, options, "Development storage test")
   await popup.screenshot({ path: join(runDir, "extension-popup.png"), fullPage: true })
-  passed(
-    "Development extension loaded; popup / options pages, GitHub links, centering, background initialization and storage round trip passed",
-  )
+  passed("Development extension loaded; configured popup / options, background initialization and storage round trip passed")
   await verifyThemes(options, { peer: popup, errors: report.errors, screenshot: join(runDir, "extension-dev-dark.png") })
   passed("Development extension themes, popup / options synchronization, persistence and system preference passed")
 
-  const paths = ["apps/extension/src/App.tsx", "packages/ui/src/components/button.tsx", "packages/ui/src/styles/globals.css"]
+  const hmrUpdate = await prepareHmrUpdate(workspace, config.extension.hmr)
+  const paths = ["packages/ui/src/components/button.tsx", "packages/ui/src/styles/globals.css"]
   const originals = await Promise.all(paths.map((path) => readFile(join(workspace, path), "utf8")))
   await options.emulateMedia({ colorScheme: "light" })
   // An unavailable storage backend makes the selected theme a real React-only
@@ -144,16 +143,15 @@ try {
     assert.equal(await options.evaluate(() => window.__hmrSentinel), "same-document")
     assert.equal(navigations, 0, "HMR caused a full page reload")
   }
-  assert(originals[0].includes('title="Extension Client"'))
-  await writeFile(join(workspace, paths[0]), originals[0].replace('title="Extension Client"', 'title="Extension Client · HMR"'))
-  await options.getByRole("heading", { name: "Extension Client · HMR", exact: true }).waitFor()
+  await hmrUpdate.apply()
+  await config.extension.hmr.verify({ page: options, popup })
   await preserved()
   passed("Extension React HMR retained theme state without storage persistence or a full page reload")
 
-  assert(originals[1].includes('data-slot="button"'))
+  assert(originals[0].includes('data-slot="button"'))
   await writeFile(
-    join(workspace, paths[1]),
-    originals[1].replace('data-slot="button"', 'data-slot="button" data-hmr-shared="updated"'),
+    join(workspace, paths[0]),
+    originals[0].replace('data-slot="button"', 'data-slot="button" data-hmr-shared="updated"'),
   )
   await options
     .getByRole("button", { name: "Toggle theme", exact: true })
@@ -167,8 +165,8 @@ try {
   passed("Shared shadcn/ui Button HMR updated popup / options and retained React state")
 
   await writeFile(
-    join(workspace, paths[2]),
-    `${originals[2]}\n[data-slot="dropdown-menu-trigger"] { border-top-width: 7px !important; }\n`,
+    join(workspace, paths[1]),
+    `${originals[1]}\n[data-slot="dropdown-menu-trigger"] { border-top-width: 7px !important; }\n`,
   )
   await until(
     () =>
@@ -184,6 +182,7 @@ try {
   await server.stop()
   server = undefined
   for (let i = 0; i < paths.length; i++) await writeFile(join(workspace, paths[i]), originals[i])
+  await hmrUpdate.restore()
 
   await run("pnpm", ["--filter", "@browser-client/extension", "build"], "build.log")
   await run("node", ["scripts/check-extension.mjs"], "production-check.log")

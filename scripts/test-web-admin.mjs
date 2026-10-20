@@ -8,8 +8,7 @@ import { handleCancellation, positiveTimeout } from "./lib/commands.mjs"
 import { copySource, fingerprint, ignored } from "./lib/workspace.mjs"
 import { createVerificationRunner, finishVerification } from "./lib/verification.mjs"
 import { verifyThemes, verifyThemeBeforeHydration, verifyUnavailableStorage } from "./lib/theme-verification.mjs"
-import { verifyClientPage } from "./lib/client-page-verification.mjs"
-import { verifyAdminTemplates } from "./lib/admin-verification.mjs"
+import { browserUrl, loadBrowserConfig } from "./lib/browser-config.mjs"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 const runDir = join(
@@ -17,7 +16,7 @@ const runDir = join(
   `web-admin-${Date.now()}`,
 )
 const workspace = join(runDir, "workspace")
-const report = { runDir, checks: [], errors: [] }
+const report = { runDir, checks: [], errors: [], startedAt: new Date().toISOString() }
 const port = (value, fallback, label) => {
   const number = positiveTimeout(value, fallback, label)
   assert(number < 65536, `${label} must be less than 65536`)
@@ -68,12 +67,6 @@ async function pageFor(name, url) {
   return page
 }
 
-async function mobileLayout(page, name) {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await verifyClientPage(page, `${name === "web" ? "Web" : "Admin"} Client`)
-  await page.screenshot({ path: join(runDir, `${name}-mobile.png`), fullPage: true })
-}
-
 try {
   await mkdir(workspace, { recursive: true, mode: 0o700 })
   originalFingerprint = await fingerprint(root)
@@ -83,6 +76,10 @@ try {
     if (!ignored(name)) await copySource(join(root, name), join(workspace, name), { root })
   await runner.run("git", ["init", "--quiet"], "git.log")
   await runner.run("pnpm", ["install", "--offline", "--frozen-lockfile"], "install.log")
+  const config = await loadBrowserConfig(workspace)
+  const webUrl = browserUrl(`http://127.0.0.1:${webPort}`, config.web.path)
+  const adminOrigin = `http://127.0.0.1:${adminPort}`
+  const adminUrl = browserUrl(adminOrigin, config.admin.path)
   await runner.run(
     "pnpm",
     ["exec", "turbo", "run", "build", "--filter=@browser-client/web", "--filter=@browser-client/admin"],
@@ -113,16 +110,16 @@ try {
     {},
     0,
   )
-  for (const [server, port] of [
-    [web, webPort],
-    [admin, adminPort],
+  for (const [server, url] of [
+    [web, webUrl],
+    [admin, adminUrl],
   ]) {
     await runner.until(
       async () => {
         assert.equal(server.child.exitCode, null, "Production server exited early; check the logs")
-        return (await fetch(`http://127.0.0.1:${port}`, { signal: AbortSignal.timeout(2000) })).ok
+        return (await fetch(url, { signal: AbortSignal.timeout(2000) })).ok
       },
-      `Production server ${port}`,
+      `Production server ${url}`,
       60_000,
     )
   }
@@ -130,26 +127,19 @@ try {
   runner.check()
   report.chromium = browser.version()
 
-  const webPage = await pageFor("web", `http://127.0.0.1:${webPort}`)
-  assert.equal(await webPage.title(), "Browser Client")
-  await verifyClientPage(webPage, "Web Client")
-  await webPage.screenshot({ path: join(runDir, "web-desktop.png"), fullPage: true })
-  await mobileLayout(webPage, "web")
-  passed("Web production page, GitHub link, shared styles and desktop / mobile centering passed")
+  const webPage = await pageFor("web", webUrl)
+  await config.web.verify({ page: webPage, browser, pageFor, url: webUrl, runDir, errors: report.errors, passed })
   await verifyThemes(webPage, { errors: report.errors, screenshot: join(runDir, "web-dark.png") })
-  await verifyThemeBeforeHydration(browser, `http://127.0.0.1:${webPort}/`, false)
+  await verifyThemeBeforeHydration(browser, webUrl, false)
   passed("Web themes, persistence, tab synchronization, system changes and dark first paint before hydration passed")
 
-  const adminPage = await pageFor("admin", `http://127.0.0.1:${adminPort}`)
-  await verifyClientPage(adminPage, "Admin Client")
-  await adminPage.screenshot({ path: join(runDir, "admin-desktop.png"), fullPage: true })
-  await mobileLayout(adminPage, "admin")
-  passed("Admin production page, GitHub link, shared styles and desktop / mobile centering passed")
+  const adminPage = await pageFor("admin", adminUrl)
+  await config.admin.verify({ page: adminPage, browser, pageFor, url: adminUrl, runDir, errors: report.errors, passed })
   await verifyThemes(adminPage, { errors: report.errors, screenshot: join(runDir, "admin-dark.png") })
-  await verifyThemeBeforeHydration(browser, `http://127.0.0.1:${adminPort}/`, true)
+  await verifyThemeBeforeHydration(browser, adminUrl, true)
   await verifyUnavailableStorage(adminPage)
   passed("Admin themes, persistence, tab synchronization, system changes, early first paint and unavailable storage passed")
-  await verifyAdminTemplates({ pageFor, url: `http://127.0.0.1:${adminPort}`, runDir, errors: report.errors, passed })
+  await config.admin.verifyRoutes({ pageFor, url: adminOrigin, runDir, errors: report.errors, passed })
   assert.deepEqual(report.errors, [], "Browser runtime, console or resource errors detected")
   passed("Web / Admin have no browser runtime, console or resource errors")
   assert.equal(await fingerprint(root), originalFingerprint, "Smoke test changed the original workspace source")

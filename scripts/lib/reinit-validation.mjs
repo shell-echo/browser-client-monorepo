@@ -13,6 +13,9 @@ export async function validateBeforePromotion({
   promote,
   checkInterrupted = () => {},
 }) {
+  // A resolving install can cache abbreviated metadata only. Verify the locked
+  // graph online so the browser copies can enforce pnpm's policies offline.
+  if (!offline) await run(["install", "--frozen-lockfile", "--strict-peer-dependencies"], stage)
   await run(["exec", "node", "scripts/format-reinit.mjs", ...selected], stage)
   await run(["check"], stage)
   if (!offline) {

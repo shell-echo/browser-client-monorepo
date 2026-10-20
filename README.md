@@ -106,7 +106,7 @@ Both commands explicitly use `.prettierignore`, keeping formatting exclusions in
 
 Open the repository root in VS Code and install the recommended Prettier, ESLint, Oxc, and Tailwind CSS IntelliSense extensions from `.vscode/extensions.json`. Saving uses local Prettier and the appropriate lint fixes. Web and scripts use ESLint; the root `.oxlintrc.json` excludes them from Oxc editor checks. Admin, Extension, and UI keep their shared rules. Root Oxlint uses the same catalog version as the applications so the editor can locate its language service. Oxfmt formatting and TypeScript Nightly are disabled; final type checks use each workspace's pinned TypeScript. Recommendations do not automatically install extensions or change personal settings.
 
-After installing the isolated candidate, `reinit` formats regenerated application configuration and updated root configuration / workspace manifests, then runs full checks and browser tests. It does not rewrite application source, shared shadcn/ui, manifests, static assets, or editor settings. Formatting dependencies participate in compatible online upgrades; offline mode replays recorded versions. If updated rules require source changes or generated configuration cannot be formatted, validation stops and preserves the original project. Review formatting changes before retrying. After adding formatting dependencies, a successful online reinit is needed to record them for offline replay.
+After installing the isolated candidate, online `reinit` performs a strict frozen-lockfile install to verify the complete locked graph and cache the supply-chain metadata needed by the offline browser copies. It then formats regenerated application configuration and updated root configuration / workspace manifests, and runs full checks and browser tests. It does not rewrite application source, shared shadcn/ui, manifests, static assets, or editor settings. Formatting dependencies participate in compatible online upgrades; offline mode replays recorded versions. If metadata is unavailable, updated rules require source changes, or generated configuration cannot be formatted, validation stops and preserves the original project. Review formatting changes before retrying. After adding formatting dependencies, a successful online reinit is needed to record them for offline replay.
 
 ## Shared dependency versions
 
@@ -225,6 +225,8 @@ Use `--offline` explicitly when needed. It replays recorded templates and depend
 
 Browser reports, logs, and screenshots are written to the original project's `.reinit/verification/` and survive candidate replacement. Standalone browser tests use the same default; `BROWSER_TEST_OUTPUT_ROOT` can override their report parent. Reinit explicitly uses the original project's directory to retain diagnostics.
 
+Every applied reinit also saves a private `.reinit/reports/reinit-<id>.json` with the target applications, online / offline mode, command and dependency-planning durations, total elapsed time, final status, and any failure / retained-lock information. Console output includes phase durations. Reports survive replacement and are not deleted by cleanup. A dry run creates no report or other files. Reports are diagnostics; backup journals remain the recovery authority after forced termination.
+
 ### Failure recovery and backups
 
 Generation or staging-check failures leave original directories untouched. Final-location validation failures restore them. Ctrl-C / SIGTERM cancels the current command and its process tree, waits for exit, forces termination if necessary, then restores directories. If exit cannot be confirmed, the lock and workspace remain; automatic recovery is withheld to avoid concurrent writes. `scripts/lib/commands.mjs` also manages browser test commands.
@@ -241,11 +243,14 @@ For manual recovery, stop related processes and move current `apps/`, `packages/
 
 ```sh
 pnpm reinit:clean                       # Preview; keep the latest 3 per category and the last 7 days
+pnpm reinit:clean --sizes               # Also scan total, eligible and retained logical file sizes
 pnpm reinit:clean --keep=1 --days=0      # Preview a smaller retention window
 pnpm reinit:clean --keep=1 --days=0 --apply
 ```
 
 Only successful backups and their staging directories beyond both retention limits are eligible. For successful browser verification records, cleanup removes workspace copies and profiles while retaining `report.json` and logs. Failed / incomplete recovery records, directories without valid records, and migration baselines are protected. Cleanup refuses an existing maintenance lock and acquires the same lock itself. At least one recent successful record per category is retained; symbolic links are rejected. Ctrl-C / SIGTERM finishes the current deletion, stops further cleanup, and releases the lock. Deleted old workspaces are not restored; SIGKILL or power loss requires manual lock inspection.
+
+`--sizes` is optional because scanning large backup trees can take time. It reports data by top-level maintenance directory and estimates how much logical data is eligible under the existing retention policy. Symbolic links are measured without following their targets. Hard links and shared filesystem blocks mean logical sizes can exceed the disk space actually reclaimed. Preview remains read-only; `--sizes` does not change eligibility or delete failed workspaces.
 
 ## Validation
 
@@ -259,10 +264,36 @@ pnpm build
 pnpm exec playwright install chromium
 pnpm test:extension
 pnpm test:web-admin
+pnpm test:reinit  # Slow: real online rebuild, offline replay, and rejection test in an isolated copy
 pnpm audit:security
 ```
 
 `test:web-admin` creates source copies and local Git boundaries under `.reinit/verification/web-admin-*/`, installs offline from the lockfile, and rebuilds Web / Admin. Next.js production and Vite preview servers verify English page content, language metadata, accessible GitHub icon links, shared component styles, desktop / mobile centering, theme interactions, and browser / console / resource errors. Admin additionally verifies the login and dashboard templates, native email validation, client-side navigation, deep links / reloads, unknown routes, and responsive drawer / menu behavior at 320 / 390 / 768 / 1280px. Reports, server logs, and screenshots remain in that directory. Tests close their own browsers and processes and verify the original source is unchanged.
+
+### Custom business browser assertions
+
+`browser-tests.config.mjs` owns the starter's page titles, layouts, routes, background expectations, and application HMR edit. When replacing the demo pages with product screens, update this file with assertions for the actual business behavior. It is preserved across reinit, copied into browser verification workspaces, and loaded after installing the candidate's dependencies.
+
+| Configuration                | Contract                                                                                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `web.path`, `admin.path`     | A path on the local application's origin, such as `/workspace`; external URLs are rejected                                                 |
+| `web.verify`, `admin.verify` | Required async business checks; receive `{ page, browser, pageFor, url, runDir, errors, passed }`                                          |
+| `admin.verifyRoutes`         | Required route / navigation assertions; receives `{ pageFor, url, runDir, errors, passed }`, where `url` is Admin's origin                 |
+| `extension.verifyPage`       | Required popup / options assertions; receives `{ page, kind }`                                                                             |
+| `extension.verifyBackground` | Required background initialization assertions; receives `{ page, until }`                                                                  |
+| `extension.hmr`              | `{ file, update(source), verify({ page, popup }) }`; selects an extension source file, produces a real change, and waits for its UI update |
+
+The default hooks retain every existing starter and Admin template assertion. Missing hooks, invalid paths, and unchanged HMR edits fail instead of silently skipping checks. Do not replace hooks with no-ops: replace the starter assertions with meaningful business assertions. The configured Web / Admin pages and extension pages must expose the shared theme switcher.
+
+The runners always retain theme and persistence tests, shared UI / CSS HMR, React state preservation without storage persistence or full-page navigation, extension storage round trips, production loading, runtime / console error checks, and original-source fingerprints. HMR writes only to the isolated extension source and restores it before the production build; it no longer assumes a particular business title or `src/App.tsx` in the runner. There is no flag to bypass the reinit browser gates.
+
+### Real reinit acceptance
+
+The **Reinit acceptance** workflow is manual (`workflow_dispatch`), separate from ordinary CI. After this workflow reaches the default branch, select it in GitHub Actions and choose **Run workflow**. It executes the same `pnpm test:reinit` command available locally; it does not commit, push, or publish anything.
+
+The command copies the current source into `.reinit/verification/reinit-*/workspace`, installs the current lockfile offline, adds untracked business / environment preservation probes, and runs the real `reinit --apply` with official generators and online dependency resolution. It then runs `reinit --apply --offline` and checks that generator versions and dependency decisions match the online result. Both runs include all existing candidate checks, browser gates, promotion, and final-location checks. Source snapshots verify business files, shared components, editor settings, and custom browser hooks remain unchanged. Finally, a real CLI rejection of an ESLint 9 offline receipt must preserve the temporary project's source, manifests, and lockfile. The user's original source is fingerprinted separately and must remain unchanged.
+
+Install Chromium before running locally, as for the other browser suites. This acceptance command requires registry access, generator / dependency downloads, enough disk space for nested isolated workspaces, and substantially more time than ordinary CI. `REINIT_TEST_COMMAND_TIMEOUT_MS` sets the timeout of each outer reinit command (default 30 minutes); `REINIT_COMMAND_TIMEOUT_MS` continues to govern its individual commands. GitHub uploads only reports, logs, and screenshots, excluding source copies, environment files, browser profiles, and dependencies. Successful workspace copies participate in the existing cleanup retention policy.
 
 Default test ports are 3150 / 3151. Override with distinct `WEB_TEST_PORT` / `ADMIN_TEST_PORT` values; availability is checked before starting. `WEB_ADMIN_TEST_COMMAND_TIMEOUT_MS` sets the command timeout, defaulting to 5 minutes. Pause editing during tests to avoid fingerprint mismatches.
 

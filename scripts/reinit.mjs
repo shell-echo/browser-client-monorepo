@@ -8,6 +8,7 @@ import { copySource, exists, fingerprint, ignored, preserveApp, promote } from "
 import { createCommandRunner, handleCancellation, positiveTimeout } from "./lib/commands.mjs"
 import { createRegistry, updateDependencies, verifyResolvedUpdates } from "./lib/updates.mjs"
 import { validateBeforePromotion } from "./lib/reinit-validation.mjs"
+import { createMaintenanceReport } from "./lib/maintenance-report.mjs"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const help = `Usage: pnpm reinit [all|web|admin|extension] [--dry-run|--apply] [--offline]
@@ -101,8 +102,17 @@ async function main() {
     const pnpm = process.env.npm_execpath
     const command = pnpm ? process.execPath : "pnpm"
     const commandArgs = pnpm ? [pnpm, ...args] : args
-    return runner.run(command, commandArgs, { cwd, capture, env })
+    const work = () => runner.run(command, commandArgs, { cwd, capture, env })
+    return capture ? work() : metrics.phase(`${cwd === root ? "final" : "candidate"}: ${args.join(" ")}`, work)
   }
+
+  const reportPath = join(state, "reports", `reinit-${id}.json`)
+  const metrics = createMaintenanceReport({
+    path: reportPath,
+    details: { operation: "reinit", id, root, stage, backup, targets: options.selected, offline: options.offline },
+  })
+  let status = "failed",
+    failure
 
   try {
     await writeJson(join(lock, "owner.json"), { pid: process.pid, operation: "reinit", id, stage, backup })
@@ -131,7 +141,7 @@ async function main() {
         continue
       }
       if (!resolved[generator]) {
-        const metadata = await registry.latest(generator)
+        const metadata = await metrics.phase(`resolve ${generator} latest`, () => registry.latest(generator))
         resolved[generator] = metadata.version
       }
     }
@@ -180,14 +190,16 @@ async function main() {
     // pnpm dlx may add release-age exceptions for its temporary generator.
     // Those are not project dependencies; preserve the original project policy.
     await writeFile(join(stage, "pnpm-workspace.yaml"), workspacePolicy)
-    versions.dependencies = await updateDependencies({
-      root: stage,
-      templates,
-      previous,
-      registry,
-      offline: options.offline,
-      saved: versions.dependencies,
-    })
+    versions.dependencies = await metrics.phase("dependency planning", () =>
+      updateDependencies({
+        root: stage,
+        templates,
+        previous,
+        registry,
+        offline: options.offline,
+        saved: versions.dependencies,
+      }),
+    )
     for (const target of options.selected) {
       await integrate(stage, target, previous[target], await readJson(join(stage, "apps", target, "package.json")))
       await preserveApp(join(root, "apps", target), join(stage, "apps", target))
@@ -247,7 +259,9 @@ async function main() {
       },
     })
     console.log(`\nRebuild complete. Backup: ${backup}\nGenerator versions: template-versions.json`)
+    status = "passed"
   } catch (error) {
+    failure = error.message
     console.error(`\n${error.message}\nDiagnostics directory: ${stage}`)
     process.exitCode = 1
   } finally {
@@ -257,9 +271,23 @@ async function main() {
       leaveLock = true
       console.error(`Process exit is unconfirmed; retaining the lock and workspace: ${error.message}`)
       process.exitCode = 1
+      failure ??= error.message
     }
     removeSignalHandlers()
-    if (!leaveLock) await rm(lock, { recursive: true, force: true })
+    try {
+      if (!leaveLock) await rm(lock, { recursive: true, force: true })
+    } catch (error) {
+      leaveLock = true
+      failure ??= error.message
+      console.error(`Could not release the maintenance lock: ${error.message}`)
+      process.exitCode = 1
+    }
+    try {
+      await metrics.finish(leaveLock ? "recovery-required" : status, { failure, lockRetained: leaveLock })
+    } catch (error) {
+      console.error(`Could not save the maintenance report: ${error.message}`)
+      process.exitCode = 1
+    }
   }
 }
 

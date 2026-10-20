@@ -48,7 +48,7 @@ jobs:
           if (process.env.CI_EVENT_NAME !== 'workflow_dispatch' && /^[a-f0-9]{40}$/.test(base ?? '') && !/^0+$/.test(base)) {
             try {
               const files = execFileSync('git', ['diff', '--name-only', base, 'HEAD'], { encoding: 'utf8' }).split('\n');
-              extension = files.some((file) => /^(apps\/extension\/|packages\/|scripts\/|package\.json$|pnpm-(lock|workspace)\.yaml$|turbo\.json$|\.github\/workflows\/)/.test(file));
+              extension = files.some((file) => /^(apps\/extension\/|packages\/|scripts\/|browser-tests\.config\.mjs$|package\.json$|pnpm-(lock|workspace)\.yaml$|turbo\.json$|\.github\/workflows\/)/.test(file));
             } catch { extension = true; }
           }
           appendFileSync(process.env.GITHUB_OUTPUT, `extension=${extension}\n`);

@@ -11,6 +11,7 @@ export default [
       "scripts/lib/theme-verification.mjs",
       "scripts/lib/client-page-verification.mjs",
       "scripts/lib/admin-verification.mjs",
+      "browser-tests.config.mjs",
     ],
     languageOptions: {
       globals: { chrome: "readonly", window: "readonly", document: "readonly", getComputedStyle: "readonly" },

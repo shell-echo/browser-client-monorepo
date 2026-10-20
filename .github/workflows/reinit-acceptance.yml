@@ -1,0 +1,48 @@
+name: Reinit acceptance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reinit-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  TURBO_TELEMETRY_DISABLED: "1"
+
+jobs:
+  reinit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:reinit
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: reinit-acceptance
+          include-hidden-files: true
+          path: |
+            .reinit/verification/reinit-*/report.json
+            .reinit/verification/reinit-*/*.log
+            .reinit/verification/reinit-*/workspace/.reinit/reports/*.json
+            .reinit/verification/reinit-*/workspace/.reinit/verification/*/report.json
+            .reinit/verification/reinit-*/workspace/.reinit/verification/*/*.log
+            .reinit/verification/reinit-*/workspace/.reinit/verification/*/*.png
+          if-no-files-found: warn
+          retention-days: 7

@@ -4,18 +4,20 @@ import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { exists } from "./lib/workspace.mjs"
 import { handleCancellation } from "./lib/commands.mjs"
+import { formatBytes, summarizeMaintenance } from "./lib/maintenance-report.mjs"
 
 const help =
-  "Usage: pnpm reinit:clean [--keep=3] [--days=7] [--dry-run|--apply]\nPreview only by default; keeps the latest N records per category and directories from the last N days. Failed, unknown or active workspaces are protected; browser reports and logs are retained."
+  "Usage: pnpm reinit:clean [--keep=3] [--days=7] [--sizes] [--dry-run|--apply]\nPreview only by default; keeps the latest N records per category and directories from the last N days. Failed, unknown or active workspaces are protected; browser reports and logs are retained. --sizes scans logical file sizes without following symbolic links."
 const digest = (value) => createHash("sha256").update(value).digest("hex")
 
 export function parseCleanupArgs(args) {
-  const options = { keep: 3, days: 7, apply: false, help: false }
+  const options = { keep: 3, days: 7, apply: false, help: false, sizes: false }
   if (args.includes("--apply") && args.includes("--dry-run")) throw new Error("--apply and --dry-run cannot be used together")
   for (const arg of args) {
     if (arg === "--apply") options.apply = true
     else if (arg === "--dry-run") options.apply = false
     else if (arg === "--help") options.help = true
+    else if (arg === "--sizes") options.sizes = true
     else {
       const match = /^--(keep|days)=(\d+)$/.exec(arg)
       if (!match || !Number.isSafeInteger(Number(match[2]))) throw new Error(`Unknown or invalid option: ${arg}`)
@@ -62,7 +64,7 @@ async function records(state, group, filename) {
   return result.sort((a, b) => b.time - a.time || b.id.localeCompare(a.id))
 }
 
-export async function planCleanup(root, { keep = 3, days = 7, lockOwner } = {}) {
+export async function planCleanup(root, { keep = 3, days = 7, lockOwner, sizes = false, signal } = {}) {
   const state = join(root, ".reinit")
   if (!(await exists(state))) return { candidates: [], protected: [] }
   await directory(state)
@@ -110,6 +112,7 @@ export async function planCleanup(root, { keep = 3, days = 7, lockOwner } = {}) 
       }
     }
   }
+  if (sizes) plan.usage = await summarizeMaintenance(state, plan.candidates, { signal })
   return plan
 }
 
@@ -171,6 +174,14 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         `${options.apply ? "Removed" : "Will remove"} ${plan.candidates.length} directories; protecting ${plan.protected.length} records.`,
       )
       for (const candidate of plan.candidates) console.log(`${candidate.kind}: ${candidate.path}`)
+      if (plan.usage) {
+        const { totalBytes, eligibleBytes, retainedBytes, categories } = plan.usage
+        console.log(
+          `Logical data before cleanup: ${formatBytes(totalBytes)}; eligible: ${formatBytes(eligibleBytes)}; retained: ${formatBytes(retainedBytes)}.`,
+        )
+        for (const [name, bytes] of Object.entries(categories)) console.log(`${name}: ${formatBytes(bytes)}`)
+        console.log("Logical sizes are estimates; hard links and shared filesystem blocks can reduce actual space reclaimed.")
+      }
       if (!options.apply) console.log("Preview complete; no files deleted. Review the plan, then add --apply to proceed.")
     }
   } catch (error) {

@@ -36,7 +36,13 @@ async function verification(root, id, status, age) {
 
 test("cleanup defaults to preview and refuses ambiguous or unsafe retention flags", () => {
   assert.equal(parseCleanupArgs([]).apply, false)
-  assert.deepEqual(parseCleanupArgs(["--keep=1", "--days=0", "--apply"]), { keep: 1, days: 0, apply: true, help: false })
+  assert.deepEqual(parseCleanupArgs(["--keep=1", "--days=0", "--apply"]), {
+    keep: 1,
+    days: 0,
+    apply: true,
+    help: false,
+    sizes: false,
+  })
   for (const args of [["--keep=0"], ["--days=-1"], ["--all"], ["--apply", "--dry-run"]])
     assert.throws(() => parseCleanupArgs(args))
 })
@@ -98,7 +104,7 @@ test("SIGINT during cleanup releases the owned lock and keeps pending backups", 
   const root = await fixture(t)
   // Run the actual CLI against a disposable project, never the user's backups.
   await mkdir(join(root, "scripts/lib"), { recursive: true })
-  for (const file of ["clean-reinit.mjs", "lib/workspace.mjs", "lib/commands.mjs"]) {
+  for (const file of ["clean-reinit.mjs", "lib/workspace.mjs", "lib/commands.mjs", "lib/maintenance-report.mjs"]) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(root, "scripts", file))
   }
   const oldest = await backup(root, "oldest", "complete", 30)

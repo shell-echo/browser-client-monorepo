@@ -52,6 +52,8 @@ export async function finishVerification(report, cleanup) {
     report.status = "failed"
     report.cleanupFailures = failures.map((error) => error.stack ?? String(error))
   }
+  report.finishedAt = new Date().toISOString()
+  if (report.startedAt) report.durationMs = Date.parse(report.finishedAt) - Date.parse(report.startedAt)
   const path = join(report.runDir, "report.json")
   await writeFile(path, JSON.stringify(report, null, 2) + "\n")
   console.log(`Browser verification report: ${path}`)
