@@ -360,6 +360,24 @@ export async function updateDependencies({ root, templates, previous, registry, 
     entries = (await solveUpdates({ variables: [...variables.values()], scopes, registry })).filter(
       (variable) => !variable.fixed,
     )
+  const updatedIds = new Set(entries.map((entry) => entry.id))
+  // Removed declarations and old catalog locations no longer belong to the
+  // plan. Keep receipts for unrebuilt applications so a later full offline
+  // replay still works, refreshing any manually changed locked versions.
+  const retained = (saved?.entries ?? [])
+    .filter((entry) => variables.has(entry.id) && !updatedIds.has(entry.id))
+    .map((entry) => {
+      const variable = variables.get(entry.id)
+      if (!variable.fixed) return entry
+      assert(stable(variable.fixed), `${entry.id} must retain a stable locked version for offline replay`)
+      if (entry.version === variable.fixed) return entry
+      return {
+        ...variable,
+        version: variable.fixed,
+        latest: variable.fixed,
+        reasons: ["Application dependency retained at its current locked version"],
+      }
+    })
   for (const entry of entries) {
     const { location, version } = entry
     if (location.catalog)
@@ -368,17 +386,17 @@ export async function updateDependencies({ root, templates, previous, registry, 
         version,
       )
     else manifests.find((item) => item.path === location.path).manifest[location.field][entry.name] = version
+    const fallback = entry.latest && entry.latest !== version ? `latest ${entry.latest} not selected: ` : ""
     console.log(
-      `${entry.name} (${entry.id}): ${entry.previous} → ${version}${entry.reasons?.length ? `; latest ${entry.latest} not selected: ${entry.reasons.join("; ")}` : ""}`,
+      `${entry.name} (${entry.id}): ${entry.previous} → ${version}${entry.reasons?.length ? `; ${fallback}${entry.reasons.join("; ")}` : ""}`,
     )
   }
   await writeFile(join(root, "pnpm-workspace.yaml"), document.toString())
   for (const item of manifests) await writeJson(join(root, item.path, "package.json"), item.manifest)
-  const updatedIds = new Set(entries.map((entry) => entry.id))
   return {
     policy: offline && !replay ? "legacy-offline" : "stable-compatible-v1",
     resolvedAt: offline ? saved?.resolvedAt : new Date().toISOString(),
-    entries: [...(saved?.entries ?? []).filter((entry) => !updatedIds.has(entry.id)), ...entries],
+    entries: [...retained, ...entries],
   }
 }
 
