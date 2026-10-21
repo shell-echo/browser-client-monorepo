@@ -12,6 +12,7 @@ import {
   verifyThemeBeforeHydration,
   verifyUnavailableStorage,
   verifyInvalidWebTheme,
+  verifyThemeWriteFailure,
 } from "./lib/theme-verification.mjs"
 import { browserUrl, loadBrowserConfig } from "./lib/browser-config.mjs"
 
@@ -137,7 +138,9 @@ try {
   await verifyThemes(webPage, { errors: report.errors, screenshot: join(runDir, "web-dark.png") })
   await verifyThemeBeforeHydration(browser, webUrl, false)
   await verifyInvalidWebTheme(browser, webUrl)
+  await verifyThemeWriteFailure(browser, webUrl)
   await verifyUnavailableStorage(webPage)
+  passed("Web storage quota failures preserve valid themes, recover invalid themes before hydration and allow switching")
   passed("Web invalid stored themes, early first paint, cross-tab recovery and cleared storage passed")
   passed("Web themes, persistence, tab synchronization, system changes and dark first paint before hydration passed")
 

@@ -26,12 +26,16 @@ test("Next theme storage is normalized before hydration without changing valid p
             assert.equal(key, THEME_STORAGE_KEY)
             value = next
           },
+          removeItem(key) {
+            assert.equal(key, THEME_STORAGE_KEY)
+            value = null
+          },
         },
       },
     })
-    assert.equal(value, saved === null || ["light", "dark", "system"].includes(saved) ? saved : "system")
+    assert.equal(value, saved === null || ["light", "dark", "system"].includes(saved) ? saved : null)
   }
-  for (const method of ["getItem", "setItem"]) {
+  for (const method of ["getItem", "removeItem"]) {
     assert.doesNotThrow(() =>
       runInNewContext(THEME_STORAGE_SCRIPT, {
         window: {
@@ -40,13 +44,38 @@ test("Next theme storage is normalized before hydration without changing valid p
               if (method === "getItem") throw Error("blocked")
               return "sepia"
             },
-            setItem() {
+            removeItem() {
               throw Error("read-only")
             },
           },
         },
       }),
     )
+  }
+})
+
+test("Next theme recovery discards only invalid preferences when storage writes exceed quota", () => {
+  for (const saved of ["light", "dark", "system", "sepia", "invalid theme", ""]) {
+    const values = new Map([
+      [THEME_STORAGE_KEY, saved],
+      ["business-draft", "keep me"],
+    ])
+    let writes = 0
+    runInNewContext(THEME_STORAGE_SCRIPT, {
+      window: {
+        localStorage: {
+          getItem: (key) => values.get(key) ?? null,
+          setItem() {
+            writes++
+            throw new DOMException("Storage quota exceeded", "QuotaExceededError")
+          },
+          removeItem: (key) => values.delete(key),
+        },
+      },
+    })
+    assert.equal(values.get(THEME_STORAGE_KEY) ?? null, ["light", "dark", "system"].includes(saved) ? saved : null)
+    assert.equal(values.get("business-draft"), "keep me")
+    assert.equal(writes, 0, "Recovering a theme must not allocate storage")
   }
 })
 

@@ -146,11 +146,11 @@ export async function verifyThemeBeforeHydration(
   browser,
   url,
   vite,
-  { saved = "dark", expected = "dark", system = "light" } = {},
+  { saved = "dark", expected = "dark", system = "light", writeFailure = false } = {},
 ) {
-  const context = await browser.newContext({ colorScheme: system })
+  const context = await browser.newContext({ colorScheme: system, storageState: themeStorageState(url, saved) })
   try {
-    await context.addInitScript(({ key, value }) => window.localStorage.setItem(key, value), { key: storageKey, value: saved })
+    if (writeFailure) await blockStorageWrites(context)
     const page = await context.newPage()
     await page.route("**/*.js", (route) =>
       new URL(route.request().url()).pathname === "/theme-init.js"
@@ -187,7 +187,7 @@ export async function verifyInvalidWebTheme(browser, url) {
       await page.goto(url, { waitUntil: "networkidle" })
       await themed(page, "dark")
       await selectedTheme(page, "system")
-      assert.equal(await page.evaluate((key) => localStorage.getItem(key), storageKey), "system")
+      assert.equal(await page.evaluate((key) => localStorage.getItem(key), storageKey), null)
       const peer = await context.newPage()
       await peer.goto(url, { waitUntil: "networkidle" })
       for (const invalid of ["sepia", "invalid theme"]) {
@@ -216,6 +216,85 @@ export async function verifyInvalidWebTheme(browser, url) {
         "Theme recovery swallowed the business storage-clear event",
       )
       assert.deepEqual(errors, [], "Invalid theme storage caused a browser error")
+    } finally {
+      await context.close()
+    }
+  }
+}
+
+function themeStorageState(url, saved) {
+  return {
+    cookies: [],
+    origins: [
+      {
+        origin: new URL(url).origin,
+        localStorage: [
+          ...(saved === null ? [] : [{ name: storageKey, value: saved }]),
+          { name: "business-draft", value: "keep me" },
+        ],
+      },
+    ],
+  }
+}
+
+async function blockStorageWrites(context) {
+  await context.addInitScript(() => {
+    const setItem = Storage.prototype.setItem
+    Storage.prototype.setItem = function (...args) {
+      if (this === window.localStorage) throw new DOMException("Storage quota exceeded", "QuotaExceededError")
+      return setItem.apply(this, args)
+    }
+  })
+}
+
+export async function verifyThemeWriteFailure(browser, url) {
+  for (const saved of [null, "light", "dark", "system", "sepia", "invalid theme", ""]) {
+    const manual = saved === "light" || saved === "dark"
+    const expected = manual ? saved : "dark"
+    const stored = saved === "system" || manual ? saved : null
+    await verifyThemeBeforeHydration(browser, url, false, { saved, expected, system: "dark", writeFailure: true })
+    const context = await browser.newContext({ colorScheme: "dark", storageState: themeStorageState(url, saved) })
+    const errors = []
+    context.on("page", (page) => {
+      page.on("pageerror", (error) => errors.push(error.message))
+      page.on("console", (message) => {
+        if (message.type() === "error") errors.push(message.text())
+      })
+    })
+    try {
+      await blockStorageWrites(context)
+      const page = await context.newPage()
+      assert.equal((await page.goto(url, { waitUntil: "networkidle" })).status(), 200)
+      await themed(page, expected)
+      await selectedTheme(page, manual ? saved : "system")
+      assert.equal(
+        await page.evaluate(() => {
+          try {
+            localStorage.setItem("quota-probe", "test")
+          } catch (error) {
+            return error.name
+          }
+        }),
+        "QuotaExceededError",
+        "Storage write failure was not installed",
+      )
+      assert.equal(await page.evaluate((key) => localStorage.getItem(key), storageKey), stored)
+      assert.equal(await page.evaluate(() => localStorage.getItem("business-draft")), "keep me")
+      assert(!(await page.locator("html").getAttribute("class")).includes("sepia"))
+      await page.emulateMedia({ colorScheme: "light" })
+      await themed(page, manual ? saved : "light")
+      for (const mode of ["dark", "light", "system"]) {
+        await chooseTheme(page, mode)
+        await themed(page, mode === "system" ? "light" : mode)
+        await selectedTheme(page, mode)
+      }
+      await page.emulateMedia({ colorScheme: "dark" })
+      await themed(page, "dark")
+      assert.equal(await page.evaluate((key) => localStorage.getItem(key), storageKey), stored)
+      await page.reload({ waitUntil: "networkidle" })
+      await themed(page, expected)
+      await selectedTheme(page, manual ? saved : "system")
+      assert.deepEqual(errors, [], `Storage quota failure caused browser errors for ${JSON.stringify(saved)}`)
     } finally {
       await context.close()
     }
