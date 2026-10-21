@@ -294,21 +294,23 @@ export async function updateDependencies({ root, templates, previous, registry, 
         if (applicationRange) required.push({ from: `${path} project integration`, range: applicationRange })
         if (template && ["tailwindcss", "@tailwindcss/vite"].includes(name) && !template[field]?.[name])
           required.push({ from: `${path} Tailwind integration`, range: "^4.1.0" })
+        const managed =
+          path === "." ||
+          path.startsWith("packages/") ||
+          Boolean(applicationRange) ||
+          Boolean(
+            template &&
+            (declared || ["@crxjs/vite-plugin", "@types/chrome", "@tailwindcss/vite", "tailwindcss"].includes(name)),
+          )
+        const strictLatest = managed && ["next", "eslint-config-next", "vite", "@crxjs/vite-plugin"].includes(name)
         let id
         if (catalog) {
           id = `catalog:${catalog}:${name}`
           assert(variables.has(id), `catalog is missing ${name}`)
           variables.get(id).required.push(...required)
+          variables.get(id).strictLatest ||= strictLatest
           item.manifest[field][name] = catalog === "default" ? "catalog:" : `catalog:${catalog}`
         } else if (semver.validRange(value)) {
-          const managed =
-            path === "." ||
-            path.startsWith("packages/") ||
-            Boolean(applicationRange) ||
-            Boolean(
-              template &&
-              (declared || ["@crxjs/vite-plugin", "@types/chrome", "@tailwindcss/vite", "tailwindcss"].includes(name)),
-            )
           const fixed = managed
             ? undefined
             : semver.clean(lock.importers?.[path]?.[field]?.[name]?.version?.split("(")[0] ?? "")
@@ -316,15 +318,7 @@ export async function updateDependencies({ root, templates, previous, registry, 
             throw new Error(
               `${path}: Cannot confirm the locked version of application dependency ${name}; run a regular install first`,
             )
-          id = add(
-            `${path}:${field}:${name}`,
-            name,
-            value,
-            location,
-            required,
-            managed && ["next", "eslint-config-next", "vite", "@crxjs/vite-plugin"].includes(name),
-            fixed,
-          )
+          id = add(`${path}:${field}:${name}`, name, value, location, required, strictLatest, fixed)
         }
         if (id) scope.dependencies[name] = id
       }
@@ -348,6 +342,17 @@ export async function updateDependencies({ root, templates, previous, registry, 
       }
       assert.equal(entry.name, variable.name, "Offline dependency receipt name mismatch")
       assert(stable(entry.version), `Offline dependency receipt does not contain a stable version: ${entry.id}`)
+      if (variable.strictLatest) {
+        assert(
+          stable(entry.latest),
+          `Offline framework receipt has no stable latest version: ${entry.id}; run online reinit first`,
+        )
+        assert.equal(
+          entry.version,
+          entry.latest,
+          `Offline framework receipt contains a fallback: ${entry.id}; run online reinit first`,
+        )
+      }
       const required = [...variable.required, ...minimumRequirements(variable.name)]
       for (const { range, from } of required)
         assert(

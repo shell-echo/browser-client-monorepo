@@ -1,12 +1,14 @@
 import { execFile, spawn } from "node:child_process"
 import { setTimeout as delay } from "node:timers/promises"
 import { commandFailure } from "./command-diagnostics.mjs"
+import { createCommandScope } from "./command-scopes.mjs"
 
-const alive = (child) => {
-  if (!child.pid) return false
-  if (process.platform === "win32") return child.exitCode === null && child.signalCode === null
+const alive = (pid) => {
+  if (!pid) return false
+  if (!Number.isSafeInteger(pid) || pid < 2 || pid === process.pid || pid === process.ppid)
+    throw new Error(`Refusing to signal an invalid owned process identifier: ${pid}`)
   try {
-    process.kill(-child.pid, 0)
+    process.kill(process.platform === "win32" ? pid : -pid, 0)
     return true
   } catch (error) {
     if (error.code === "ESRCH") return false
@@ -17,28 +19,34 @@ const alive = (child) => {
   }
 }
 
-async function killTree(child, signal) {
-  if (!alive(child)) return
+async function killTree(pid, signal) {
+  if (!alive(pid)) return
   if (process.platform === "win32") {
     await new Promise((resolve, reject) =>
-      execFile("taskkill", ["/pid", String(child.pid), "/T", "/F"], (error) => {
-        if (error && alive(child)) reject(error)
+      execFile("taskkill", ["/pid", String(pid), "/T", "/F"], (error) => {
+        if (error && alive(pid)) reject(error)
         else resolve()
       }),
     )
   } else {
     try {
-      process.kill(-child.pid, signal)
+      process.kill(-pid, signal)
     } catch (error) {
       if (error.code !== "ESRCH") throw error
     }
   }
 }
 
-async function waitForExit(child, timeoutMs) {
+const scopeAlive = (scope) => scope.records().some((record) => record.state === "starting" || alive(record.pid))
+
+async function signalScope(scope, signal) {
+  for (const record of scope.records()) await killTree(record.pid, signal)
+}
+
+async function waitForExit(scope, timeoutMs) {
   const deadline = Date.now() + timeoutMs
-  while (alive(child) && Date.now() < deadline) await delay(30)
-  return !alive(child)
+  while (scopeAlive(scope) && Date.now() < deadline) await delay(30)
+  return !scopeAlive(scope)
 }
 
 export function positiveTimeout(value, fallback, label = "Timeout") {
@@ -49,7 +57,8 @@ export function positiveTimeout(value, fallback, label = "Timeout") {
 }
 
 // Own every process we start, including descendants that outlive their parent.
-// A command is settled only after its process group and streams have exited.
+// Nested runners register their detached groups in an inherited private scope.
+// Settle only after all registered groups and the command's streams exit.
 export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceMs = 5_000 } = {}) {
   const active = new Set()
   let cancelled
@@ -62,13 +71,27 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
     check()
     const limit = options.timeoutMs ?? timeoutMs
     if (limit !== 0) positiveTimeout(limit, timeoutMs)
-    const child = spawn(command, args, {
-      cwd: options.cwd ?? cwd,
-      shell: false,
-      detached: process.platform !== "win32",
-      env: { ...process.env, ...env, ...options.env },
-      stdio: options.stdio ?? (options.capture ? ["ignore", "pipe", "inherit"] : "inherit"),
-    })
+    const scope = createCommandScope()
+    let child
+    try {
+      child = spawn(command, args, {
+        cwd: options.cwd ?? cwd,
+        shell: false,
+        detached: process.platform !== "win32",
+        env: { ...process.env, ...env, ...options.env, ...scope.env },
+        stdio: options.stdio ?? (options.capture ? ["ignore", "pipe", "inherit"] : "inherit"),
+      })
+    } catch (error) {
+      scope.discard()
+      throw error
+    }
+    let registrationError
+    try {
+      scope.attach(child.pid)
+    } catch (error) {
+      registrationError = error
+      registrationError.unsafeToRestore = true
+    }
     let output = "",
       reason,
       spawnError,
@@ -98,11 +121,20 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
       if (stopping) return stopping
       stopping = (async () => {
         clearTimeout(timer)
-        await killTree(child, "SIGTERM")
-        if (!(await waitForExit(child, graceMs))) {
-          await killTree(child, "SIGKILL")
-          if (!(await waitForExit(child, graceMs)))
-            throw new Error(`Cannot confirm the process tree has exited: ${command} (${child.pid})`)
+        try {
+          scope.stopping()
+          await signalScope(scope, "SIGTERM")
+        } catch (error) {
+          // Even when ownership storage is unreadable, stop the direct group
+          // we created. Unknown nested groups still prohibit restoration.
+          await killTree(child.pid, "SIGKILL")
+          await waitForExit({ records: () => [{ pid: child.pid }] }, graceMs)
+          throw error
+        }
+        if (!(await waitForExit(scope, graceMs))) {
+          await signalScope(scope, "SIGKILL")
+          if (!(await waitForExit(scope, graceMs)))
+            throw new Error(`Cannot confirm the process tree has exited: ${command} (${child.pid}); ownership: ${scope.path}`)
         }
         let closeTimer
         try {
@@ -118,6 +150,7 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
         } finally {
           clearTimeout(closeTimer)
         }
+        scope.settle()
       })()
       void stopping.catch((error) => {
         error.unsafeToRestore = true
@@ -133,7 +166,7 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
       void (async () => {
         try {
           if (stopping) await stopping
-          else if (alive(child)) await stop()
+          else await stop()
           doneResolve({ code, signal, error: spawnError, reason, output: output.trim() })
           active.delete(handle)
         } catch (error) {
@@ -145,6 +178,7 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
       timer = setTimeout(() => {
         void stop(new Error(`${command} ${args.join(" ")} Timed out (${limit}ms)`)).catch(() => {})
       }, limit)
+    if (registrationError) void stop(registrationError).catch(() => {})
     return handle
   }
   const run = async (command, args, options) => {

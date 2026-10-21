@@ -108,6 +108,7 @@ test("SIGINT during cleanup releases the owned lock and keeps pending backups", 
     "clean-reinit.mjs",
     "lib/workspace.mjs",
     "lib/commands.mjs",
+    "lib/command-scopes.mjs",
     "lib/command-diagnostics.mjs",
     "lib/maintenance-report.mjs",
   ]) {

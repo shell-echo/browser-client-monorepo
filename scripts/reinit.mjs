@@ -263,6 +263,7 @@ async function main() {
     console.log(`\nRebuild complete. Backup: ${backup}\nGenerator versions: template-versions.json`)
     status = "passed"
   } catch (error) {
+    if (error.unsafeToRestore) leaveLock = true
     failure = error.message
     console.error(`\n${error.message}\nDiagnostics directory: ${stage}`)
     process.exitCode = 1
