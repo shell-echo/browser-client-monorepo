@@ -37,6 +37,8 @@ These are UI templates. Email / social sign-in, registration, and legal-policy b
 
 Page and block source lives in `apps/admin/src/pages/` and `apps/admin/src/components/`; reusable primitives, the responsive hook, and sidebar colors live in `packages/ui`. React Router handles navigation, browser history, deep links, and the not-found page. Production hosts must rewrite non-asset routes such as `/login` and `/dashboard` to Admin's `index.html`; Vite development and preview already provide this SPA fallback.
 
+Lazy route failures show a responsive recovery page with **Refresh page** and **Back to home** actions. Refresh starts a new document so a failed module import can be retried; returning home resets the route boundary while preserving the theme. Recovery is user initiated and does not automatically reload unsaved work.
+
 Reinit preserves these source directories, shared UI, and Admin-specific router / icon dependencies. Its required browser suite checks both templates before replacement, including form behavior, theme changes, direct URL reloads, mobile drawers, menus, and horizontal overflow at 320 / 390 / 768 / 1280px.
 
 ## Project structure
@@ -161,7 +163,7 @@ Themes live in `packages/ui/src/styles/globals.css`. Applications use `@source` 
 
 Web, Admin, extension popup, and options provide a top-right `Toggle theme` button using the shared shadcn `Button` and `DropdownMenu`. The radio menu offers `Light`, `Dark`, and `System`, defaulting to `System`. It marks the current selection and supports keyboard navigation, Escape, and focus restoration. Clients share colors, context, and `ThemeSwitcher` from `packages/ui`. Web uses `next-themes` for Next.js SSR; Vite pages use the shared `ThemeProvider`. Native form controls follow the active `color-scheme`.
 
-Preferences are stored per origin in `localStorage["browser-client-theme"]` and survive reloads. Same-origin tabs and popup / options within one extension synchronize changes. Web and Admin use different ports and therefore keep separate preferences. System mode follows live OS changes; manual selection takes priority. Vite pages remain usable when local storage is disabled.
+Preferences are stored per origin in `localStorage["browser-client-theme"]` and survive reloads. Same-origin tabs and popup / options within one extension synchronize changes. Web and Admin use different ports and therefore keep separate preferences. System mode follows live OS changes; manual selection takes priority. Pages remain usable when local storage is disabled. Web normalizes invalid stored values to `system` before the first theme script and intercepts invalid cross-tab updates before next-themes applies them to the DOM. Clearing storage also restores system mode.
 
 Web applies its theme before hydration and uses `suppressHydrationWarning` on `html` for theme-related attribute differences. Admin and Extension use a blocking external `theme-init.js` in `<head>` before React runs. The extension retains strict Manifest V3 CSP without inline scripts or additional permissions. Bootstrap source lives in `packages/ui/src/lib/theme-init.js`; committed copies live in both Vite applications' `public/` directories. Run `pnpm theme:sync` after editing it. Regression tests verify identical copies and script ordering.
 
@@ -227,6 +229,8 @@ Browser reports, logs, and screenshots are written to the original project's `.r
 
 Every applied reinit also saves a private `.reinit/reports/reinit-<id>.json` with the target applications, online / offline mode, command and dependency-planning durations, total elapsed time, final status, and any failure / retained-lock information. Console output includes phase durations. Reports survive replacement and are not deleted by cleanup. A dry run creates no report or other files. Reports are diagnostics; backup journals remain the recovery authority after forced termination.
 
+Captured command failures retain the diagnostic stdout tail in their error and maintenance report. Diagnostics remove terminal escapes, redact common credential formats and known sensitive environment values, and cap the command description at 1,024 characters and captured output at 4,096 characters. Successful captured JSON is returned unchanged; timeout, cancellation, and unsafe-recovery errors retain their existing identity and recovery behavior.
+
 ### Failure recovery and backups
 
 Generation or staging-check failures leave original directories untouched. Final-location validation failures restore them. Ctrl-C / SIGTERM cancels the current command and its process tree, waits for exit, forces termination if necessary, then restores directories. If exit cannot be confirmed, the lock and workspace remain; automatic recovery is withheld to avoid concurrent writes. `scripts/lib/commands.mjs` also manages browser test commands.
@@ -268,7 +272,7 @@ pnpm test:reinit  # Slow: real online rebuild, offline replay, and rejection tes
 pnpm audit:security
 ```
 
-`test:web-admin` creates source copies and local Git boundaries under `.reinit/verification/web-admin-*/`, installs offline from the lockfile, and rebuilds Web / Admin. Next.js production and Vite preview servers verify English page content, language metadata, accessible GitHub icon links, shared component styles, desktop / mobile centering, theme interactions, and browser / console / resource errors. Admin additionally verifies the login and dashboard templates, native email validation, client-side navigation, deep links / reloads, unknown routes, and responsive drawer / menu behavior at 320 / 390 / 768 / 1280px. Reports, server logs, and screenshots remain in that directory. Tests close their own browsers and processes and verify the original source is unchanged.
+`test:web-admin` creates source copies and local Git boundaries under `.reinit/verification/web-admin-*/`, installs offline from the lockfile, and rebuilds Web / Admin. Next.js production and Vite preview servers verify English page content, language metadata, accessible GitHub icon links, shared component styles, desktop / mobile centering, theme interactions, and browser / console / resource errors. Web additionally verifies invalid stored themes before hydration, invalid cross-tab updates, cleared storage, and unavailable storage. Admin additionally verifies the login and dashboard templates, native email validation, client-side navigation, deep links / reloads, unknown routes, and responsive drawer / menu behavior at 320 / 390 / 768 / 1280px. Separate fault contexts intercept real login / dashboard production chunks to verify recovery from HTTP and network errors, return-to-home navigation, and refresh retry; normal-page error checks remain strict. Reports, server logs, and screenshots remain in that directory. Tests close their own browsers and processes and verify the original source is unchanged.
 
 ### Custom business browser assertions
 

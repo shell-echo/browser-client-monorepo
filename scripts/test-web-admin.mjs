@@ -7,7 +7,12 @@ import { chromium } from "playwright"
 import { handleCancellation, positiveTimeout } from "./lib/commands.mjs"
 import { copySource, fingerprint, ignored } from "./lib/workspace.mjs"
 import { createVerificationRunner, finishVerification } from "./lib/verification.mjs"
-import { verifyThemes, verifyThemeBeforeHydration, verifyUnavailableStorage } from "./lib/theme-verification.mjs"
+import {
+  verifyThemes,
+  verifyThemeBeforeHydration,
+  verifyUnavailableStorage,
+  verifyInvalidWebTheme,
+} from "./lib/theme-verification.mjs"
 import { browserUrl, loadBrowserConfig } from "./lib/browser-config.mjs"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
@@ -131,6 +136,9 @@ try {
   await config.web.verify({ page: webPage, browser, pageFor, url: webUrl, runDir, errors: report.errors, passed })
   await verifyThemes(webPage, { errors: report.errors, screenshot: join(runDir, "web-dark.png") })
   await verifyThemeBeforeHydration(browser, webUrl, false)
+  await verifyInvalidWebTheme(browser, webUrl)
+  await verifyUnavailableStorage(webPage)
+  passed("Web invalid stored themes, early first paint, cross-tab recovery and cleared storage passed")
   passed("Web themes, persistence, tab synchronization, system changes and dark first paint before hydration passed")
 
   const adminPage = await pageFor("admin", adminUrl)

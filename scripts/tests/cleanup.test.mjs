@@ -104,7 +104,13 @@ test("SIGINT during cleanup releases the owned lock and keeps pending backups", 
   const root = await fixture(t)
   // Run the actual CLI against a disposable project, never the user's backups.
   await mkdir(join(root, "scripts/lib"), { recursive: true })
-  for (const file of ["clean-reinit.mjs", "lib/workspace.mjs", "lib/commands.mjs", "lib/maintenance-report.mjs"]) {
+  for (const file of [
+    "clean-reinit.mjs",
+    "lib/workspace.mjs",
+    "lib/commands.mjs",
+    "lib/command-diagnostics.mjs",
+    "lib/maintenance-report.mjs",
+  ]) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(root, "scripts", file))
   }
   const oldest = await backup(root, "oldest", "complete", 30)

@@ -6,11 +6,49 @@ import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { runInNewContext } from "node:vm"
 import { execFileSync } from "node:child_process"
-import { normalizeTheme, THEME_STORAGE_KEY } from "../../packages/ui/src/lib/theme.ts"
+import { normalizeTheme, THEME_STORAGE_KEY, THEME_STORAGE_SCRIPT } from "../../packages/ui/src/lib/theme.ts"
 import { preserveApp } from "../lib/workspace.mjs"
 
 const root = fileURLToPath(new URL("../../", import.meta.url))
 const bootstrap = await readFile(join(root, "packages/ui/src/lib/theme-init.js"), "utf8")
+
+test("Next theme storage is normalized before hydration without changing valid preferences", () => {
+  for (const saved of [null, "light", "dark", "system", "sepia", "invalid theme", ""]) {
+    let value = saved
+    runInNewContext(THEME_STORAGE_SCRIPT, {
+      window: {
+        localStorage: {
+          getItem(key) {
+            assert.equal(key, THEME_STORAGE_KEY)
+            return value
+          },
+          setItem(key, next) {
+            assert.equal(key, THEME_STORAGE_KEY)
+            value = next
+          },
+        },
+      },
+    })
+    assert.equal(value, saved === null || ["light", "dark", "system"].includes(saved) ? saved : "system")
+  }
+  for (const method of ["getItem", "setItem"]) {
+    assert.doesNotThrow(() =>
+      runInNewContext(THEME_STORAGE_SCRIPT, {
+        window: {
+          localStorage: {
+            getItem() {
+              if (method === "getItem") throw Error("blocked")
+              return "sepia"
+            },
+            setItem() {
+              throw Error("read-only")
+            },
+          },
+        },
+      }),
+    )
+  }
+})
 
 test("the shared design system resolves to official shadcn preset b0 without fallbacks", async () => {
   const cli = join(root, "node_modules/shadcn/dist/index.js")

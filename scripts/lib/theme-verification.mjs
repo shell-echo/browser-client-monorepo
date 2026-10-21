@@ -142,10 +142,15 @@ export async function verifyThemes(page, { peer, errors, screenshot } = {}) {
   }
 }
 
-export async function verifyThemeBeforeHydration(browser, url, vite) {
-  const context = await browser.newContext({ colorScheme: "light" })
+export async function verifyThemeBeforeHydration(
+  browser,
+  url,
+  vite,
+  { saved = "dark", expected = "dark", system = "light" } = {},
+) {
+  const context = await browser.newContext({ colorScheme: system })
   try {
-    await context.addInitScript((key) => window.localStorage.setItem(key, "dark"), storageKey)
+    await context.addInitScript(({ key, value }) => window.localStorage.setItem(key, value), { key: storageKey, value: saved })
     const page = await context.newPage()
     await page.route("**/*.js", (route) =>
       new URL(route.request().url()).pathname === "/theme-init.js"
@@ -153,7 +158,7 @@ export async function verifyThemeBeforeHydration(browser, url, vite) {
         : route.fulfill({ status: 200, contentType: "text/javascript", body: "" }),
     )
     await page.goto(url, { waitUntil: "networkidle" })
-    await themed(page, "dark")
+    await themed(page, expected)
     if (vite) assert.equal(await trigger(page).count(), 0, "Vite React entry was not isolated")
     else
       assert(
@@ -162,6 +167,58 @@ export async function verifyThemeBeforeHydration(browser, url, vite) {
       )
   } finally {
     await context.close()
+  }
+}
+
+export async function verifyInvalidWebTheme(browser, url) {
+  for (const saved of ["sepia", "invalid theme"]) {
+    await verifyThemeBeforeHydration(browser, url, false, { saved, expected: "dark", system: "dark" })
+    const context = await browser.newContext({
+      colorScheme: "dark",
+      storageState: {
+        cookies: [],
+        origins: [{ origin: new URL(url).origin, localStorage: [{ name: storageKey, value: saved }] }],
+      },
+    })
+    const errors = []
+    context.on("page", (page) => page.on("pageerror", (error) => errors.push(error.message)))
+    try {
+      const page = await context.newPage()
+      await page.goto(url, { waitUntil: "networkidle" })
+      await themed(page, "dark")
+      await selectedTheme(page, "system")
+      assert.equal(await page.evaluate((key) => localStorage.getItem(key), storageKey), "system")
+      const peer = await context.newPage()
+      await peer.goto(url, { waitUntil: "networkidle" })
+      for (const invalid of ["sepia", "invalid theme"]) {
+        await peer.evaluate(({ key, value }) => localStorage.setItem(key, value), { key: storageKey, value: invalid })
+        await page.waitForFunction((key) => localStorage.getItem(key) === "system", storageKey)
+        await themed(page, "dark")
+        await selectedTheme(page, "system")
+        await page.emulateMedia({ colorScheme: "light" })
+        await themed(page, "light")
+        await page.emulateMedia({ colorScheme: "dark" })
+        await themed(page, "dark")
+      }
+      await page.evaluate(() => {
+        window.addEventListener("storage", (event) => {
+          if (event.key === null) window.__themeClearObserved = true
+        })
+      })
+      await chooseTheme(page, "dark")
+      await page.emulateMedia({ colorScheme: "light" })
+      await peer.evaluate(() => localStorage.clear())
+      await themed(page, "light")
+      await selectedTheme(page, "system")
+      assert.equal(
+        await page.evaluate(() => window.__themeClearObserved),
+        true,
+        "Theme recovery swallowed the business storage-clear event",
+      )
+      assert.deepEqual(errors, [], "Invalid theme storage caused a browser error")
+    } finally {
+      await context.close()
+    }
   }
 }
 

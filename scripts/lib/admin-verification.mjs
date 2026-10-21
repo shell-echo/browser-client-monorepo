@@ -184,5 +184,82 @@ export async function verifyAdminTemplates({ pageFor, url, runDir, errors, passe
   await email.waitFor()
   assert.equal(new URL(page.url()).pathname, "/login")
   passed("Admin template links, browser history, direct production URLs, reload and unknown routes passed")
+  await verifyRouteRecovery({ browser: page.context().browser(), url, runDir, passed })
   await page.context().close()
+}
+
+async function verifyRouteRecovery({ browser, url, runDir, passed }) {
+  for (const name of ["login", "dashboard"]) {
+    const context = await browser.newContext({ viewport: { width: 320, height: 844 } })
+    try {
+      const page = await context.newPage()
+      const runtimeErrors = [],
+        consoleErrors = [],
+        failedRequests = []
+      page.on("pageerror", (error) => runtimeErrors.push(error.message))
+      page.on("console", (message) => {
+        if (message.type() === "error") consoleErrors.push({ text: message.text(), url: message.location().url })
+      })
+      page.on("requestfailed", (request) => failedRequests.push(request.url()))
+      await page.goto(url, { waitUntil: "networkidle" })
+      await page.getByRole("heading", { name: "Admin Client", exact: true }).waitFor()
+      await page.evaluate(() => {
+        window.__routeRecovery = "preserved"
+      })
+      let failedChunk
+      const pattern = "**/assets/" + name + "-*.js"
+      await page.route(pattern, (route) => {
+        failedChunk = route.request().url()
+        return name === "login"
+          ? route.fulfill({ status: 503, contentType: "text/javascript", body: "// Deliberate unavailable route chunk" })
+          : route.abort("failed")
+      })
+      await page.getByRole("link", { name: name === "login" ? "Login template" : "Dashboard template", exact: true }).click()
+      await page.getByRole("heading", { name: "Unable to load this page", exact: true }).waitFor()
+      assert(failedChunk, "The route fault must intercept a real production chunk")
+      await noHorizontalOverflow(page)
+      await chooseTheme(page, "dark")
+      await page.screenshot({ path: join(runDir, "admin-" + name + "-load-failure.png"), fullPage: true })
+      if (name === "dashboard") {
+        await page.getByRole("link", { name: "Back to home", exact: true }).click()
+        await page.getByRole("heading", { name: "Admin Client", exact: true }).waitFor()
+        assert.equal(
+          await page.evaluate(() => window.__routeRecovery),
+          "preserved",
+          "Returning home must not reload the document",
+        )
+        await page.getByRole("link", { name: "Dashboard template", exact: true }).click()
+        await page.getByRole("heading", { name: "Unable to load this page", exact: true }).waitFor()
+      }
+      await page.unroute(pattern)
+      await Promise.all([
+        page.waitForEvent("domcontentloaded"),
+        page.getByRole("button", { name: "Refresh page", exact: true }).click(),
+      ])
+      await page
+        .getByRole("heading", { name: name === "login" ? "Welcome to Browser Client" : "Dashboard", exact: true })
+        .waitFor({ state: "attached" })
+      assert.equal(
+        await page.evaluate(() => window.__routeRecovery),
+        undefined,
+        "Refresh must retry cached failed imports in a new document",
+      )
+      assert(
+        await page.evaluate(() => document.documentElement.classList.contains("dark")),
+        "Recovery must retain the selected theme",
+      )
+      assert.deepEqual(runtimeErrors, [], "A handled route failure must not produce an uncaught browser error")
+      assert(
+        failedRequests.every((request) => request === failedChunk),
+        "An unrelated request failed",
+      )
+      assert(
+        consoleErrors.every((error) => error.url === failedChunk || error.text.includes(failedChunk)),
+        "An unrelated console error occurred",
+      )
+    } finally {
+      await context.close()
+    }
+  }
+  passed("Admin route chunk HTTP / network failures show a responsive recovery page; home navigation and refresh retry passed")
 }

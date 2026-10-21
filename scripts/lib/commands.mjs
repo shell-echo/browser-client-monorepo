@@ -1,5 +1,6 @@
 import { execFile, spawn } from "node:child_process"
 import { setTimeout as delay } from "node:timers/promises"
+import { commandFailure } from "./command-diagnostics.mjs"
 
 const alive = (child) => {
   if (!child.pid) return false
@@ -150,7 +151,7 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
     const result = await start(command, args, options).done
     if (result.reason) throw result.reason
     if (result.error) throw result.error
-    if (result.code !== 0) throw new Error(`${command} ${args.join(" ")} failed (${result.signal ?? result.code})`)
+    if (result.code !== 0) throw commandFailure(command, args, result, { ...process.env, ...env, ...options?.env })
     return result.output
   }
   const cancel = (reason = new Error("Operation cancelled")) => {
