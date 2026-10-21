@@ -45,14 +45,18 @@ export async function summarizeMaintenance(state, candidates = [], { signal } = 
   return usage
 }
 
-export function createMaintenanceReport({ path, details = {}, log = console.log }) {
-  const start = performance.now()
-  const report = { ...details, startedAt: new Date().toISOString(), phases: [] }
-  async function phase(name, work) {
+export function createPhaseReporter({ report, log = console.log, heartbeatMs = 30_000 }) {
+  report.phases ??= []
+  async function phase(name, work, { timeoutMs } = {}) {
     const started = performance.now()
-    const entry = { name, status: "running", startedAt: new Date().toISOString() }
+    const entry = { name, status: "running", startedAt: new Date().toISOString(), ...(timeoutMs ? { timeoutMs } : {}) }
     report.phases.push(entry)
-    log(`${name}: running`)
+    const budget = timeoutMs ? `; limit ${(timeoutMs / 1000).toFixed(1)}s` : ""
+    log(`${name}: running${budget}`)
+    const heartbeat = setInterval(() => {
+      log(`${name}: still running (${((performance.now() - started) / 1000).toFixed(1)}s${budget})`)
+    }, heartbeatMs)
+    heartbeat.unref()
     try {
       const result = await work()
       entry.status = "passed"
@@ -62,10 +66,19 @@ export function createMaintenanceReport({ path, details = {}, log = console.log 
       entry.failure = error.message
       throw error
     } finally {
+      clearInterval(heartbeat)
       entry.durationMs = Math.round(performance.now() - started)
+      entry.finishedAt = new Date().toISOString()
       log(`${name}: ${entry.status} (${(entry.durationMs / 1000).toFixed(1)}s)`)
     }
   }
+  return { phase }
+}
+
+export function createMaintenanceReport({ path, details = {}, log = console.log }) {
+  const start = performance.now()
+  const report = { ...details, startedAt: new Date().toISOString(), phases: [] }
+  const { phase } = createPhaseReporter({ report, log })
   async function finish(status, extra = {}) {
     Object.assign(report, extra, {
       status,

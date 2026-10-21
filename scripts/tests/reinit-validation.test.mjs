@@ -5,6 +5,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { validateBeforePromotion } from "../lib/reinit-validation.mjs"
 import { exists, fingerprint, promote } from "../lib/workspace.mjs"
+import { createCommandRunner } from "../lib/commands.mjs"
+import { reinitTimeouts, timeoutForCommand } from "../lib/reinit-timeouts.mjs"
 
 async function put(root, path, content) {
   const file = join(root, path)
@@ -177,4 +179,36 @@ test("post-promotion validation still restores the original project after browse
   assert.equal(await fingerprint(f.root), f.baseline)
   assert.equal(await readFile(join(f.root, "pnpm-lock.yaml"), "utf8"), "original lock")
   assert.equal(JSON.parse(await readFile(join(f.backup, "journal.json"), "utf8")).state, "rolled-back")
+})
+
+test("a real browser-gate timeout stops its process and preserves the original project before promotion", async (t) => {
+  const f = await fixture(t)
+  const timeouts = reinitTimeouts({ REINIT_BROWSER_TIMEOUT_MS: "100" })
+  const runner = createCommandRunner({ graceMs: 1000 })
+  t.after(() => runner.close())
+  let child
+  await assert.rejects(
+    validateBeforePromotion({
+      ...f.options,
+      run: async (args) => {
+        if (args[0] !== "test:web-admin") return
+        const handle = runner.start(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+          timeoutMs: timeoutForCommand(args, timeouts),
+          stdio: "ignore",
+        })
+        child = handle.child
+        const result = await handle.done
+        if (result.reason) throw result.reason
+        assert.fail("The browser gate exited without timing out")
+      },
+    }),
+    /Timed out \(100ms\)/,
+  )
+  assert(child.pid)
+  assert(child.exitCode !== null || child.signalCode !== null)
+  assert.equal(f.promoted(), false)
+  assert.equal(await exists(f.backup), false)
+  assert.equal(await fingerprint(f.root), f.baseline)
+  assert.equal(await readFile(join(f.root, "pnpm-lock.yaml"), "utf8"), "original lock")
+  assert.equal(await readFile(join(f.root, "node_modules/cache"), "utf8"), "original dependencies")
 })

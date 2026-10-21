@@ -34,9 +34,11 @@ assert.notEqual(webPort, adminPort, "Web / Admin test ports must be different")
 const runner = createVerificationRunner({
   cwd: workspace,
   logDir: runDir,
+  report,
   timeoutMs: positiveTimeout(process.env.WEB_ADMIN_TEST_COMMAND_TIMEOUT_MS, 300_000, "WEB_ADMIN_TEST_COMMAND_TIMEOUT_MS"),
   env: { NEXT_TELEMETRY_DISABLED: "1", TURBO_TELEMETRY_DISABLED: "1" },
 })
+const { phase } = runner
 let browser, originalFingerprint
 const dispose = handleCancellation(runner, () => {
   void browser?.close().catch(() => {})
@@ -78,8 +80,10 @@ try {
   originalFingerprint = await fingerprint(root)
   await freePort(webPort)
   await freePort(adminPort)
-  for (const name of await readdir(root))
-    if (!ignored(name)) await copySource(join(root, name), join(workspace, name), { root })
+  await phase("Source copy", async () => {
+    for (const name of await readdir(root))
+      if (!ignored(name)) await copySource(join(root, name), join(workspace, name), { root })
+  })
   await runner.run("git", ["init", "--quiet"], "git.log")
   await runner.run("pnpm", ["install", "--offline", "--frozen-lockfile"], "install.log")
   const config = await loadBrowserConfig(workspace)
@@ -120,37 +124,49 @@ try {
     [web, webUrl],
     [admin, adminUrl],
   ]) {
-    await runner.until(
-      async () => {
-        assert.equal(server.child.exitCode, null, "Production server exited early; check the logs")
-        return (await fetch(url, { signal: AbortSignal.timeout(2000) })).ok
-      },
-      `Production server ${url}`,
-      60_000,
+    await phase(`Production server ready: ${url}`, () =>
+      runner.until(
+        async () => {
+          assert.equal(server.child.exitCode, null, "Production server exited early; check the logs")
+          return (await fetch(url, { signal: AbortSignal.timeout(2000) })).ok
+        },
+        `Production server ${url}`,
+        60_000,
+      ),
     )
   }
-  browser = await chromium.launch({ channel: "chromium", headless: true })
+  browser = await phase("Launch Chromium", () => chromium.launch({ channel: "chromium", headless: true }))
   runner.check()
   report.chromium = browser.version()
 
   const webPage = await pageFor("web", webUrl)
-  await config.web.verify({ page: webPage, browser, pageFor, url: webUrl, runDir, errors: report.errors, passed })
-  await verifyThemes(webPage, { errors: report.errors, screenshot: join(runDir, "web-dark.png") })
-  await verifyThemeBeforeHydration(browser, webUrl, false)
-  await verifyInvalidWebTheme(browser, webUrl)
-  await verifyThemeWriteFailure(browser, webUrl)
-  await verifyUnavailableStorage(webPage)
+  await phase("Web page", () =>
+    config.web.verify({ page: webPage, browser, pageFor, url: webUrl, runDir, errors: report.errors, passed }),
+  )
+  await phase("Web themes and storage recovery", async () => {
+    await verifyThemes(webPage, { errors: report.errors, screenshot: join(runDir, "web-dark.png") })
+    await verifyThemeBeforeHydration(browser, webUrl, false)
+    await verifyInvalidWebTheme(browser, webUrl)
+    await verifyThemeWriteFailure(browser, webUrl)
+    await verifyUnavailableStorage(webPage)
+  })
   passed("Web storage quota failures preserve valid themes, recover invalid themes before hydration and allow switching")
   passed("Web invalid stored themes, early first paint, cross-tab recovery and cleared storage passed")
   passed("Web themes, persistence, tab synchronization, system changes and dark first paint before hydration passed")
 
   const adminPage = await pageFor("admin", adminUrl)
-  await config.admin.verify({ page: adminPage, browser, pageFor, url: adminUrl, runDir, errors: report.errors, passed })
-  await verifyThemes(adminPage, { errors: report.errors, screenshot: join(runDir, "admin-dark.png") })
-  await verifyThemeBeforeHydration(browser, adminUrl, true)
-  await verifyUnavailableStorage(adminPage)
+  await phase("Admin page", () =>
+    config.admin.verify({ page: adminPage, browser, pageFor, url: adminUrl, runDir, errors: report.errors, passed }),
+  )
+  await phase("Admin themes and storage recovery", async () => {
+    await verifyThemes(adminPage, { errors: report.errors, screenshot: join(runDir, "admin-dark.png") })
+    await verifyThemeBeforeHydration(browser, adminUrl, true)
+    await verifyUnavailableStorage(adminPage)
+  })
   passed("Admin themes, persistence, tab synchronization, system changes, early first paint and unavailable storage passed")
-  await config.admin.verifyRoutes({ pageFor, url: adminOrigin, runDir, errors: report.errors, passed })
+  await phase("Admin routes, responsive navigation and recovery", () =>
+    config.admin.verifyRoutes({ pageFor, url: adminOrigin, runDir, errors: report.errors, passed }),
+  )
   assert.deepEqual(report.errors, [], "Browser runtime, console or resource errors detected")
   passed("Web / Admin have no browser runtime, console or resource errors")
   assert.equal(await fingerprint(root), originalFingerprint, "Smoke test changed the original workspace source")

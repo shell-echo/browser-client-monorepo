@@ -5,10 +5,11 @@ import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { integrate, readJson, writeJson, targets } from "./lib/integrate.mjs"
 import { copySource, exists, fingerprint, ignored, preserveApp, promote } from "./lib/workspace.mjs"
-import { createCommandRunner, handleCancellation, positiveTimeout } from "./lib/commands.mjs"
+import { createCommandRunner, handleCancellation } from "./lib/commands.mjs"
 import { createRegistry, updateDependencies, verifyResolvedUpdates } from "./lib/updates.mjs"
 import { validateBeforePromotion } from "./lib/reinit-validation.mjs"
 import { createMaintenanceReport } from "./lib/maintenance-report.mjs"
+import { reinitTimeouts, timeoutForCommand } from "./lib/reinit-timeouts.mjs"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const help = `Usage: pnpm reinit [all|web|admin|extension] [--dry-run|--apply] [--offline]
@@ -53,7 +54,7 @@ async function main() {
   if (!options.apply) return
   if (Number(process.versions.node.split(".")[0]) !== 24) throw new Error("Use Node.js 24 LTS")
 
-  const commandTimeout = positiveTimeout(process.env.REINIT_COMMAND_TIMEOUT_MS, 600_000, "REINIT_COMMAND_TIMEOUT_MS")
+  const timeouts = reinitTimeouts()
   const installEnv = {
     pnpm_config_fetch_timeout: process.env.pnpm_config_fetch_timeout ?? "120000",
     pnpm_config_fetch_retries: process.env.pnpm_config_fetch_retries ?? "2",
@@ -62,7 +63,7 @@ async function main() {
     pnpm_config_network_concurrency: process.env.pnpm_config_network_concurrency ?? "4",
   }
   const runner = createCommandRunner({
-    timeoutMs: commandTimeout,
+    timeoutMs: timeouts.command,
     env: {
       CI: "1",
       NEXT_TELEMETRY_DISABLED: "1",
@@ -102,14 +103,15 @@ async function main() {
     const pnpm = process.env.npm_execpath
     const command = pnpm ? process.execPath : "pnpm"
     const commandArgs = pnpm ? [pnpm, ...args] : args
-    const work = () => runner.run(command, commandArgs, { cwd, capture, env })
-    return capture ? work() : metrics.phase(`${cwd === root ? "final" : "candidate"}: ${args.join(" ")}`, work)
+    const timeoutMs = timeoutForCommand(args, timeouts)
+    const work = () => runner.run(command, commandArgs, { cwd, capture, env, timeoutMs })
+    return capture ? work() : metrics.phase(`${cwd === root ? "final" : "candidate"}: ${args.join(" ")}`, work, { timeoutMs })
   }
 
   const reportPath = join(state, "reports", `reinit-${id}.json`)
   const metrics = createMaintenanceReport({
     path: reportPath,
-    details: { operation: "reinit", id, root, stage, backup, targets: options.selected, offline: options.offline },
+    details: { operation: "reinit", id, root, stage, backup, targets: options.selected, offline: options.offline, timeouts },
   })
   let status = "failed",
     failure

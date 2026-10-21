@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
-import { createMaintenanceReport, formatBytes, summarizeMaintenance } from "../lib/maintenance-report.mjs"
+import { createMaintenanceReport, createPhaseReporter, formatBytes, summarizeMaintenance } from "../lib/maintenance-report.mjs"
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "browser-client-metrics-"))
@@ -64,4 +64,40 @@ test("report writes reject a linked report directory", async (t) => {
   await symlink(join(root, "outside"), join(root, "reports"))
   const metrics = createMaintenanceReport({ path: join(root, "reports/result.json"), log() {} })
   await assert.rejects(metrics.finish("passed"), /real directory/)
+})
+
+test("phase heartbeats expose elapsed time and budgets, then stop on success or failure", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] })
+  const report = {},
+    messages = []
+  const { phase } = createPhaseReporter({ report, log: (message) => messages.push(message) })
+  for (const fail of [false, true]) {
+    let release
+    const pending = new Promise((resolve) => {
+      release = resolve
+    })
+    const failure = Object.assign(new Error("browser timeout"), { unsafeToRestore: true })
+    const result = phase(
+      "browser routes",
+      async () => {
+        await pending
+        if (fail) throw failure
+        return 42
+      },
+      { timeoutMs: 1_200_000 },
+    )
+    t.mock.timers.tick(30_000)
+    assert.match(messages.at(-1), /browser routes: still running \([\d.]+s; limit 1200\.0s\)/)
+    release()
+    if (fail) await assert.rejects(result, (error) => error === failure)
+    else assert.equal(await result, 42)
+    const count = messages.length
+    t.mock.timers.tick(60_000)
+    assert.equal(messages.length, count, "A completed phase left a heartbeat running")
+    const entry = report.phases.at(-1)
+    assert.equal(entry.timeoutMs, 1_200_000)
+    assert.equal(entry.status, fail ? "failed" : "passed")
+    assert(entry.durationMs >= 0 && entry.finishedAt)
+    if (fail) assert.equal(entry.failure, failure.message)
+  }
 })

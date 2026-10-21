@@ -4,10 +4,12 @@ import assert from "node:assert/strict"
 import { join } from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
 import { createCommandRunner } from "./commands.mjs"
+import { createPhaseReporter } from "./maintenance-report.mjs"
 
 // Browser checks share process ownership, log capture and bounded readiness waits.
-export function createVerificationRunner({ logDir, ...options }) {
+export function createVerificationRunner({ logDir, report, ...options }) {
   const runner = createCommandRunner(options)
+  const phase = report ? createPhaseReporter({ report }).phase : (_name, work) => work()
   function start(command, args, logName, env = {}, timeoutMs) {
     const log = createWriteStream(join(logDir, logName))
     log.on("error", (error) => runner.cancel(error))
@@ -18,9 +20,15 @@ export function createVerificationRunner({ logDir, ...options }) {
     return handle
   }
   async function run(command, args, logName) {
-    const result = await start(command, args, logName).done
-    if (result.reason || result.error) throw result.reason ?? result.error
-    assert.equal(result.code, 0, `${command} ${args.join(" ")} failed; see ${join(logDir, logName)}`)
+    return phase(
+      `command: ${logName}`,
+      async () => {
+        const result = await start(command, args, logName).done
+        if (result.reason || result.error) throw result.reason ?? result.error
+        assert.equal(result.code, 0, `${command} ${args.join(" ")} failed; see ${join(logDir, logName)}`)
+      },
+      { timeoutMs: options.timeoutMs },
+    )
   }
   async function until(check, label, timeout = 30_000) {
     const deadline = Date.now() + timeout
@@ -36,19 +44,25 @@ export function createVerificationRunner({ logDir, ...options }) {
     }
     throw new Error(`Timed out waiting for: ${label}`, { cause: lastError })
   }
-  return { ...runner, start, run, until }
+  return { ...runner, start, run, until, phase }
 }
 
 export async function finishVerification(report, cleanup) {
   const failures = []
-  for (const close of cleanup) {
-    try {
-      await close()
-    } catch (error) {
-      failures.push(error)
-    }
-  }
-  if (failures.length) {
+  let cleanupFailure
+  try {
+    await createPhaseReporter({ report }).phase("Cleanup", async () => {
+      for (const close of cleanup) {
+        try {
+          await close()
+        } catch (error) {
+          failures.push(error)
+        }
+      }
+      if (failures.length) throw new AggregateError(failures, "Browser test workspace cleanup failed")
+    })
+  } catch (error) {
+    cleanupFailure = error
     report.status = "failed"
     report.cleanupFailures = failures.map((error) => error.stack ?? String(error))
   }
@@ -57,5 +71,5 @@ export async function finishVerification(report, cleanup) {
   const path = join(report.runDir, "report.json")
   await writeFile(path, JSON.stringify(report, null, 2) + "\n")
   console.log(`Browser verification report: ${path}`)
-  if (failures.length) throw new AggregateError(failures, "Browser test workspace cleanup failed")
+  if (cleanupFailure) throw cleanupFailure
 }

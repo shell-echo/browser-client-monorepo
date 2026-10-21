@@ -19,9 +19,10 @@ const report = { checks: [], errors: [], runDir, startedAt: new Date().toISOStri
 const runner = createVerificationRunner({
   cwd: workspace,
   logDir: runDir,
+  report,
   timeoutMs: positiveTimeout(process.env.EXTENSION_TEST_COMMAND_TIMEOUT_MS, 180_000, "EXTENSION_TEST_COMMAND_TIMEOUT_MS"),
 })
-const { start, run, until } = runner
+const { start, run, until, phase } = runner
 let server, context, config
 const removeSignalHandlers = handleCancellation(runner, () => {
   console.error("Cancellation requested; closing the browser and test processes.")
@@ -36,11 +37,13 @@ function passed(message) {
 }
 
 async function launch(directory, profile) {
-  const context = await chromium.launchPersistentContext(join(runDir, profile), {
-    channel: "chromium",
-    headless: true,
-    args: [`--disable-extensions-except=${directory}`, `--load-extension=${directory}`],
-  })
+  const context = await phase(`Launch Chromium: ${profile}`, () =>
+    chromium.launchPersistentContext(join(runDir, profile), {
+      channel: "chromium",
+      headless: true,
+      args: [`--disable-extensions-except=${directory}`, `--load-extension=${directory}`],
+    }),
+  )
   context.on("page", (page) => {
     page.on("pageerror", (error) => report.errors.push(`${profile}: ${error.message}`))
     page.on("console", (message) => {
@@ -82,33 +85,42 @@ async function storageRoundTrip(popup, options, name) {
 }
 
 try {
-  for (const name of await readdir(root)) {
-    if (!ignored(name)) await copySource(join(root, name), join(workspace, name), { root })
-  }
+  await phase("Source copy", async () => {
+    for (const name of await readdir(root)) {
+      if (!ignored(name)) await copySource(join(root, name), join(workspace, name), { root })
+    }
+  })
   await run("git", ["init", "--quiet"], "git.log")
   await run("pnpm", ["install", "--offline", "--frozen-lockfile"], "install.log")
   config = await loadBrowserConfig(workspace)
   await run("node", ["scripts/check-extension-compat.mjs"], "compat.log")
   server = start("pnpm", ["--filter", "@browser-client/extension", "dev"], "dev.log", { EXTENSION_DEV_PORT: String(port) }, 0)
-  await until(
-    async () => {
-      assert.equal(server.child.exitCode, null, `Development server exited: ${join(runDir, "dev.log")}`)
-      return (
-        (await exists(join(app, "dist-dev/manifest.json"))) &&
-        (await fetch(`http://127.0.0.1:${port}/@vite/client`, { signal: AbortSignal.timeout(2000) })).ok
-      )
-    },
-    "Development output and Vite server",
-    60_000,
+  await phase("Development server ready", () =>
+    until(
+      async () => {
+        assert.equal(server.child.exitCode, null, `Development server exited: ${join(runDir, "dev.log")}`)
+        return (
+          (await exists(join(app, "dist-dev/manifest.json"))) &&
+          (await fetch(`http://127.0.0.1:${port}/@vite/client`, { signal: AbortSignal.timeout(2000) })).ok
+        )
+      },
+      "Development output and Vite server",
+      60_000,
+    ),
   )
   context = await launch(join(app, "dist-dev"), "profile-dev")
   runner.check()
   report.chromium = context.browser().version()
-  const { popup, options } = await extensionPages(context)
-  await storageRoundTrip(popup, options, "Development storage test")
+  const { popup, options } = await phase("Development pages and storage", async () => {
+    const pages = await extensionPages(context)
+    await storageRoundTrip(pages.popup, pages.options, "Development storage test")
+    return pages
+  })
   await popup.screenshot({ path: join(runDir, "extension-popup.png"), fullPage: true })
   passed("Development extension loaded; configured popup / options, background initialization and storage round trip passed")
-  await verifyThemes(options, { peer: popup, errors: report.errors, screenshot: join(runDir, "extension-dev-dark.png") })
+  await phase("Development themes", () =>
+    verifyThemes(options, { peer: popup, errors: report.errors, screenshot: join(runDir, "extension-dev-dark.png") }),
+  )
   passed("Development extension themes, popup / options synchronization, persistence and system preference passed")
 
   const hmrUpdate = await prepareHmrUpdate(workspace, config.extension.hmr)
@@ -143,39 +155,45 @@ try {
     assert.equal(await options.evaluate(() => window.__hmrSentinel), "same-document")
     assert.equal(navigations, 0, "HMR caused a full page reload")
   }
-  await hmrUpdate.apply()
-  await config.extension.hmr.verify({ page: options, popup })
-  await preserved()
+  await phase("Extension React HMR", async () => {
+    await hmrUpdate.apply()
+    await config.extension.hmr.verify({ page: options, popup })
+    await preserved()
+  })
   passed("Extension React HMR retained theme state without storage persistence or a full page reload")
 
-  assert(originals[0].includes('data-slot="button"'))
-  await writeFile(
-    join(workspace, paths[0]),
-    originals[0].replace('data-slot="button"', 'data-slot="button" data-hmr-shared="updated"'),
-  )
-  await options
-    .getByRole("button", { name: "Toggle theme", exact: true })
-    .and(options.locator('[data-hmr-shared="updated"]'))
-    .waitFor()
-  await popup
-    .getByRole("button", { name: "Toggle theme", exact: true })
-    .and(popup.locator('[data-hmr-shared="updated"]'))
-    .waitFor()
-  await preserved()
+  await phase("Shared component HMR", async () => {
+    assert(originals[0].includes('data-slot="button"'))
+    await writeFile(
+      join(workspace, paths[0]),
+      originals[0].replace('data-slot="button"', 'data-slot="button" data-hmr-shared="updated"'),
+    )
+    await options
+      .getByRole("button", { name: "Toggle theme", exact: true })
+      .and(options.locator('[data-hmr-shared="updated"]'))
+      .waitFor()
+    await popup
+      .getByRole("button", { name: "Toggle theme", exact: true })
+      .and(popup.locator('[data-hmr-shared="updated"]'))
+      .waitFor()
+    await preserved()
+  })
   passed("Shared shadcn/ui Button HMR updated popup / options and retained React state")
 
-  await writeFile(
-    join(workspace, paths[1]),
-    `${originals[1]}\n[data-slot="dropdown-menu-trigger"] { border-top-width: 7px !important; }\n`,
-  )
-  await until(
-    () =>
-      options
-        .getByRole("button", { name: "Toggle theme", exact: true })
-        .evaluate((button) => getComputedStyle(button).borderTopWidth === "7px"),
-    "Shared theme CSS HMR",
-  )
-  await preserved()
+  await phase("Shared style HMR", async () => {
+    await writeFile(
+      join(workspace, paths[1]),
+      `${originals[1]}\n[data-slot="dropdown-menu-trigger"] { border-top-width: 7px !important; }\n`,
+    )
+    await until(
+      () =>
+        options
+          .getByRole("button", { name: "Toggle theme", exact: true })
+          .evaluate((button) => getComputedStyle(button).borderTopWidth === "7px"),
+      "Shared theme CSS HMR",
+    )
+    await preserved()
+  })
   passed("Shared Tailwind / UI style HMR retained React state")
   await context.close()
   context = undefined
@@ -192,13 +210,18 @@ try {
   context.on("request", (request) => {
     if (/^https?:/.test(request.url())) network.push(request.url())
   })
-  const production = await extensionPages(context)
-  await storageRoundTrip(production.popup, production.options, "Production storage test")
-  await verifyThemes(production.options, {
-    peer: production.popup,
-    errors: report.errors,
-    screenshot: join(runDir, "extension-production-dark.png"),
+  const production = await phase("Production pages and storage", async () => {
+    const pages = await extensionPages(context)
+    await storageRoundTrip(pages.popup, pages.options, "Production storage test")
+    return pages
   })
+  await phase("Production themes", () =>
+    verifyThemes(production.options, {
+      peer: production.popup,
+      errors: report.errors,
+      screenshot: join(runDir, "extension-production-dark.png"),
+    }),
+  )
   passed("Production extension themes and page synchronization passed under strict CSP without inline scripts")
   assert.deepEqual(network, [], "Production extension requested external HTTP resources")
   assert.deepEqual(report.errors, [], "Browser runtime errors detected")
