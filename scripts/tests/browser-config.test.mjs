@@ -41,7 +41,7 @@ test("custom business routes and assertions load from the candidate instead of s
   const loaded = await loadBrowserConfig(custom)
   assert.equal(browserUrl("http://127.0.0.1:3150", loaded.web.path), "http://127.0.0.1:3150/workspace?view=active")
   loaded.web.verify({ heading: "Projects" })
-  assert.throws(() => loaded.web.verify({ heading: "Web Client" }), /wrong business page/)
+  assert.throws(() => loaded.web.verify({ heading: "Welcome" }), /wrong business page/)
 })
 
 test("missing business hooks, external routes and unsafe HMR paths fail closed", () => {
@@ -57,6 +57,13 @@ test("missing business hooks, external routes and unsafe HMR paths fail closed",
   }
   for (const path of ["https://example.com/", "//example.com/", "/\\example.com/"])
     assert.throws(() => browserUrl("http://127.0.0.1:3150", path))
+  for (const hook of ["verifyInteractions", "verifyPreview"]) {
+    const value = config()
+    value.extension[hook] = true
+    assert.throws(() => validateBrowserConfig(value), /must be a function/)
+    value.extension[hook] = () => {}
+    assert.doesNotThrow(() => validateBrowserConfig(value))
+  }
   for (const file of [
     "/tmp/outside.tsx",
     "apps/extension/../other.tsx",

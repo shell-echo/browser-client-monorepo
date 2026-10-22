@@ -19,6 +19,9 @@ export function validateBrowserConfig(config) {
   assert.equal(typeof config.admin.verifyRoutes, "function", "admin.verifyRoutes must provide route assertions")
   for (const name of ["verifyPage", "verifyBackground"])
     assert.equal(typeof config?.extension?.[name], "function", `extension.${name} must provide business assertions`)
+  for (const name of ["verifyInteractions", "verifyPreview"])
+    if (config.extension[name] !== undefined)
+      assert.equal(typeof config.extension[name], "function", `extension.${name} must be a function`)
   const hmr = config.extension.hmr
   assert(typeof hmr?.file === "string" && hmr.file.startsWith("apps/extension/"), "HMR must target extension source")
   assert(!hmr.file.includes("\\") && !hmr.file.split("/").some((part) => ["..", ".", ""].includes(part)), "Invalid HMR path")

@@ -139,6 +139,50 @@ test("Admin routes, block components and router dependencies survive an official
   assert.equal(await readFile(join(candidate, "vite.config.ts"), "utf8"), "new official config")
 })
 
+test("Welcome, Overview, Workspace and Settings pages and browser hooks survive template refreshes", async (t) => {
+  const root = await fixture(t)
+  const source = fileURLToPath(new URL("../../", import.meta.url))
+  for (const target of ["web", "admin", "extension"]) {
+    const previous = join(root, "previous", target)
+    const candidate = join(root, "candidate", target)
+    const original = join(source, "apps", target)
+    await copySource(original, previous)
+    const pages =
+      target === "web"
+        ? ["src/app/page.tsx"]
+        : target === "admin"
+          ? ["src/pages/home.tsx"]
+          : ["src/pages/popup.tsx", "src/pages/options.tsx"]
+    for (const page of pages) await put(candidate, page, "upstream starter title")
+    await put(candidate, "src/official-demo.tsx", "upstream demo")
+    await put(candidate, target === "web" ? "next.config.ts" : "vite.config.ts", "new framework configuration")
+    await preserveApp(previous, candidate)
+    for (const tree of ["src", "public"])
+      assert.equal(await fingerprint(join(candidate, tree)), await fingerprint(join(previous, tree)), `${target}/${tree}`)
+    assert.equal(await exists(join(candidate, "src/official-demo.tsx")), false)
+    if (target !== "web")
+      assert.equal(await readFile(join(candidate, "index.html"), "utf8"), await readFile(join(original, "index.html"), "utf8"))
+    if (target === "extension") {
+      for (const file of ["index.html", "options.html", "manifest.config.ts"])
+        assert.equal(await readFile(join(candidate, file), "utf8"), await readFile(join(original, file), "utf8"))
+    }
+    const manifest = await readFile(join(original, "package.json"), "utf8").then(JSON.parse)
+    const merged = mergeManifest({ dependencies: { react: "latest stable" } }, manifest, target)
+    assert.equal(merged.dependencies["@browser-client/ui"], "workspace:*")
+    assert.equal(merged.dependencies.react, "latest stable")
+    if (target === "extension") assert.equal(merged.scripts["preview:ui"], "vite --mode preview-ui")
+  }
+  for (const path of [
+    "packages/ui",
+    "browser-tests.config.mjs",
+    "scripts/lib/web-verification.mjs",
+    "scripts/lib/extension-verification.mjs",
+  ]) {
+    await copySource(join(source, path), join(root, "candidate", path), { root: source })
+    assert.equal(await fingerprint(join(root, "candidate", path)), await fingerprint(join(source, path)), path)
+  }
+})
+
 test("workspace copies preserve nested business assets in apps and shared packages", async (t) => {
   const root = await fixture(t),
     stage = join(root, ".reinit/stage")

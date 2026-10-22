@@ -116,6 +116,12 @@ try {
     await storageRoundTrip(pages.popup, pages.options, "Development storage test")
     return pages
   })
+  if (config.extension.verifyInteractions) {
+    await phase("Development settings interactions", () =>
+      config.extension.verifyInteractions({ popup, options, until, runDir, profile: "development" }),
+    )
+    passed("Development popup / options settings, validation, persistence, synchronization and failure recovery passed")
+  }
   await popup.screenshot({ path: join(runDir, "extension-popup.png"), fullPage: true })
   passed("Development extension loaded; configured popup / options, background initialization and storage round trip passed")
   await phase("Development themes", () =>
@@ -215,6 +221,12 @@ try {
     await storageRoundTrip(pages.popup, pages.options, "Production storage test")
     return pages
   })
+  if (config.extension.verifyInteractions) {
+    await phase("Production settings interactions", () =>
+      config.extension.verifyInteractions({ ...production, until, runDir, profile: "production" }),
+    )
+    passed("Production popup / options settings, validation, persistence, synchronization and failure recovery passed")
+  }
   await phase("Production themes", () =>
     verifyThemes(production.options, {
       peer: production.popup,
@@ -228,6 +240,30 @@ try {
   passed(
     "Production extension loaded independently after stopping the dev server; background, popup, options and storage passed without external HTTP requests or runtime errors",
   )
+  if (config.extension.verifyPreview) {
+    server = start(
+      "pnpm",
+      ["--filter", "@browser-client/extension", "preview:ui"],
+      "preview.log",
+      { EXTENSION_DEV_PORT: String(port) },
+      0,
+    )
+    await phase("Browser preview ready", () =>
+      until(
+        async () => {
+          assert.equal(server.child.exitCode, null, "Preview server exited early")
+          return (await fetch(`http://127.0.0.1:${port}/`, { signal: AbortSignal.timeout(2000) })).ok
+        },
+        "Extension browser preview",
+        60_000,
+      ),
+    )
+    const page = await context.newPage()
+    await page.goto(`http://127.0.0.1:${port}/`)
+    await phase("Browser preview settings", () => config.extension.verifyPreview({ page, until, runDir }))
+    assert.deepEqual(report.errors, [], "Browser preview runtime errors detected")
+    passed("Ordinary browser popup / options preview, separate settings persistence and responsive layouts passed")
+  }
   assert.equal(await fingerprint(root), originalFingerprint, "Test changed the original workspace source")
   passed("Browser test only modified a temporary copy; original workspace source is unchanged")
   report.status = "passed"

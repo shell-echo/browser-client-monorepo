@@ -2,6 +2,8 @@ import assert from "node:assert/strict"
 import { join } from "node:path"
 import { verifyClientPage } from "./scripts/lib/client-page-verification.mjs"
 import { verifyAdminTemplates } from "./scripts/lib/admin-verification.mjs"
+import { verifyWebTemplate } from "./scripts/lib/web-verification.mjs"
+import { verifyExtensionPage, verifyExtensionSettings, verifyExtensionPreview } from "./scripts/lib/extension-verification.mjs"
 
 // Replace these business assertions when customizing the starter pages.
 // The runners always enforce runtime errors, themes, HMR and source isolation.
@@ -16,16 +18,12 @@ async function client({ page, title, name, runDir }) {
 export default {
   web: {
     path: "/",
-    async verify({ page, runDir, passed }) {
-      assert.equal(await page.title(), "Browser Client")
-      await client({ page, title: "Web Client", name: "web", runDir })
-      passed("Web production page, GitHub link, shared styles and desktop / mobile centering passed")
-    },
+    verify: verifyWebTemplate,
   },
   admin: {
     path: "/",
     async verify({ page, runDir, passed }) {
-      await client({ page, title: "Admin Client", name: "admin", runDir })
+      await client({ page, title: "Overview", name: "admin", runDir })
       passed("Admin production page, GitHub link, shared styles and desktop / mobile centering passed")
     },
     async verifyRoutes({ pageFor, url, runDir, errors, passed }) {
@@ -33,9 +31,9 @@ export default {
     },
   },
   extension: {
-    async verifyPage({ page }) {
-      await verifyClientPage(page, "Extension Client")
-    },
+    verifyPage: verifyExtensionPage,
+    verifyInteractions: verifyExtensionSettings,
+    verifyPreview: verifyExtensionPreview,
     async verifyBackground({ page, until }) {
       await until(
         async () => (await page.evaluate(() => chrome.storage.local.get("workspaceName"))).workspaceName === "Browser Client",
@@ -43,13 +41,13 @@ export default {
       )
     },
     hmr: {
-      file: "apps/extension/src/App.tsx",
+      file: "apps/extension/src/pages/options.tsx",
       update(source) {
-        assert(source.includes('title="Extension Client"'), "Update extension.hmr for the customized application")
-        return source.replace('title="Extension Client"', 'title="Extension Client · HMR"')
+        assert(source.includes(">Settings</h1>"), "Update extension.hmr for the customized application")
+        return source.replace(">Settings</h1>", ">Settings · HMR</h1>")
       },
       async verify({ page }) {
-        await page.getByRole("heading", { name: "Extension Client · HMR", exact: true }).waitFor()
+        await page.getByRole("heading", { name: "Settings · HMR", level: 1, exact: true }).waitFor()
       },
     },
   },

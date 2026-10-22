@@ -11,6 +11,8 @@ export default [
       "scripts/lib/theme-verification.mjs",
       "scripts/lib/client-page-verification.mjs",
       "scripts/lib/admin-verification.mjs",
+      "scripts/lib/web-verification.mjs",
+      "scripts/lib/extension-verification.mjs",
       "browser-tests.config.mjs",
     ],
     languageOptions: {

@@ -202,7 +202,7 @@ async function verifyRouteRecovery({ browser, url, runDir, passed }) {
       })
       page.on("requestfailed", (request) => failedRequests.push(request.url()))
       await page.goto(url, { waitUntil: "networkidle" })
-      await page.getByRole("heading", { name: "Admin Client", exact: true }).waitFor()
+      await page.getByRole("heading", { name: "Overview", level: 1, exact: true }).waitFor()
       await page.evaluate(() => {
         window.__routeRecovery = "preserved"
       })
@@ -222,7 +222,7 @@ async function verifyRouteRecovery({ browser, url, runDir, passed }) {
       await page.screenshot({ path: join(runDir, "admin-" + name + "-load-failure.png"), fullPage: true })
       if (name === "dashboard") {
         await page.getByRole("link", { name: "Back to home", exact: true }).click()
-        await page.getByRole("heading", { name: "Admin Client", exact: true }).waitFor()
+        await page.getByRole("heading", { name: "Overview", level: 1, exact: true }).waitFor()
         assert.equal(
           await page.evaluate(() => window.__routeRecovery),
           "preserved",

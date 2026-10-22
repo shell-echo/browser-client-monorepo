@@ -18,9 +18,28 @@ pnpm dev
 | Extension            | `pnpm dev:extension`     | Load `apps/extension/dist-dev`; HMR enabled |
 | Extension UI preview | `pnpm preview:extension` | http://127.0.0.1:5174                       |
 
-`pnpm dev` starts the first three services. Development servers listen on localhost. Each client uses the shared `ClientPage` from `packages/ui`, displaying `Web Client`, `Admin Client`, or `Extension Client` above a GitHub icon linking to this repository. Content is centered horizontally and vertically, with a theme switcher in the top right. The extension popup uses a compact 360 × 280 layout; options and the UI preview fill the viewport. The starter has no backend, authentication, or production data.
+`pnpm dev` starts the first three services. Development servers listen on localhost. Web includes a responsive `Welcome` homepage; Admin keeps its centered `Overview` homepage and login / dashboard examples; Extension provides separate `Workspace` popup and `Settings` templates. Page headings describe their purpose, while site headers retain the product name. All clients reuse shared shadcn/ui, the b0 preset, bundled Inter font, an accessible GitHub icon link, and the light / dark / system theme menu. The starter has no backend, authentication, or production data.
 
 English is the default for UI text, accessibility labels, page metadata, extension descriptions, documentation, and development command output. HTML documents use `lang="en"`.
+
+## Web template
+
+The homepage includes a header, overview, feature cards, documentation links, and footer. Desktop navigation becomes a shadcn Sheet below 768px, with Escape / close controls and focus restoration. The page includes a keyboard skip link and adapts to 320px screens. Colors and typography come from the shared b0 preset; there is no additional brand palette.
+
+The page remains a Next.js Server Component in `apps/web/src/app/page.tsx`; interactive navigation lives in `apps/web/src/components/site-header.tsx`. Customize these files for your product. Documentation links open this repository's README. Login, account management, and business features are intentionally left for application development.
+
+## Extension templates
+
+| Entry          | Purpose                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------- |
+| `index.html`   | Compact 360px popup with the current workspace, theme menu, GitHub icon, and **Open settings** action |
+| `options.html` | Responsive settings page with a workspace-name form and shared theme menu                             |
+
+Page components live in `apps/extension/src/pages/`. The settings adapter in `src/lib/settings.ts` reads and writes the existing `chrome.storage.local.workspaceName` key without requesting new permissions. Saving trims surrounding whitespace and accepts 1–80 characters. The popup follows storage changes without reloading. Unsaved settings drafts survive external updates and failed saves; load failures require a successful retry before an editable form is shown. **Open settings** uses `chrome.runtime.openOptionsPage()` and reports failures with a retryable action.
+
+Run `pnpm preview:extension` to inspect both pages in an ordinary browser: `/` previews the popup and `/options.html` shows settings. Preview workspace names use a separate localStorage key and do not change installed-extension settings. Theme preferences continue to use the shared theme provider and per-origin localStorage. The preview explains its separate storage behavior.
+
+Reinit preserves Web and Extension source, HTML entries, manifest, shared UI / fonts, and custom browser hooks. No new application dependencies or framework configuration overrides are needed. Browser gates exercise both templates before replacement, including responsive layouts, real extension settings / failure recovery, ordinary browser previews, and existing theme / HMR behavior.
 
 ## Admin templates
 
@@ -161,7 +180,7 @@ Themes live in `packages/ui/src/styles/globals.css`. Applications use `@source` 
 
 ## Light and dark themes
 
-Web, Admin, extension popup, and options provide a top-right `Toggle theme` button using the shared shadcn `Button` and `DropdownMenu`. The radio menu offers `Light`, `Dark`, and `System`, defaulting to `System`. It marks the current selection and supports keyboard navigation, Escape, and focus restoration. Clients share colors, context, and `ThemeSwitcher` from `packages/ui`. Web uses `next-themes` for Next.js SSR; Vite pages use the shared `ThemeProvider`. Native form controls follow the active `color-scheme`.
+Web, Admin, and the extension popup place `Toggle theme` near the top right; extension settings put it in the Appearance card. Every page uses the shared shadcn `Button` and `DropdownMenu`. The radio menu offers `Light`, `Dark`, and `System`, defaulting to `System`. It marks the current selection and supports keyboard navigation, Escape, and focus restoration. Clients share colors, context, and `ThemeSwitcher` from `packages/ui`. Web uses `next-themes` for Next.js SSR; Vite pages use the shared `ThemeProvider`. Native form controls follow the active `color-scheme`.
 
 Preferences are stored per origin in `localStorage["browser-client-theme"]` and survive reloads. Same-origin tabs and popup / options within one extension synchronize changes. Web and Admin use different ports and therefore keep separate preferences. System mode follows live OS changes; manual selection takes priority. Pages remain usable when local storage is disabled. Web removes invalid stored preferences before the first theme script, falling back to `system` even when writes exceed the storage quota, and intercepts invalid cross-tab updates before next-themes applies them to the DOM. Other stored data and valid preferences are retained. If writes fail, manual changes still apply to the current page but cannot persist across reloads. Clearing storage also restores system mode.
 
@@ -174,7 +193,7 @@ Web applies its theme before hydration and uses `suppressHydrationWarning` on `h
 1. Run `pnpm dev:extension` and keep the service running.
 2. Open `chrome://extensions` or `edge://extensions` and enable Developer mode.
 3. Choose **Load unpacked** and select `apps/extension/dist-dev`.
-4. Open the popup from the extension icon; use **Extension options** in the extension management page to open options. Both show centered `Extension Client` content and a GitHub icon link, with theme switching. The background retains a `chrome.storage.local` initialization example for future application code.
+4. Open the **Workspace** popup from the extension icon and choose **Open settings** to open the **Settings** page. The popup shows the current workspace; settings provide the workspace-name form and appearance menu. Both include the product name and GitHub icon link. You can also open settings through **Extension options** in the extension management page. The background initializes the default workspace without overwriting an existing name.
 
 `manifest.config.ts`, using CRXJS `defineManifest`, is the only manifest source. `src/background.ts`, `index.html`, and `options.html` are the background, popup, and options entries. CRXJS discovers entries and generates resource paths from the manifest; do not add another manifest under `public/`.
 
@@ -280,22 +299,24 @@ pnpm test:reinit  # Slow: real online rebuild, offline replay, and rejection tes
 pnpm audit:security
 ```
 
-`test:web-admin` creates source copies and local Git boundaries under `.reinit/verification/web-admin-*/`, installs offline from the lockfile, and rebuilds Web / Admin. Next.js production and Vite preview servers verify English page content, language metadata, accessible GitHub icon links, shared component styles, desktop / mobile centering, theme interactions, and browser / console / resource errors. Web additionally verifies invalid stored themes before hydration, invalid cross-tab updates, cleared storage, and unavailable storage. Simulated storage quota failures cover valid and invalid saved preferences, first paint without hydration, system changes, manual switching, reloads, and preservation of unrelated stored data. Admin additionally verifies the login and dashboard templates, native email validation, client-side navigation, deep links / reloads, unknown routes, and responsive drawer / menu behavior at 320 / 390 / 768 / 1280px. Separate fault contexts intercept real login / dashboard production chunks to verify recovery from HTTP and network errors, return-to-home navigation, and refresh retry; normal-page error checks remain strict. Reports, server logs, and screenshots remain in that directory. Tests close their own browsers and processes and verify the original source is unchanged.
+`test:web-admin` creates source copies and local Git boundaries under `.reinit/verification/web-admin-*/`, installs offline from the lockfile, and rebuilds Web / Admin. Next.js production and Vite preview servers verify English page content, language metadata, accessible GitHub icon links, bundled Inter, shared component styles, theme interactions, and browser / console / resource errors. Web additionally verifies the responsive site template, navigation drawer / keyboard recovery, section links and documentation links at 320 / 390 / 768 / 1280px, invalid stored themes before hydration, invalid cross-tab updates, cleared storage, and unavailable storage. Simulated storage quota failures cover valid and invalid saved preferences, first paint without hydration, system changes, manual switching, reloads, and preservation of unrelated stored data. Admin additionally verifies its centered homepage, login and dashboard templates, native email validation, client-side navigation, deep links / reloads, unknown routes, and responsive drawer / menu behavior at the same widths. Separate fault contexts intercept real login / dashboard production chunks to verify recovery from HTTP and network errors, return-to-home navigation, and refresh retry; normal-page error checks remain strict. Reports, server logs, and screenshots remain in that directory. Tests close their own browsers and processes and verify the original source is unchanged.
 
 ### Custom business browser assertions
 
 `browser-tests.config.mjs` owns the starter's page titles, layouts, routes, background expectations, and application HMR edit. When replacing the demo pages with product screens, update this file with assertions for the actual business behavior. It is preserved across reinit, copied into browser verification workspaces, and loaded after installing the candidate's dependencies.
 
-| Configuration                | Contract                                                                                                                                   |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `web.path`, `admin.path`     | A path on the local application's origin, such as `/workspace`; external URLs are rejected                                                 |
-| `web.verify`, `admin.verify` | Required async business checks; receive `{ page, browser, pageFor, url, runDir, errors, passed }`                                          |
-| `admin.verifyRoutes`         | Required route / navigation assertions; receives `{ pageFor, url, runDir, errors, passed }`, where `url` is Admin's origin                 |
-| `extension.verifyPage`       | Required popup / options assertions; receives `{ page, kind }`                                                                             |
-| `extension.verifyBackground` | Required background initialization assertions; receives `{ page, until }`                                                                  |
-| `extension.hmr`              | `{ file, update(source), verify({ page, popup }) }`; selects an extension source file, produces a real change, and waits for its UI update |
+| Configuration                  | Contract                                                                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `web.path`, `admin.path`       | A path on the local application's origin, such as `/workspace`; external URLs are rejected                                                 |
+| `web.verify`, `admin.verify`   | Required async business checks; receive `{ page, browser, pageFor, url, runDir, errors, passed }`                                          |
+| `admin.verifyRoutes`           | Required route / navigation assertions; receives `{ pageFor, url, runDir, errors, passed }`, where `url` is Admin's origin                 |
+| `extension.verifyPage`         | Required popup / options assertions; receives `{ page, kind }`                                                                             |
+| `extension.verifyBackground`   | Required background initialization assertions; receives `{ page, until }`                                                                  |
+| `extension.verifyInteractions` | Optional settings / business interactions in development and production; receives `{ popup, options, until, runDir, profile }`             |
+| `extension.verifyPreview`      | Optional ordinary browser UI preview assertions; receives `{ page, until, runDir }`                                                        |
+| `extension.hmr`                | `{ file, update(source), verify({ page, popup }) }`; selects an extension source file, produces a real change, and waits for its UI update |
 
-The default hooks retain every existing starter and Admin template assertion. Missing hooks, invalid paths, and unchanged HMR edits fail instead of silently skipping checks. Do not replace hooks with no-ops: replace the starter assertions with meaningful business assertions. The configured Web / Admin pages and extension pages must expose the shared theme switcher.
+The default hooks check the Web, Admin, and Extension templates. Missing required hooks, invalid optional hooks / paths, and unchanged HMR edits fail instead of silently skipping checks. Do not replace hooks with no-ops: replace the starter assertions with meaningful business assertions. The configured Web / Admin pages and extension pages must expose the shared theme switcher. Keep the interaction and preview hooks while using the built-in extension settings templates.
 
 The runners always retain theme and persistence tests, shared UI / CSS HMR, React state preservation without storage persistence or full-page navigation, extension storage round trips, production loading, runtime / console error checks, and original-source fingerprints. HMR writes only to the isolated extension source and restores it before the production build; it no longer assumes a particular business title or `src/App.tsx` in the runner. There is no flag to bypass the reinit browser gates.
 
@@ -311,7 +332,7 @@ Both browser suites record individual source-copy, installation, build, browser-
 
 Default test ports are 3150 / 3151. Override with distinct `WEB_TEST_PORT` / `ADMIN_TEST_PORT` values; availability is checked before starting. `WEB_ADMIN_TEST_COMMAND_TIMEOUT_MS` sets each child-command timeout, defaulting to 5 minutes; it does not set the duration of the entire suite. Pause editing during tests to avoid fingerprint mismatches.
 
-`test:extension` creates a source copy and isolated Chromium profiles under `.reinit/verification/`. Port 3102 tests actual extension loading, background initialization, popup / options, storage round trips, and page / shared component / shared style HMR with React state preservation. It stops the dev server, rebuilds production output, then tests independent loading, runtime errors, and external HTTP requests. Only copies are modified; logs and `report.json` are retained. Install root dependencies first; copies install offline from the lockfile. Pause editing for the final source fingerprint check. `EXTENSION_TEST_PORT` overrides the port; `EXTENSION_TEST_COMMAND_TIMEOUT_MS` sets each child-command timeout, defaulting to 3 minutes. Cancellation closes test processes and browsers.
+`test:extension` creates a source copy and isolated Chromium profiles under `.reinit/verification/`. Port 3102 tests actual extension loading, background initialization, popup / options, storage round trips, and page / shared component / shared style HMR with React state preservation. The starter's interaction hook also checks workspace-name validation / trimming, real UI saves, persistence, live popup updates, unsaved drafts, injected read / write failures and retry, the actual **Open settings** action and its failure recovery, long-name wrapping, and options layouts at 320 / 390 / 768 / 1280px. It stops the dev server, rebuilds production output, then repeats interactions during independent production loading and rejects external HTTP requests. The optional preview hook subsequently checks ordinary browser popup / options navigation and separate localStorage persistence. Only copies are modified; logs, screenshots, and `report.json` are retained. Install root dependencies first; copies install offline from the lockfile. Pause editing for the final source fingerprint check. `EXTENSION_TEST_PORT` overrides the port; `EXTENSION_TEST_COMMAND_TIMEOUT_MS` sets each child-command timeout, defaulting to 3 minutes. Cancellation closes test processes and browsers.
 
 Production output checks resolve static imports, re-exports, and string dynamic imports from every emitted JS file, rejecting missing, remote, or escaping resources. Computed runtime paths still require browser coverage.
 

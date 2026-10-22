@@ -5,7 +5,7 @@ import { ClientPage } from "@browser-client/ui/components/client-page"
 export default function HomePage() {
   return (
     <>
-      <ClientPage title="Admin Client" />
+      <ClientPage title="Overview" />
       <nav aria-label="Admin templates" className="fixed inset-x-0 bottom-6 flex justify-center gap-3">
         <Link to="/login" className={buttonVariants({ variant: "outline", size: "sm" })}>
           Login template
