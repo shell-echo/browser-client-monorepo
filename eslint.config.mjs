@@ -6,15 +6,16 @@ export default [
   {
     // These names run inside Playwright page.evaluate callbacks.
     files: [
-      "scripts/test-extension.mjs",
-      "scripts/test-web-admin.mjs",
-      "scripts/lib/theme-verification.mjs",
-      "scripts/lib/client-page-verification.mjs",
-      "scripts/lib/admin-verification.mjs",
-      "scripts/lib/web-verification.mjs",
-      "scripts/lib/extension-verification.mjs",
-      "browser-tests.config.mjs",
+      "scripts/test-extension.mts",
+      "scripts/test-web-admin.mts",
+      "scripts/lib/theme-verification.mts",
+      "scripts/lib/client-page-verification.mts",
+      "scripts/lib/admin-verification.mts",
+      "scripts/lib/web-verification.mts",
+      "scripts/lib/extension-verification.mts",
+      "browser-tests.config.mts",
     ],
+    rules: { "no-restricted-globals": "off" },
     languageOptions: {
       globals: { chrome: "readonly", window: "readonly", document: "readonly", getComputedStyle: "readonly" },
     },

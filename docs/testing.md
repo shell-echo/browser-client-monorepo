@@ -10,6 +10,7 @@ Use application-specific assertions together with the shared infrastructure chec
 pnpm check       # Formatting, compatibility, tests, lint, types, all builds, and extension output
 pnpm test        # Preservation, recovery, cancellation / timeouts, cleanup, catalogs, and configuration
 pnpm lint:scripts
+pnpm typecheck:scripts
 pnpm build
 
 # Install the matching Chromium before the first browser test
@@ -24,7 +25,7 @@ pnpm audit:security
 
 ### Custom business browser assertions
 
-`browser-tests.config.mjs` owns the starter's page titles, layouts, routes, background expectations, and application HMR edit. When replacing the demo pages with product screens, update this file with assertions for the actual business behavior. It is preserved across reinit, copied into browser verification workspaces, and loaded after installing the candidate's dependencies.
+`browser-tests.config.mts` owns the starter's page titles, layouts, routes, background expectations, and application HMR edit. When replacing the demo pages with product screens, update this file with assertions for the actual business behavior. It is preserved across reinit, copied into browser verification workspaces, and loaded after installing the candidate's dependencies.
 
 | Configuration                  | Contract                                                                                                                                   |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -59,7 +60,7 @@ Production output checks resolve static imports, re-exports, and string dynamic 
 
 `pnpm check` does not launch browsers. Reinit separately requires both browser suites before replacement. Run `pnpm test:extension` after Vite / CRXJS changes. Automated tests use Playwright Chromium; Chrome / Edge extension management and store publication still require verification in those browsers.
 
-Configuration tests invoke TypeScript, ESLint, and Oxlint to verify path / environment resolution, rejected Hooks violations, inherited rule arguments, and preservation of new upstream options during reinit.
+Configuration tests invoke TypeScript, ESLint, and Oxlint to verify path / environment resolution, rejected Hooks violations, inherited rule arguments, and preservation of new upstream options during reinit. Engineering regression tests use native `.test.mts` execution. Additional checks exercise nested TypeScript commands without installed dependencies, rejection of invalid process / dependency / browser contracts and non-erasable syntax, inherited lint rules, and preservation of recovery flags when reporting unknown failures.
 
 ## Continuous integration
 

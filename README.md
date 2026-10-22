@@ -108,7 +108,7 @@ packages/
   oxlint-config/        Shared Oxlint rules
 scripts/                Reinit, dependency policies, tests, and browser verification
 docs/                   Guides and screenshots
-browser-tests.config.mjs  Application browser assertions and HMR hooks
+browser-tests.config.mts  Application browser assertions and HMR hooks
 template-versions.json    Generator versions and dependency receipts
 ```
 
@@ -121,6 +121,7 @@ Run commands from the repository root. The single `pnpm-lock.yaml` and workspace
 | `pnpm ui:add dialog`                | Add a shadcn primitive to the shared UI package                                         |
 | `pnpm format` / `pnpm format:check` | Format or check source and documentation                                                |
 | `pnpm lint` / `pnpm typecheck`      | Check all workspaces                                                                    |
+| `pnpm typecheck:scripts`            | Strictly check engineering scripts, regression tests, and browser assertions            |
 | `pnpm check`                        | Formatting, compatibility, unit tests, lint, types, builds, and extension output checks |
 | `pnpm test:web-admin`               | Production browser checks for Web and Admin                                             |
 | `pnpm test:extension`               | Actual extension loading, settings, themes, HMR, production build, and UI preview       |
@@ -141,6 +142,6 @@ Before the first browser test, run `pnpm exec playwright install chromium`; Linu
 
 ## Contributing
 
-Keep application features in their application and reusable primitives in `packages/ui`. Update `browser-tests.config.mjs` when replacing starter screens, and put persistent framework customizations in the reinit integration adapters.
+Keep application features in their application and reusable primitives in `packages/ui`. Update `browser-tests.config.mts` when replacing starter screens, and put persistent framework customizations in the reinit integration adapters.
 
 Run `pnpm check` and the affected browser suites before proposing changes. Update documentation and screenshots when behavior or starter UI changes. [Development conventions and configuration](docs/development.md).

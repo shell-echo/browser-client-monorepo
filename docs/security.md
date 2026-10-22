@@ -2,7 +2,7 @@
 
 [Project home](../README.md) · [Development](development.md) · [Reinit](reinit.md) · [Testing](testing.md) · [Security](security.md)
 
-The project audits the locked dependency graph and verifies local mitigations before accepting them. Policy and commands are defined in [the workspace configuration](../pnpm-workspace.yaml), [the audit script](../scripts/audit-dependencies.mjs), and [security regression tests](../scripts/tests/security.test.mjs).
+The project audits the locked dependency graph and verifies local mitigations before accepting them. Policy and commands are defined in [the workspace configuration](../pnpm-workspace.yaml), [the audit script](../scripts/audit-dependencies.mts), and [security regression tests](../scripts/tests/security.test.mts).
 
 ## Audit commands and the current patch
 

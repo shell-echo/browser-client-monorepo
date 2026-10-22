@@ -72,7 +72,25 @@ Run `pnpm check` after changing shared rules. All three configuration packages a
 
 Each application's `.env*` files are build cache inputs. Store them in the corresponding application and keep real values out of Git. Turbo recognizes `NEXT_PUBLIC_*` / `VITE_*`; add future build-affecting server variables to `build.env`. `EXTENSION_DEV_PORT` is passed through to the extension service started by `pnpm dev`.
 
-`reinit` reconnects the shared presets and their package dependencies. Project-managed TypeScript options and Oxlint rules take precedence over template defaults; differences are reported. New upstream options, additional inheritance, environment types, and lint overrides are preserved. Integration lives in `scripts/lib/tooling.mjs`. Edit shared rules in configuration packages and framework adapters in scripts to retain changes across reinit. Direct application overrides remain temporary because framework configuration is regenerated.
+`reinit` reconnects the shared presets and their package dependencies. Project-managed TypeScript options and Oxlint rules take precedence over template defaults; differences are reported. New upstream options, additional inheritance, environment types, and lint overrides are preserved. Integration lives in `scripts/lib/tooling.mts`. Edit shared rules in configuration packages and framework adapters in scripts to retain changes across reinit. Direct application overrides remain temporary because framework configuration is regenerated.
+
+## Engineering scripts
+
+Engineering entry points, shared implementations, regression tests, and `browser-tests.config.mts` use TypeScript ES modules (`.mts`). Node.js 24 runs their erasable type syntax directly; no script compilation, custom loader, or generated JavaScript is required. Keep relative import extensions explicit and use `import type` for types. Runtime-transforming syntax such as enums and parameter properties, and TypeScript-only path aliases, are unsupported by this execution model.
+
+The shared `@browser-client/typescript-config/node.json` preset enables strict checking, NodeNext resolution, `noEmit`, `erasableSyntaxOnly`, and `verbatimModuleSyntax`. `scripts/tsconfig.json` includes engineering modules, test helpers, regression tests, and browser assertions, adding DOM / Chrome types for Playwright callbacks. Root TypeScript and Node types use `catalog:tooling`, independently of the Next.js and Vite toolchains.
+
+The shared ESLint package declares the verified compiler peer range `>=5.8 <6.1`, aligned with its current TypeScript ESLint integration. Reinit uses this contract to select a compatible compiler before considering historical plugin versions. Expand the range together with a verified lint integration update when supporting a newer compiler.
+
+```sh
+pnpm typecheck:scripts  # Check engineering code and tests without running or emitting them
+pnpm lint:scripts      # Shared Node and TypeScript lint rules
+pnpm test              # Run native .test.mts regression tests
+```
+
+`pnpm typecheck` checks scripts before workspace types; `pnpm check`, CI, and reinit's candidate / final checks include it. Native Node execution only strips types, so running a script alone does not establish type correctness. Shared interfaces cover dependency decisions, process ownership results, maintenance reports, and browser hooks. Keep runtime validation of registry responses, files, paths, and recovery state: static types cannot establish the shape or safety of external data.
+
+ESLint configuration remains JavaScript for tool loading. The shared Node preset applies existing recommended JavaScript rules and TypeScript rules to `.mts` files, including unused declarations and explicit `any`. Browser-only globals are rejected in standalone Node scripts; the explicit browser assertion modules retain their Playwright context. Application template fixtures and VM / subprocess source strings retain the language needed for the behavior they test.
 
 ## Formatting and editors
 

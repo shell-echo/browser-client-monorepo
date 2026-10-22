@@ -16,19 +16,20 @@
     "build": "turbo run build",
     "format": "prettier --ignore-path .prettierignore --write .",
     "format:check": "prettier --ignore-path .prettierignore --check .",
-    "theme:sync": "node scripts/sync-theme-assets.mjs",
+    "theme:sync": "node scripts/sync-theme-assets.mts",
     "lint": "pnpm lint:scripts && turbo run lint",
-    "lint:scripts": "eslint scripts packages/eslint-config eslint.config.mjs browser-tests.config.mjs",
-    "typecheck": "turbo run typecheck",
-    "test": "node --test --test-concurrency=2 --test-timeout=180000 scripts/tests/*.test.mjs",
-    "check": "pnpm format:check && node scripts/check-extension-compat.mjs && pnpm test && pnpm lint && pnpm typecheck && pnpm build && node scripts/check-extension.mjs",
-    "test:extension": "node scripts/test-extension.mjs",
-    "test:web-admin": "node scripts/test-web-admin.mjs",
-    "test:reinit": "node scripts/test-reinit.mjs",
-    "audit:security": "node scripts/audit-dependencies.mjs",
-    "reinit": "node scripts/reinit.mjs",
-    "reinit:clean": "node scripts/clean-reinit.mjs",
-    "ui:add": "pnpm --filter @browser-client/web exec shadcn add"
+    "lint:scripts": "eslint scripts packages/eslint-config eslint.config.mjs browser-tests.config.mts",
+    "typecheck": "pnpm typecheck:scripts && turbo run typecheck",
+    "test": "node --test --test-concurrency=2 --test-timeout=180000 scripts/tests/*.test.mts",
+    "check": "pnpm format:check && node scripts/check-extension-compat.mts && pnpm test && pnpm lint && pnpm typecheck && pnpm build && node scripts/check-extension.mts",
+    "test:extension": "node scripts/test-extension.mts",
+    "test:web-admin": "node scripts/test-web-admin.mts",
+    "test:reinit": "node scripts/test-reinit.mts",
+    "audit:security": "node scripts/audit-dependencies.mts",
+    "reinit": "node scripts/reinit.mts",
+    "reinit:clean": "node scripts/clean-reinit.mts",
+    "ui:add": "pnpm --filter @browser-client/web exec shadcn add",
+    "typecheck:scripts": "tsc -p scripts/tsconfig.json"
   },
   "devDependencies": {
     "@browser-client/eslint-config": "workspace:*",
@@ -42,6 +43,11 @@
     "semver": "7.8.5",
     "shadcn": "catalog:",
     "turbo": "2.11.8",
-    "yaml": "2.9.1"
+    "yaml": "2.9.1",
+    "@browser-client/typescript-config": "workspace:*",
+    "typescript": "catalog:tooling",
+    "@types/node": "catalog:tooling",
+    "@types/chrome": "0.3.5",
+    "@types/semver": "7.8.0"
   }
 }

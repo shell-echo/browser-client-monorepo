@@ -9,10 +9,12 @@
   },
   "dependencies": {
     "@eslint/js": "catalog:",
-    "globals": "17.13.0"
+    "globals": "17.13.0",
+    "typescript-eslint": "8.71.1"
   },
   "peerDependencies": {
-    "eslint": "^10"
+    "eslint": "^10",
+    "typescript": ">=5.8 <6.1"
   },
   "devDependencies": {
     "eslint": "catalog:"

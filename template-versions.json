@@ -815,6 +815,94 @@
         "version": "8.4.0",
         "reasons": [],
         "origin": "Existing verified lockfile baseline; latest was not queried during policy migration."
+      },
+      {
+        "id": "catalog:tooling:typescript",
+        "name": "typescript",
+        "location": {
+          "catalog": "tooling",
+          "name": "typescript"
+        },
+        "previous": "6.0.3",
+        "current": "6.0.3",
+        "required": [],
+        "strictLatest": false,
+        "version": "6.0.3",
+        "reasons": [
+          "TypeScript migration baseline from the installed, strictly peer-checked lockfile; latest stable was not queried."
+        ]
+      },
+      {
+        "id": "catalog:tooling:@types/node",
+        "name": "@types/node",
+        "location": {
+          "catalog": "tooling",
+          "name": "@types/node"
+        },
+        "previous": "24.19.2",
+        "current": "24.19.2",
+        "required": [
+          {
+            "from": "Node.js runtime",
+            "range": "^24.0.0"
+          }
+        ],
+        "strictLatest": false,
+        "version": "24.19.2",
+        "reasons": [
+          "TypeScript migration baseline from the installed, strictly peer-checked lockfile; latest stable was not queried."
+        ]
+      },
+      {
+        "id": ".:devDependencies:@types/chrome",
+        "name": "@types/chrome",
+        "location": {
+          "path": ".",
+          "field": "devDependencies",
+          "name": "@types/chrome"
+        },
+        "previous": "0.3.5",
+        "current": "0.3.5",
+        "required": [],
+        "strictLatest": false,
+        "version": "0.3.5",
+        "reasons": [
+          "TypeScript migration baseline from the installed, strictly peer-checked lockfile; latest stable was not queried."
+        ]
+      },
+      {
+        "id": ".:devDependencies:@types/semver",
+        "name": "@types/semver",
+        "location": {
+          "path": ".",
+          "field": "devDependencies",
+          "name": "@types/semver"
+        },
+        "previous": "7.8.0",
+        "current": "7.8.0",
+        "required": [],
+        "strictLatest": false,
+        "version": "7.8.0",
+        "reasons": [
+          "TypeScript migration baseline from the installed, strictly peer-checked lockfile; latest stable was not queried."
+        ]
+      },
+      {
+        "id": "packages/eslint-config:dependencies:typescript-eslint",
+        "name": "typescript-eslint",
+        "location": {
+          "path": "packages/eslint-config",
+          "field": "dependencies",
+          "name": "typescript-eslint"
+        },
+        "previous": "8.71.1",
+        "current": "8.71.1",
+        "required": [],
+        "strictLatest": false,
+        "version": "8.71.1",
+        "reasons": [
+          "TypeScript migration baseline from the installed, strictly peer-checked lockfile; latest stable was not queried."
+        ]
       }
     ]
   }
