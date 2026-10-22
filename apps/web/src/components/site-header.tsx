@@ -13,6 +13,7 @@ import {
   SheetTrigger,
 } from "@browser-client/ui/components/sheet"
 import { ThemeSwitcher } from "@browser-client/ui/components/theme-switcher"
+import { useIsMobile } from "@browser-client/ui/hooks/use-mobile"
 
 const links = [
   { href: "#overview", label: "Overview" },
@@ -21,7 +22,7 @@ const links = [
 ]
 
 export function SiteHeader() {
-  const [open, setOpen] = useState(false)
+  const isMobile = useIsMobile()
 
   return (
     <header className="border-b">
@@ -46,40 +47,41 @@ export function SiteHeader() {
         <div className="flex shrink-0 items-center gap-1.5">
           <RepositoryLink />
           <ThemeSwitcher />
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger render={<Button variant="outline" size="icon" className="md:hidden" />} aria-label="Open navigation">
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                className="size-4"
-              >
-                <path d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </SheetTrigger>
-            <SheetContent className="overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>Navigation</SheetTitle>
-                <SheetDescription>Explore the starter.</SheetDescription>
-              </SheetHeader>
-              <nav aria-label="Mobile navigation" className="grid gap-1 px-4">
-                {links.map(({ href, label }) => (
-                  <a
-                    key={href}
-                    href={href}
-                    onClick={() => setOpen(false)}
-                    className="rounded-lg px-3 py-3 text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-                  >
-                    {label}
-                  </a>
-                ))}
-              </nav>
-            </SheetContent>
-          </Sheet>
+          {isMobile && <MobileNavigation />}
         </div>
       </div>
     </header>
+  )
+}
+
+// Unmounting at the desktop breakpoint also discards the open dialog state.
+function MobileNavigation() {
+  const [open, setOpen] = useState(false)
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger render={<Button variant="outline" size="icon" className="md:hidden" />} aria-label="Open navigation">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="size-4">
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </SheetTrigger>
+      <SheetContent className="overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Navigation</SheetTitle>
+          <SheetDescription>Explore the starter.</SheetDescription>
+        </SheetHeader>
+        <nav aria-label="Mobile navigation" className="grid gap-1 px-4">
+          {links.map(({ href, label }) => (
+            <a
+              key={href}
+              href={href}
+              onClick={() => setOpen(false)}
+              className="rounded-lg px-3 py-3 text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+      </SheetContent>
+    </Sheet>
   )
 }

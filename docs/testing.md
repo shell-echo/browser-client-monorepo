@@ -25,6 +25,8 @@ pnpm audit:security
 
 ### Custom business browser assertions
 
+The default browser regressions also cross the desktop breakpoint with Web navigation open, then return to mobile and verify that the old dialog stays closed. Admin checks collapsed and expanded sidebar preferences after reloads and route remounts, invalid cookies, and denied cookie reads / writes. Extension concurrency checks delay a real storage-write response while another extension page writes a newer name, covering both completed and pending reads; Settings, Popup, and storage must converge on the latest value. These checks run in the normal browser suites and therefore in reinit's required pre-promotion gates.
+
 `browser-tests.config.mts` owns the starter's page titles, layouts, routes, background expectations, and application HMR edit. When replacing the demo pages with product screens, update this file with assertions for the actual business behavior. It is preserved across reinit, copied into browser verification workspaces, and loaded after installing the candidate's dependencies.
 
 | Configuration                  | Contract                                                                                                                                   |
@@ -61,6 +63,8 @@ Production output checks resolve static imports, re-exports, and string dynamic 
 `pnpm check` does not launch browsers. Reinit separately requires both browser suites before replacement. Run `pnpm test:extension` after Vite / CRXJS changes. Automated tests use Playwright Chromium; Chrome / Edge extension management and store publication still require verification in those browsers.
 
 Configuration tests invoke TypeScript, ESLint, and Oxlint to verify path / environment resolution, rejected Hooks violations, inherited rule arguments, and preservation of new upstream options during reinit. Engineering regression tests use native `.test.mts` execution. Additional checks exercise nested TypeScript commands without installed dependencies, rejection of invalid process / dependency / browser contracts and non-erasable syntax, inherited lint rules, and preservation of recovery flags when reporting unknown failures.
+
+Lint-scope regressions require real Hooks / TypeScript violations in nested business directories named `dist`, `dist-dev`, `.turbo`, `.reinit`, or `coverage` to fail, while corresponding root / workspace build outputs remain ignored. Sidebar preference unit tests cover exact cookie matching, fallback values, persistence attributes, unavailable storage, and non-browser execution. Reinit preservation tests include the shared lint policy, sidebar helper, application sources, and updated browser assertions.
 
 ## Continuous integration
 

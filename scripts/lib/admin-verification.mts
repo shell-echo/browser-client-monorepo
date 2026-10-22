@@ -100,10 +100,57 @@ export async function verifyAdminTemplates({ pageFor, url, runDir, errors, passe
   await page.waitForFunction(
     () => document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") === "collapsed",
   )
+  await page.reload()
+  await page.waitForFunction(
+    () => document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") === "collapsed",
+  )
+  // Route unmounts must restore the preference too, without a document reload.
+  await page.getByRole("link", { name: "Overview", exact: true }).click()
+  await page.getByRole("link", { name: "Dashboard template", exact: true }).click()
+  await page.waitForFunction(
+    () => document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") === "collapsed",
+  )
   await page.keyboard.press("Control+b")
   await page.waitForFunction(
     () => document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") === "expanded",
   )
+  await page.reload()
+  await page.waitForFunction(
+    () => document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") === "expanded",
+  )
+  await page.evaluate(() => {
+    document.cookie = "sidebar_state=invalid; path=/"
+  })
+  await page.reload()
+  await page.waitForFunction(
+    () => document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") === "expanded",
+  )
+  passed(
+    "Admin sidebar restores collapsed / expanded preferences after reload and route navigation; invalid cookies use defaults",
+  )
+
+  const restricted = await pageFor("admin blocked cookies", `${url}/dashboard`)
+  try {
+    await restricted.addInitScript(() => {
+      Object.defineProperty(Document.prototype, "cookie", {
+        configurable: true,
+        get() {
+          throw new DOMException("Cookies blocked", "SecurityError")
+        },
+        set() {
+          throw new DOMException("Cookies blocked", "SecurityError")
+        },
+      })
+    })
+    await restricted.reload()
+    await restricted.getByRole("button", { name: "Toggle Sidebar", exact: true }).click()
+    await restricted.waitForFunction(
+      () => document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") === "collapsed",
+    )
+  } finally {
+    await restricted.context().close()
+  }
+  passed("Admin sidebar remains usable when cookie reads and writes throw")
   await page.getByRole("button", { name: "Toggle Playground", exact: true }).click()
   await page.getByRole("link", { name: "History", exact: true }).waitFor({ state: "hidden" })
   await page.getByRole("button", { name: "Toggle Playground", exact: true }).click()

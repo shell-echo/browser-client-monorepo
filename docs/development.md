@@ -42,6 +42,8 @@ Lazy route failures show a responsive recovery page with **Refresh page** and **
 
 Reinit preserves these source directories, shared UI, and Admin-specific router / icon dependencies. Its required browser suite checks both templates before replacement, including form behavior, theme changes, direct URL reloads, mobile drawers, menus, and horizontal overflow at 320 / 390 / 768 / 1280px.
 
+Admin restores its desktop sidebar preference from the `sidebar_state` cookie after reloads and route navigation. Only `true` and `false` are accepted; missing, invalid, or unavailable cookies use the expanded default. Writes retain the existing seven-day lifetime and root path. Cookie restrictions do not prevent toggling. The client-only Admin layout initializes this preference; the shared provider keeps its explicit `defaultOpen` / controlled-state contract so SSR consumers can supply server-derived state without hydration mismatches.
+
 ## Shared configuration
 
 Shared rules live in `packages/` and are consumed through `workspace:*` development dependencies. Applications retain environment-specific and path-specific settings:
@@ -56,6 +58,8 @@ Shared rules live in `packages/` and are consumed through `workspace:*` developm
 `base.json` supplies strict checking, `skipLibCheck`, and `noEmit`; React, Next.js, and Vite presets extend it. `vite-common.json` shares options between page and build configurations. Keep `paths`, environment `types`, `include/exclude`, project references, `tsBuildInfoFile`, and the Next.js plugin in each consumer so relative paths resolve correctly. Local application settings override shared defaults.
 
 The ESLint package shares generated-file ignores and unused-disable checks without coupling to a Next.js version. The Web template manages Next.js rules and their dependencies. Oxlint's React preset shares Hooks rules; the application preset adds Fast Refresh checks. Shared UI can export both components and utilities. Oxlint JSON `extends` currently uses file paths, so consumers reference `./node_modules/@browser-client/oxlint-config/...`.
+
+Shared ESLint excludes build output only at the consuming configuration's root and its `apps/*` / `packages/*` workspace boundaries. Business directories such as `src/dist`, `src/coverage`, or `scripts/.reinit` remain checked. Dependency directories retain the standard `node_modules` exclusion.
 
 ```json
 {

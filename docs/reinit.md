@@ -12,6 +12,8 @@ The TypeScript migration adds explicit baseline receipts for its newly declared 
 
 Reinit preserves current files on disk, including uncommitted and untracked source, without relying on Git commits or `git restore`.
 
+This includes Web navigation's responsive state handling, Extension settings synchronization, Admin's sidebar preference restoration, and their shared UI helpers. Shared ESLint's business-directory coverage and the corresponding regression tests are copied unchanged. Regenerated framework configuration reconnects to these shared packages; both browser suites exercise the preserved behavior before promotion, and candidate / final `pnpm check` runs enforce lint-scope and cookie regressions.
+
 ```sh
 pnpm reinit                  # Show the plan without network access or writes
 pnpm reinit web --dry-run    # Preview a specific target

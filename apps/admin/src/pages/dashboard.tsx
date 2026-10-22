@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link } from "react-router"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -12,11 +13,13 @@ import { Separator } from "@browser-client/ui/components/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@browser-client/ui/components/sidebar"
 import { ThemeSwitcher } from "@browser-client/ui/components/theme-switcher"
 import { TooltipProvider } from "@browser-client/ui/components/tooltip"
+import { readSidebarState } from "@browser-client/ui/lib/sidebar-state"
 
 export default function DashboardPage() {
+  const [sidebarOpen, setSidebarOpen] = useState(readSidebarState)
   return (
     <TooltipProvider>
-      <SidebarProvider>
+      <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <AppSidebar />
         <SidebarInset className="min-w-0">
           <header className="flex h-16 shrink-0 items-center justify-between gap-2 px-4">

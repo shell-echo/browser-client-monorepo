@@ -9,6 +9,12 @@ declare global {
     __themeClearObserved?: boolean
     __settingsWrite?: typeof chrome.storage.local.set
     __settingsRead?: typeof chrome.storage.local.get
+    __settingsRace?: {
+      writePending: boolean
+      readPending: boolean
+      releaseWrite(): void
+      releaseRead(): void
+    }
     __openOptions?: typeof chrome.runtime.openOptionsPage
     __openedOptions?: number
   }

@@ -7,6 +7,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
 import { useIsMobile } from "@browser-client/ui/hooks/use-mobile"
+import { writeSidebarState } from "@browser-client/ui/lib/sidebar-state"
 import { Button } from "@browser-client/ui/components/button"
 import { Input } from "@browser-client/ui/components/input"
 import { Separator } from "@browser-client/ui/components/separator"
@@ -15,8 +16,6 @@ import { Skeleton } from "@browser-client/ui/components/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@browser-client/ui/components/tooltip"
 import { PanelLeftIcon } from "lucide-react"
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
@@ -73,7 +72,7 @@ function SidebarProvider({
       }
 
       // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      writeSidebarState(openState)
     },
     [setOpenProp, open],
   )

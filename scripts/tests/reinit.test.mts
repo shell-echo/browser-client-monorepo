@@ -174,9 +174,13 @@ test("Welcome, Overview, Workspace and Settings pages and browser hooks survive 
   }
   for (const path of [
     "packages/ui",
+    "packages/eslint-config",
     "browser-tests.config.mts",
     "scripts/lib/web-verification.mts",
+    "scripts/lib/admin-verification.mts",
     "scripts/lib/extension-verification.mts",
+    "scripts/tests/lint-scopes.test.mts",
+    "scripts/tests/sidebar-state.test.mts",
   ]) {
     await copySource(join(source, path), join(root, "candidate", path), { root: source })
     assert.equal(await fingerprint(join(root, "candidate", path)), await fingerprint(join(source, path)), path)

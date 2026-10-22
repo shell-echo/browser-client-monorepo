@@ -25,6 +25,20 @@ export async function verifyWebTemplate({ page, runDir, passed }: BrowserAsserti
       await mobile.click()
       await drawer.getByRole("button", { name: "Close", exact: true }).click()
       await drawer.waitFor({ state: "hidden" })
+      await mobile.click()
+      await drawer.waitFor()
+      await page.setViewportSize({ width: 768, height: 900 })
+      await drawer.waitFor({ state: "hidden" })
+      const desktop = page.getByRole("navigation", { name: "Main navigation", exact: true })
+      await desktop.getByRole("link", { name: "Resources", exact: true }).click()
+      assert.equal(new URL(page.url()).hash, "#resources", "A stale mobile overlay blocked desktop navigation")
+      await page.setViewportSize({ width, height: 900 })
+      await mobile.waitFor()
+      assert.equal(await drawer.isVisible(), false, "Returning to mobile reopened the old navigation dialog")
+      await mobile.click()
+      await drawer.waitFor()
+      await page.keyboard.press("Escape")
+      await drawer.waitFor({ state: "hidden" })
     } else {
       assert.equal(await mobile.isVisible(), false)
       await page
@@ -42,4 +56,5 @@ export async function verifyWebTemplate({ page, runDir, passed }: BrowserAsserti
     await page.screenshot({ path: join(runDir, `web-${width}.png`), fullPage: true })
   }
   passed("Web responsive template, Inter, shared UI, links and mobile navigation passed at 320 / 390 / 768 / 1280px")
+  passed("Web mobile navigation closes across the desktop breakpoint, restores desktop interaction and stays closed on return")
 }

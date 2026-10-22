@@ -33,9 +33,15 @@ export function useWorkspaceName() {
   }, [load])
 
   async function save(value: string) {
+    const pending = requests.current
+    const current = pending.generation
     const name = await saveWorkspaceName(value)
-    requests.current.generation++
-    if (requests.current.active) setState({ name, loading: false, error: "" })
+    // Storage events may already have read a newer write while this response
+    // was pending. Only publish the saved value if no newer read has started.
+    if (pending.active && pending.generation === current) {
+      pending.generation++
+      setState({ name, loading: false, error: "" })
+    }
     return name
   }
 

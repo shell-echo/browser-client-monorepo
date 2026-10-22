@@ -3,6 +3,90 @@ import assert from "node:assert/strict"
 import { join } from "node:path"
 import { verifyPageFoundation } from "./client-page-verification.mts"
 
+async function verifyConcurrentSave({
+  popup,
+  options,
+  until,
+}: Pick<Parameters<NonNullable<BrowserConfig["extension"]["verifyInteractions"]>>[0], "popup" | "options" | "until">) {
+  const input = options.getByRole("textbox", { name: "Workspace name", exact: true })
+  for (const holdRead of [false, true]) {
+    const local = `Pending local save ${holdRead}`
+    const remote = `Newer remote write ${holdRead}`
+    await options.evaluate(
+      ({ local, remote, holdRead }) => {
+        window.__settingsWrite = chrome.storage.local.set
+        window.__settingsRead = chrome.storage.local.get
+        const nativeSet = chrome.storage.local.set.bind(chrome.storage.local)
+        const nativeGet = chrome.storage.local.get.bind(chrome.storage.local)
+        const race: NonNullable<Window["__settingsRace"]> = {
+          writePending: false,
+          readPending: false,
+          releaseWrite: () => {},
+          releaseRead: () => {},
+        }
+        window.__settingsRace = race
+        const writeGate = new Promise<void>((resolve) => {
+          race.releaseWrite = resolve
+        })
+        const readGate = new Promise<void>((resolve) => {
+          race.releaseRead = resolve
+        })
+        // These probes intercept the promise calls made by the settings page;
+        // the Chrome SDK also declares unrelated generic callback overloads.
+        Object.assign(chrome.storage.local, {
+          set: async (settings: Record<string, unknown>) => {
+            await nativeSet(settings)
+            if (settings.workspaceName === local) {
+              race.writePending = true
+              await writeGate
+            }
+          },
+          get: async (keys: string) => {
+            const result = await nativeGet(keys)
+            if (result.workspaceName === remote) {
+              race.readPending = true
+              if (holdRead) await readGate
+            }
+            return result
+          },
+        })
+      },
+      { local, remote, holdRead },
+    )
+    try {
+      await input.fill(local)
+      await options.getByRole("button", { name: "Save changes", exact: true }).click()
+      await until(() => options.evaluate(() => window.__settingsRace?.writePending), "Delayed local save response")
+      await popup.evaluate((workspaceName) => chrome.storage.local.set({ workspaceName }), remote)
+      await until(() => options.evaluate(() => window.__settingsRace?.readPending), "Newer storage read started")
+      // Let a completed read commit before releasing the older save response.
+      if (!holdRead)
+        await options.evaluate(
+          () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+        )
+      await options.evaluate(() => window.__settingsRace!.releaseWrite())
+      await options.getByText("Settings saved.", { exact: true }).waitFor()
+      await options.evaluate(() => window.__settingsRace!.releaseRead())
+      await until(async () => (await input.inputValue()) === remote, "Settings retains the newer storage value")
+      await until(
+        async () => (await popup.locator("[data-workspace-name]").innerText()) === remote,
+        "Popup reflects latest write",
+      )
+      assert.equal(await popup.evaluate(async () => (await chrome.storage.local.get("workspaceName")).workspaceName), remote)
+    } finally {
+      await options.evaluate(() => {
+        window.__settingsRace?.releaseWrite()
+        window.__settingsRace?.releaseRead()
+        chrome.storage.local.set = window.__settingsWrite!
+        chrome.storage.local.get = window.__settingsRead!
+        delete window.__settingsRace
+        delete window.__settingsWrite
+        delete window.__settingsRead
+      })
+    }
+  }
+}
+
 export async function verifyExtensionPage({ page, kind }: Parameters<BrowserConfig["extension"]["verifyPage"]>[0]) {
   await page.getByRole("heading", { name: kind === "options" ? "Settings" : "Workspace", level: 1, exact: true }).waitFor()
   await verifyPageFoundation(page)
@@ -73,6 +157,7 @@ export async function verifyExtensionSettings({
   await popup.setViewportSize({ width: 360, height: 480 })
 
   if (!preview) {
+    await verifyConcurrentSave({ popup, options, until })
     await input.fill("Unsaved draft")
     await popup.evaluate(() => chrome.storage.local.set({ workspaceName: "Updated elsewhere" }))
     await until(async () => (await displayed.innerText()) === "Updated elsewhere", "External storage update")
