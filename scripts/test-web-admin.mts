@@ -16,6 +16,7 @@ import {
   verifyUnavailableStorage,
   verifyInvalidWebTheme,
   verifyThemeWriteFailure,
+  verifyThemeEventIsolation,
 } from "./lib/theme-verification.mts"
 import { browserUrl, loadBrowserConfig } from "./lib/browser-config.mts"
 
@@ -159,7 +160,11 @@ try {
     await verifyInvalidWebTheme(browser!, webUrl)
     await verifyThemeWriteFailure(browser!, webUrl)
     await verifyUnavailableStorage(webPage)
+    await verifyThemeEventIsolation(browser!, webUrl)
   })
+  passed(
+    "Web ignores native sessionStorage and unknown-area theme events, including blocked storage, while retaining local preference and business events",
+  )
   passed("Web storage quota failures preserve valid themes, recover invalid themes before hydration and allow switching")
   passed("Web invalid stored themes, early first paint, cross-tab recovery and cleared storage passed")
   passed("Web themes, persistence, tab synchronization, system changes and dark first paint before hydration passed")
@@ -172,7 +177,9 @@ try {
     await verifyThemes(adminPage, { errors: report.errors, screenshot: join(runDir, "admin-dark.png") })
     await verifyThemeBeforeHydration(browser!, adminUrl, true)
     await verifyUnavailableStorage(adminPage)
+    await verifyThemeEventIsolation(browser!, adminUrl)
   })
+  passed("Admin ignores sessionStorage theme events without losing local preference synchronization or business events")
   passed("Admin themes, persistence, tab synchronization, system changes, early first paint and unavailable storage passed")
   await phase("Admin routes, responsive navigation and recovery", () =>
     config.admin.verifyRoutes({ pageFor, url: adminOrigin, runDir, errors: report.errors, passed }),

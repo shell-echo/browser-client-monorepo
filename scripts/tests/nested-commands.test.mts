@@ -25,12 +25,14 @@ const gone = (pid: number | undefined) => {
   }
 }
 
-async function fixture(t: import("node:test").TestContext) {
+async function fixture(t: import("node:test").TestContext, { graceMs = 5000 } = {}) {
   const base = await realpath(await mkdtemp(join(tmpdir(), "browser-client-nested-")))
   const root = join(base, "root"),
     stage = join(base, "stage"),
     backup = join(base, "backup")
-  const runner = createCommandRunner({ timeoutMs: 3000, graceMs: 100 })
+  // Successful startup / ownership scenarios are not three-second timing
+  // tests. Timeout cases opt into their shorter deadline explicitly.
+  const runner = createCommandRunner({ timeoutMs: 15000, graceMs })
   t.after(async () => {
     await runner.close().catch(() => {})
     // Failing regression assertions must not leave the fixture's writer alive.
@@ -55,6 +57,8 @@ async function fixture(t: import("node:test").TestContext) {
 }
 
 function nestedWriter(f: Awaited<ReturnType<typeof fixture>>, exitParent = false) {
+  // Stay alive beyond the command deadline plus both cleanup grace windows;
+  // a natural exit must never satisfy the process-ownership assertions.
   const writer = `
     const fs = require('node:fs');
     process.on('SIGTERM', () => {});
@@ -63,7 +67,7 @@ function nestedWriter(f: Awaited<ReturnType<typeof fixture>>, exitParent = false
     update();
     fs.writeFileSync(${JSON.stringify(join(f.base, "writer.pid"))}, String(process.pid));
     setInterval(update, 10);
-    setTimeout(() => process.exit(0), 20000);
+    setTimeout(() => process.exit(0), 60000);
     console.log('ready');
   `
   return `
@@ -88,7 +92,11 @@ test(
         stage: f.stage,
         backup: f.backup,
         paths: ["apps"],
-        validate: () => f.runner.run(process.execPath, ["--input-type=module", "-e", nestedWriter(f)], { capture: true }),
+        validate: () =>
+          f.runner.run(process.execPath, ["--input-type=module", "-e", nestedWriter(f)], {
+            capture: true,
+            timeoutMs: 3000,
+          }),
       }),
       /Timed out/,
     )
@@ -141,7 +149,7 @@ test("unconfirmed nested registration retains both versions and prohibits rollba
           return kill(...args)
         })
       }
-      const f = await fixture(t)
+      const f = await fixture(t, { graceMs: 100 })
       const code = `
     import {mkdirSync,writeFileSync} from 'node:fs';
     import {join} from 'node:path';

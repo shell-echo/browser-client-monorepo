@@ -179,8 +179,10 @@ test("Welcome, Overview, Workspace and Settings pages and browser hooks survive 
     "scripts/lib/web-verification.mts",
     "scripts/lib/admin-verification.mts",
     "scripts/lib/extension-verification.mts",
+    "scripts/lib/theme-verification.mts",
     "scripts/tests/lint-scopes.test.mts",
     "scripts/tests/sidebar-state.test.mts",
+    "scripts/tests/security.test.mts",
   ]) {
     await copySource(join(source, path), join(root, "candidate", path), { root: source })
     assert.equal(await fingerprint(join(root, "candidate", path)), await fingerprint(join(source, path)), path)

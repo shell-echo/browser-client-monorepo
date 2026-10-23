@@ -244,6 +244,109 @@ export async function verifyInvalidWebTheme(browser: Browser, url: string) {
   }
 }
 
+export async function verifyThemeEventIsolation(browser: Browser, url: string) {
+  const context = await browser.newContext({ colorScheme: "light" })
+  const errors: string[] = []
+  try {
+    // Observe native events before the theme provider can intercept them. A
+    // second listener after hydration verifies unrelated business delivery.
+    await context.addInitScript(() => {
+      window.__themeStorageEvents = []
+      window.addEventListener(
+        "storage",
+        (event) => window.__themeStorageEvents!.push({ key: event.key, value: event.newValue }),
+        true,
+      )
+    })
+    const page = await context.newPage()
+    page.on("pageerror", (error) => errors.push(error.message))
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(message.text())
+    })
+    await page.goto(url, { waitUntil: "networkidle" })
+    await chooseTheme(page, "dark")
+    await page.evaluate(() => {
+      window.__themeBusinessEvents = []
+      window.addEventListener("storage", (event) => window.__themeBusinessEvents!.push(event.key))
+      const frame = document.createElement("iframe")
+      frame.id = "theme-storage-probe"
+      frame.hidden = true
+      document.body.appendChild(frame)
+      localStorage.setItem("business-draft", "keep me")
+    })
+    const change = async (area: "localStorage" | "sessionStorage", key: string | null, value: string | null) => {
+      const count = await page.evaluate(() => window.__themeStorageEvents!.length)
+      await page.evaluate(
+        ({ area, key, value }) => {
+          const frame = document.getElementById("theme-storage-probe") as HTMLIFrameElement
+          const storage = frame.contentWindow![area]
+          if (key === null) storage.clear()
+          else if (value === null) storage.removeItem(key)
+          else storage.setItem(key, value)
+        },
+        { area, key, value },
+      )
+      await page.waitForFunction((previous) => window.__themeStorageEvents!.length > previous, count)
+      // Storage dispatch is synchronous, but React effects commit afterward.
+      await page.evaluate(
+        () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+      )
+    }
+    const unchanged = async () => {
+      await themed(page, "dark")
+      await selectedTheme(page, "dark")
+      assert.equal(await page.evaluate((key) => localStorage.getItem(key), storageKey), "dark")
+      assert.equal(await page.evaluate(() => localStorage.getItem("business-draft")), "keep me")
+      assert.deepEqual(errors, [], "Unrelated theme storage events caused a browser error")
+    }
+    for (const value of ["light", "system", "sepia", "invalid theme"]) {
+      await change("sessionStorage", storageKey, value)
+      await unchanged()
+    }
+    await change("sessionStorage", storageKey, null)
+    await unchanged()
+    for (const area of ["sessionStorage", "localStorage"] as const) {
+      const key = `business-${area}-event`
+      await change(area, key, "value")
+      assert((await page.evaluate(() => window.__themeBusinessEvents!)).includes(key))
+      await unchanged()
+    }
+    await change("sessionStorage", null, null)
+    await unchanged()
+    assert((await page.evaluate(() => window.__themeBusinessEvents!)).includes(null), "Session clear event was swallowed")
+
+    // Genuine local preferences must still synchronize and recover, while a
+    // same-key synthetic event without a storage area must not become one.
+    await page.evaluate(
+      (key) => window.dispatchEvent(new StorageEvent("storage", { key, newValue: "invalid theme" })),
+      storageKey,
+    )
+    await unchanged()
+    await change("localStorage", storageKey, "light")
+    await themed(page, "light")
+    await selectedTheme(page, "light")
+    await change("localStorage", storageKey, "invalid theme")
+    await themed(page, "light")
+    await selectedTheme(page, "system")
+    await chooseTheme(page, "dark")
+    await page.evaluate(() => {
+      Object.defineProperty(window, "localStorage", {
+        get() {
+          throw new DOMException("Storage disabled", "SecurityError")
+        },
+      })
+    })
+    for (const value of ["light", "invalid theme"]) {
+      await change("sessionStorage", storageKey, value)
+      await themed(page, "dark")
+      await selectedTheme(page, "dark")
+    }
+    assert.deepEqual(errors, [], "Theme event isolation caused a browser error")
+  } finally {
+    await context.close()
+  }
+}
+
 function themeStorageState(url: string, saved: string | null) {
   return {
     cookies: [],

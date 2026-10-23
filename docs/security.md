@@ -17,6 +17,12 @@ Raw `pnpm audit` uses package versions and may still report this advisory. `audi
 
 After upgrading to a verified upstream fix, remove the patch and its verification policy together. Removing an advisory record or changing a version string does not establish a fix.
 
+## Upstream IP parser fix
+
+The shadcn tooling graph resolves `ip-address@10.7.4`, the upstream fix for [GHSA-rxp7-6hxx-x8q5](https://github.com/advisories/GHSA-rxp7-6hxx-x8q5). The lockfile updates both the SOCKS and MCP rate-limiter dependency chains within their existing version ranges. No advisory exception or local patch is used for this package.
+
+Security regressions check every locked IP parser version and the installed tooling consumers against the `10.7.4` minimum. A separate process with a five-second deadline checks million-character malformed zone identifiers and normal IPv4 / IPv6 parsing. These tests are part of `pnpm check`, including online and offline reinit candidate validation; a vulnerable cached version fails before replacement. Online auditing continues to check for newly published advisories.
+
 ## Scheduled checks
 
 `.github/workflows/security-audit.yml` also runs frozen installation and the same patch-aware audit every Monday at 01:23 UTC (09:23 Asia/Shanghai), with a manual trigger available. The schedule takes effect on the default branch after publication; execution time depends on GitHub's scheduler. It checks the existing lockfile without upgrading dependencies or changing source. Unresolved advisories fail the workflow and remain visible in its logs.

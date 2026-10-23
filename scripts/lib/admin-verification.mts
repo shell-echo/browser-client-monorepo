@@ -156,6 +156,50 @@ export async function verifyAdminTemplates({ pageFor, url, runDir, errors, passe
   await page.getByRole("button", { name: "Toggle Playground", exact: true }).click()
   await page.getByRole("link", { name: "History", exact: true }).waitFor()
 
+  for (const state of ["collapsed", "expanded"]) {
+    if ((await desktopSidebar.getAttribute("data-state")) !== state) await toggle.click()
+    await page.waitForFunction(
+      (expected) => document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") === expected,
+      state,
+    )
+    const cookie = await page.evaluate(() => document.cookie)
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 })
+      await desktopSidebar.waitFor({ state: "detached" })
+      const dialog = page.getByRole("dialog", { name: "Sidebar", exact: true })
+      await dialog.waitFor({ state: "detached" })
+      await toggle.click()
+      await inViewport(page, dialog)
+      await page.setViewportSize({ width: 768, height: 844 })
+      await desktopSidebar.waitFor({ state: "attached" })
+      await dialog.waitFor({ state: "detached" })
+      assert.equal(await desktopSidebar.getAttribute("data-state"), state, "Resizing changed the desktop preference")
+      await page.setViewportSize({ width, height: 844 })
+      await desktopSidebar.waitFor({ state: "detached" })
+      await dialog.waitFor({ state: "detached" })
+      await page.evaluate(
+        () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+      )
+      assert.equal(await dialog.count(), 0, "Returning to mobile reopened an old drawer")
+      await toggle.click()
+      await inViewport(page, dialog)
+      await page.keyboard.press("Escape")
+      await dialog.waitFor({ state: "hidden" })
+      await focused(toggle)
+      await page.setViewportSize({ width: 1280, height: 844 })
+      await desktopSidebar.waitFor({ state: "attached" })
+      assert.equal(await page.evaluate(() => document.cookie), cookie, "Mobile navigation changed saved preferences")
+    }
+    await page.reload()
+    await page.waitForFunction(
+      (expected) => document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") === expected,
+      state,
+    )
+  }
+  passed(
+    "Admin discards mobile drawers across breakpoints while retaining collapsed / expanded desktop preferences and keyboard recovery",
+  )
+
   for (const width of [1280, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 844 })
     const mobile = width < 768

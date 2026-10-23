@@ -58,6 +58,12 @@ function SidebarProvider({
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
 
+  // A mobile drawer is temporary; crossing to desktop must not reopen it on
+  // return. Keep this independent from the persisted desktop preference.
+  React.useEffect(() => {
+    if (!isMobile) setOpenMobile(false)
+  }, [isMobile])
+
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen)

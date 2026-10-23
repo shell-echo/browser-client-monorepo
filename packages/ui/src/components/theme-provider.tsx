@@ -21,7 +21,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     const update = (event: StorageEvent) => {
       if (event.key !== THEME_STORAGE_KEY && event.key !== null) return
       try {
-        if (event.storageArea && event.storageArea !== window.localStorage) return
+        if (event.storageArea !== window.localStorage) return
       } catch {
         return
       }

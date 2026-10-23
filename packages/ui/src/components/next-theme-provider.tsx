@@ -11,8 +11,14 @@ function ThemeBridge({ children }: PropsWithChildren) {
     const update = (event: StorageEvent) => {
       if (event.key !== THEME_STORAGE_KEY && event.key !== null) return
       try {
-        if (event.storageArea && event.storageArea !== window.localStorage) return
+        if (event.storageArea !== window.localStorage) {
+          // Returning alone still lets next-themes consume sessionStorage
+          // events from same-origin frames as if they were local preferences.
+          if (event.key === THEME_STORAGE_KEY) event.stopImmediatePropagation()
+          return
+        }
       } catch {
+        if (event.key === THEME_STORAGE_KEY) event.stopImmediatePropagation()
         return
       }
       if (event.key === null) {

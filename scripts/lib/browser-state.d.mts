@@ -7,6 +7,8 @@ declare global {
     __routeRecovery?: string
     __hmrSentinel?: string
     __themeClearObserved?: boolean
+    __themeStorageEvents?: { key: string | null; value: string | null }[]
+    __themeBusinessEvents?: (string | null)[]
     __settingsWrite?: typeof chrome.storage.local.set
     __settingsRead?: typeof chrome.storage.local.get
     __settingsRace?: {

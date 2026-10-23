@@ -8,10 +8,57 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import { createRequire } from "node:module"
-import { realpath } from "node:fs/promises"
+import { readFile, realpath } from "node:fs/promises"
+import { join } from "node:path"
+import semver from "semver"
+import { parse } from "yaml"
+import { createCommandRunner } from "../lib/commands.mts"
 import { bracesAdvisory, classifyAudit, verifyBracesPatch } from "../lib/dependency-security.mts"
 
 const root = fileURLToPath(new URL("../../", import.meta.url))
+
+async function ipParsers() {
+  const cli = createRequire(await realpath(join(root, "node_modules/shadcn/package.json")))
+  const sdk = createRequire(cli.resolve("@modelcontextprotocol/sdk/server/index.js"))
+  return [createRequire(cli.resolve("socks/package.json")), createRequire(sdk.resolve("express-rate-limit"))]
+}
+
+test("locked and installed shadcn IP parsers use upstream fixed versions", async () => {
+  const lock = parse(await readFile(join(root, "pnpm-lock.yaml"), "utf8"))
+  const versions = Object.keys(lock.packages).filter((name) => name.startsWith("ip-address@"))
+  assert(versions.length > 0, "Expected the shadcn tooling IP parser dependency")
+  for (const name of versions) {
+    const version = name.slice("ip-address@".length)
+    assert(semver.valid(version) && semver.gte(version, "10.7.4"), `${name} is affected by GHSA-rxp7-6hxx-x8q5`)
+  }
+  for (const consumer of await ipParsers()) {
+    const version = consumer("ip-address/package.json").version
+    assert(semver.gte(version, "10.7.4"), `Installed IP parser ${version} is below the security floor`)
+  }
+})
+
+test("the installed IP parser rejects long malformed zones promptly and retains valid addresses", async (t) => {
+  const runner = createCommandRunner({ cwd: root, timeoutMs: 5000 })
+  t.after(() => runner.close())
+  const modules = new Set((await ipParsers()).map((consumer) => consumer.resolve("ip-address")))
+  for (const path of modules) {
+    // A process deadline contains an accidental return to the quadratic
+    // parser; it must not hang the test runner or share its event loop.
+    await runner.run(process.execPath, [
+      "--input-type=commonjs",
+      "-e",
+      `const assert = require("node:assert/strict");
+const { Address4, Address6 } = require(process.argv[1]);
+assert(Address4.isValid("192.0.2.1"));
+assert(Address6.isValid("2001:db8::1"));
+assert.equal(new Address6("fe80::1%eth0").zone, "%eth0");
+for (const end of ["\\n", "\\r", "\\u2028", "\\u2029"]) {
+  assert.equal(Address6.isValid("%".repeat(1_000_000) + end), false);
+}`,
+      path,
+    ])
+  }
+})
 
 test("installed shadcn dependency rejects deep brace/paren patterns and preserves normal expansion", async () => {
   const receipt = await verifyBracesPatch(root)
@@ -50,6 +97,7 @@ test("audit only accepts the exact advisory/version after patch verification; ot
     { ...known, url: "https://github.com/advisories/GHSA-new" },
     { ...known, findings: [{ version: "3.0.2" }] },
     { ...known, module_name: "other" },
+    { url: "https://github.com/advisories/GHSA-rxp7-6hxx-x8q5", module_name: "ip-address", findings: [{ version: "10.7.3" }] },
   ]) {
     assert.equal(classifyAudit(audit({ advisory }), receipt).unresolved.length, 1)
   }
