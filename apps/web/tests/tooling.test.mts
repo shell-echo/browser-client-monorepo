@@ -16,10 +16,15 @@ test("Next loads conditional verification worker limits without changing normal 
         "-e",
         `import assert from "node:assert/strict";
         import {createRequire} from "node:module";
+        process.on("warning", (warning) => {
+          assert.notEqual(warning.code, "MODULE_TYPELESS_PACKAGE_JSON", "Configuration tests must use Next's TypeScript loader");
+        });
         const require = createRequire(import.meta.url);
         const loadConfig = require("next/dist/server/config").default;
         const config = await loadConfig("phase-production-build", process.cwd(), {silent: true});
-        const {default: raw} = await import("./next.config.ts");
+        // Read the cached raw module through Next's TypeScript loader too.
+        const rawModule = await loadConfig("phase-production-build", process.cwd(), {silent: true, rawConfig: true});
+        const raw = rawModule.default ?? rawModule;
         assert(config.transpilePackages.includes("@browser-client/ui"));
         assert(config.turbopack.rules["*.css"]);
         if (process.env.BROWSER_CLIENT_LOW_RESOURCE === "1") {
