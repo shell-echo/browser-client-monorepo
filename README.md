@@ -71,6 +71,18 @@ Admin is based on the official shadcn [login-05](https://ui.shadcn.com/blocks/lo
 
 The extension stores workspace preferences locally, synchronizes popup / settings changes, and handles read / write failures. Production output is **`apps/extension/dist`**; it keeps only the `storage` permission and strict CSP. [Development and production extension setup](docs/development.md#browser-extension).
 
+## Composable applications
+
+Keep only Admin, add multiple Web/Admin instances, or retain the default three clients. Instance names and template types are independent. [Application registry, lifecycle and recovery](docs/applications.md).
+
+```sh
+pnpm app list
+pnpm app add portal --type web --port 3001        # Preview only
+pnpm app add portal --type web --port 3001 --apply
+pnpm app dev portal
+pnpm app remove extension                     # Preview only
+```
+
 ## Reinit
 
 Refresh selected applications from official templates while retaining application code and the shared design system.
@@ -90,7 +102,7 @@ pnpm reinit --apply --offline    # Replay recorded, cached versions
 
 Online rebuilds require the latest stable Next.js / Vite / CRXJS for the selected targets and choose the highest compatible stable shared dependencies. **ESLint cannot fall below 10**, including offline replay. Offline mode uses recorded versions and caches; it does not query current releases.
 
-Stop development / build processes and pause editing before `--apply`. Reinit validates strict peer compatibility, builds, and both browser suites before replacement. Validation failures preserve or restore the original project; unconfirmed process termination retains the lock and recovery state. Never remove a lock blindly.
+Stop development / build processes and pause editing before `--apply`. Reinit validates strict peer compatibility, builds, and every registered instance's browser assertions before replacement. Validation failures preserve or restore the original project; unconfirmed process termination retains the lock and recovery state. Never remove a lock blindly.
 
 [Workflow and dependency policy](docs/reinit.md) · [Failure recovery and backups](docs/reinit.md#failure-recovery-and-backups) · [Cleanup and retention](docs/reinit.md#cleaning-old-successful-workspaces)
 

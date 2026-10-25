@@ -2,7 +2,14 @@ import type { Page, Browser, BrowserContext } from "playwright"
 type ThemeMode = "light" | "dark" | "system"
 import assert from "node:assert/strict"
 
-const storageKey = "browser-client-theme"
+const legacyStorageKey = "browser-client-theme"
+async function themeKeyForUrl(url: string) {
+  const response = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+  assert(response.ok, "Unable to inspect the instance theme namespace")
+  const namespace = (await response.text()).match(/data-app-namespace="([a-z0-9-]+)"/)?.[1]
+  assert(namespace, "The application must expose its checked instance namespace")
+  return `${legacyStorageKey}:${namespace}`
+}
 const trigger = (page: Page) => page.getByRole("button", { name: "Toggle theme", exact: true })
 const menu = (page: Page) => page.getByRole("menu", { name: "Theme options", exact: true })
 const labels = { light: "Light", dark: "Dark", system: "System" }
@@ -71,6 +78,10 @@ export async function verifyThemes(
   page: Page,
   { peer, errors, screenshot }: { peer?: Page; errors?: string[]; screenshot?: string } = {},
 ) {
+  const storageKey = await page.evaluate(() => {
+    const namespace = document.documentElement.dataset.appNamespace
+    return namespace ? `browser-client-theme:${namespace}` : "browser-client-theme"
+  })
   const ownsPeer = !peer
   if (!peer) {
     peer = await page.context().newPage()
@@ -170,7 +181,7 @@ export async function verifyThemeBeforeHydration(
     writeFailure = false,
   }: { saved?: string | null; expected?: "light" | "dark"; system?: "light" | "dark"; writeFailure?: boolean } = {},
 ) {
-  const context = await browser.newContext({ colorScheme: system, storageState: themeStorageState(url, saved) })
+  const context = await browser.newContext({ colorScheme: system, storageState: await themeStorageState(url, saved) })
   try {
     if (writeFailure) await blockStorageWrites(context)
     const page = await context.newPage()
@@ -193,6 +204,7 @@ export async function verifyThemeBeforeHydration(
 }
 
 export async function verifyInvalidWebTheme(browser: Browser, url: string) {
+  const storageKey = await themeKeyForUrl(url)
   for (const saved of ["sepia", "invalid theme"]) {
     await verifyThemeBeforeHydration(browser, url, false, { saved, expected: "dark", system: "dark" })
     const context = await browser.newContext({
@@ -245,6 +257,7 @@ export async function verifyInvalidWebTheme(browser: Browser, url: string) {
 }
 
 export async function verifyThemeEventIsolation(browser: Browser, url: string) {
+  const storageKey = await themeKeyForUrl(url)
   const context = await browser.newContext({ colorScheme: "light" })
   const errors: string[] = []
   try {
@@ -347,7 +360,8 @@ export async function verifyThemeEventIsolation(browser: Browser, url: string) {
   }
 }
 
-function themeStorageState(url: string, saved: string | null) {
+async function themeStorageState(url: string, saved: string | null) {
+  const storageKey = await themeKeyForUrl(url)
   return {
     cookies: [],
     origins: [
@@ -373,12 +387,13 @@ async function blockStorageWrites(context: BrowserContext) {
 }
 
 export async function verifyThemeWriteFailure(browser: Browser, url: string) {
+  const storageKey = await themeKeyForUrl(url)
   for (const saved of [null, "light", "dark", "system", "sepia", "invalid theme", ""]) {
     const manual = saved === "light" || saved === "dark"
     const expected = manual ? saved : "dark"
     const stored = saved === "system" || manual ? saved : null
     await verifyThemeBeforeHydration(browser, url, false, { saved, expected, system: "dark", writeFailure: true })
-    const context = await browser.newContext({ colorScheme: "dark", storageState: themeStorageState(url, saved) })
+    const context = await browser.newContext({ colorScheme: "dark", storageState: await themeStorageState(url, saved) })
     const errors: string[] = []
     context.on("page", (page) => {
       page.on("pageerror", (error) => errors.push(error.message))

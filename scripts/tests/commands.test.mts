@@ -119,6 +119,9 @@ test("validation timeout stops a writer before rollback restores source", async 
       stage,
       backup,
       paths: ["apps"],
+      // This fixture deliberately writes source from an owned validator.
+      // Production maintenance does not grant this exception.
+      validationWrites: ["apps/data", "apps/data.pid", "apps/data.pending"],
       validate: () =>
         runner.run(
           process.execPath,

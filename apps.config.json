@@ -1,0 +1,9 @@
+{
+  "$schema": "./schemas/apps.schema.json",
+  "schemaVersion": 1,
+  "apps": {
+    "web": { "type": "web", "port": 3000 },
+    "admin": { "type": "admin", "port": 5173 },
+    "extension": { "type": "extension", "port": 5174 }
+  }
+}

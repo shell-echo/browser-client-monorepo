@@ -55,7 +55,7 @@ const fixtures: [string, number, string][] = [
 
 test("official Next rules remain effective with the shared ESLint version", async (t) => {
   const previousCwd = process.cwd()
-  const web = fileURLToPath(new URL("../../apps/web/", import.meta.url))
+  const web = fileURLToPath(new URL("../", import.meta.url))
   // React's version detection uses process.cwd(), independently of ESLint.cwd.
   // Node runs test files in separate processes, so this does not affect peers.
   process.chdir(web)

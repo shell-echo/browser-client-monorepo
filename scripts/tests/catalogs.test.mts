@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url"
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import semver from "semver"
+import { readApplications } from "../lib/apps.mts"
 
 const workspace = {
   catalog: { react: "19.3.0", tailwindcss: "^4.1.0" },
@@ -50,7 +51,8 @@ test("overlapping ranges cannot lower the official template's requirements", () 
 test("real workspace manifests resolve their catalogs without freezing policy versions", async () => {
   const root = fileURLToPath(new URL("../../", import.meta.url))
   const actual = await readCatalogs(root)
-  for (const path of ["apps/web", "apps/admin", "apps/extension", "packages/ui"]) {
+  const apps = await readApplications(root)
+  for (const path of [...apps.map((app) => app.path), "packages/ui"]) {
     const manifest: PackageManifest = JSON.parse(await readFile(join(root, path, "package.json"), "utf8"))
     let count = 0
     for (const field of ["dependencies", "devDependencies"] as const) {
@@ -61,7 +63,10 @@ test("real workspace manifests resolve their catalogs without freezing policy ve
       }
     }
     assert.ok(count > 0, `${path} must reuse shared dependency policy`)
-    assert.equal(manifest.devDependencies!.typescript, path === "apps/web" ? "catalog:next" : "catalog:vite")
+    assert.equal(
+      manifest.devDependencies!.typescript,
+      apps.find((app) => app.path === path)?.type === "web" ? "catalog:next" : "catalog:vite",
+    )
   }
   assert.equal(catalogRange(actual, "react", "catalog:"), catalogRange(actual, "react-dom", "catalog:"))
 })

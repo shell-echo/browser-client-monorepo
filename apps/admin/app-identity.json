@@ -1,0 +1,6 @@
+{
+  "instanceId": "starter-admin",
+  "type": "admin",
+  "legacy": true,
+  "integrationVersion": 1
+}

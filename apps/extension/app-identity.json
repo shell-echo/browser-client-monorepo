@@ -1,0 +1,6 @@
+{
+  "instanceId": "starter-extension",
+  "type": "extension",
+  "legacy": true,
+  "integrationVersion": 1
+}

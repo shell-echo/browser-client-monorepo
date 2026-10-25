@@ -5,6 +5,7 @@ import { createRequire } from "node:module"
 import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import semver from "semver"
+import { readApplications, selectApplications } from "./lib/apps.mts"
 
 export function assertCompatible(vite: RegistryMetadata, crx: RegistryMetadata) {
   const range = crx.peerDependencies?.vite
@@ -14,8 +15,8 @@ export function assertCompatible(vite: RegistryMetadata, crx: RegistryMetadata) 
   )
 }
 
-export async function checkCompatibility(root: string) {
-  const require = createRequire(resolve(root, "apps/extension/package.json"))
+export async function checkCompatibility(root: string, path = "apps/extension") {
+  const require = createRequire(resolve(root, path, "package.json"))
   const read = async (name: string): Promise<RegistryMetadata> =>
     JSON.parse(await readFile(require.resolve(`${name}/package.json`), "utf8"))
   const [vite, crx] = await Promise.all([read("vite"), read("@crxjs/vite-plugin")])
@@ -24,5 +25,8 @@ export async function checkCompatibility(root: string) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  await checkCompatibility(fileURLToPath(new URL("../", import.meta.url)))
+  const root = fileURLToPath(new URL("../", import.meta.url))
+  const apps = selectApplications(await readApplications(root), process.argv[2]).filter((app) => app.type === "extension")
+  for (const app of apps) await checkCompatibility(root, app.path)
+  if (!apps.length) console.log("Extension compatibility: not applicable (no registered extension).")
 }

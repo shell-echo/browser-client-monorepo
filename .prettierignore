@@ -18,7 +18,7 @@
 /*.tsbuildinfo
 /apps/*/*.tsbuildinfo
 /packages/*/*.tsbuildinfo
-/apps/web/next-env.d.ts
+/apps/*/next-env.d.ts
 
 # Generated records, static assets and protected repository instructions.
 /pnpm-lock.yaml

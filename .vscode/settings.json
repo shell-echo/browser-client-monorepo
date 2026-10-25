@@ -10,7 +10,11 @@
   "prettier.requireConfig": true,
   "prettier.ignorePath": ".prettierignore",
   "eslint.format.enable": false,
-  "eslint.workingDirectories": [".", "./apps/web"],
+  "eslint.workingDirectories": [
+    {
+      "mode": "auto"
+    }
+  ],
   "oxc.enable.oxfmt": false,
   "oxc.requireConfig": true,
   "search.exclude": {
@@ -24,5 +28,11 @@
   "files.watcherExclude": {
     "**/.reinit/**": true,
     "**/.turbo/**": true
-  }
+  },
+  "json.schemas": [
+    {
+      "fileMatch": ["/apps.config.json"],
+      "url": "./schemas/apps.schema.json"
+    }
+  ]
 }

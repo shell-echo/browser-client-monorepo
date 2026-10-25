@@ -33,8 +33,7 @@ export async function validateBeforePromotion({
     await run(["exec", "playwright", "install", "chromium"], stage)
   }
   const env = { BROWSER_TEST_OUTPUT_ROOT: join(root, ".reinit/verification") }
-  await run(["test:web-admin"], stage, false, env)
-  await run(["test:extension"], stage, false, env)
+  await run(["test:browser"], stage, false, env)
   if ((await fingerprint(root)) !== baseline)
     throw new Error(
       "Workspace changed during generation; stopping replacement. The original project is preserved. Stop editing and retry.",

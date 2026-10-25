@@ -3,6 +3,7 @@ import { readFile, access, readdir } from "node:fs/promises"
 import { dirname, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { init, parse } from "es-module-lexer"
+import { readApplications, selectApplications } from "./lib/apps.mts"
 
 export function assetPath(dist: string, path: unknown, from = dist) {
   assert(
@@ -83,7 +84,12 @@ export async function checkExtension(
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const app = new URL("../apps/extension/", import.meta.url)
-  const { default: source } = await import(new URL("manifest.config.ts", app).href)
-  await checkExtension(fileURLToPath(new URL("dist/", app)), source)
+  const root = fileURLToPath(new URL("../", import.meta.url))
+  const apps = selectApplications(await readApplications(root), process.argv[2]).filter((app) => app.type === "extension")
+  for (const instance of apps) {
+    const app = new URL(`../${instance.path}/`, import.meta.url)
+    const { default: source } = await import(new URL("manifest.config.ts", app).href)
+    await checkExtension(fileURLToPath(new URL("dist/", app)), source)
+  }
+  if (!apps.length) console.log("Extension output: not applicable (no registered extension).")
 }

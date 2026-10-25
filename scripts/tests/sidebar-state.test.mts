@@ -60,3 +60,28 @@ test("unavailable cookies and non-browser execution retain safe sidebar defaults
   assert.equal(readSidebarState(false), false)
   assert.doesNotThrow(() => writeSidebarState(true))
 })
+
+test("two application namespaces keep cookie preferences separate and only migrated instances read legacy state", (t) => {
+  const values = new Map([["sidebar_state", "false"]])
+  cookieDocument(t, {
+    get: () => [...values].map(([key, value]) => `${key}=${value}`).join("; "),
+    set: (value: string) => {
+      const [key, saved] = value.split(";", 1)[0].split("=")
+      values.set(key, saved)
+    },
+  })
+  const dataset = { appNamespace: "first", appLegacy: "false" }
+  Object.defineProperty(globalThis.document, "documentElement", { value: { dataset } })
+  assert.equal(readSidebarState(), true, "A new instance must ignore another application's legacy cookie")
+  writeSidebarState(false)
+  dataset.appNamespace = "second"
+  assert.equal(readSidebarState(), true)
+  writeSidebarState(true)
+  dataset.appNamespace = "first"
+  assert.equal(readSidebarState(), false)
+  dataset.appNamespace = "migrated"
+  dataset.appLegacy = "true"
+  assert.equal(readSidebarState(), false)
+  assert.equal(values.get("sidebar_state_migrated"), "false")
+  assert.equal(values.get("sidebar_state_second"), "true")
+})

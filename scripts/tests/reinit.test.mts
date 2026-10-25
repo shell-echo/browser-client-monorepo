@@ -123,7 +123,7 @@ test("Admin routes, block components and router dependencies survive an official
   const root = await fixture(t)
   const previous = join(root, "previous")
   const candidate = join(root, "candidate")
-  const admin = fileURLToPath(new URL("../../apps/admin/", import.meta.url))
+  const admin = fileURLToPath(new URL("../../templates/admin/", import.meta.url))
   await copySource(join(admin, "src"), join(previous, "src"))
   await put(candidate, "src/App.tsx", "official demo")
   await put(candidate, "src/demo.ts", "official demo")
@@ -145,7 +145,7 @@ test("Welcome, Overview, Workspace and Settings pages and browser hooks survive 
   for (const target of ["web", "admin", "extension"]) {
     const previous = join(root, "previous", target)
     const candidate = join(root, "candidate", target)
-    const original = join(source, "apps", target)
+    const original = join(source, "templates", target)
     await copySource(original, previous)
     const pages =
       target === "web"
@@ -278,6 +278,8 @@ test("Next adapter retains upstream CSS settings and removes the nested workspac
   const config = await readFile(join(root, "apps/web/next.config.ts"), "utf8")
   assert(config.includes("upstream-loader"))
   assert(config.includes('transpilePackages: ["@browser-client/ui"]'))
+  assert(config.includes('import { withVerificationResources } from "../../scripts/lib/verification-resources.mts"'))
+  assert(config.includes("export default withVerificationResources(nextConfig)"))
   assert.equal(await exists(join(root, "apps/web/pnpm-workspace.yaml")), false)
   const gitignore = await readFile(join(root, "apps/web/.gitignore"), "utf8")
   assert(gitignore.includes("/.next/\n"))

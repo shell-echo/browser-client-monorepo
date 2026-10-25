@@ -8,6 +8,8 @@ export default [
     files: [
       "scripts/test-extension.mts",
       "scripts/test-web-admin.mts",
+      "scripts/test-extension-instance.mts",
+      "scripts/test-page.mts",
       "scripts/lib/theme-verification.mts",
       "scripts/lib/client-page-verification.mts",
       "scripts/lib/admin-verification.mts",

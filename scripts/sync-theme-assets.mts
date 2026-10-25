@@ -1,11 +1,12 @@
 import { toError } from "./lib/contracts.mts"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
+import { readApplications } from "./lib/apps.mts"
 
 const root = new URL("../", import.meta.url)
 const source = await readFile(new URL("packages/ui/src/lib/theme-init.js", root), "utf8")
-for (const target of ["admin", "extension"]) {
-  const publicDir = new URL(`apps/${target}/public/`, root)
+for (const target of (await readApplications(fileURLToPath(root))).filter((app) => app.type !== "web")) {
+  const publicDir = new URL(`${target.path}/public/`, root)
   await mkdir(publicDir, { recursive: true })
   const path = new URL("theme-init.js", publicDir)
   try {

@@ -1,3 +1,4 @@
+import { readApplications, application } from "../lib/apps.mts"
 import { required, offlineRegistry } from "./fixtures.mts"
 import type { RegistryMetadata, DependencyVariable, DependencyReceipt } from "../lib/contracts.mts"
 import assert from "node:assert/strict"
@@ -238,9 +239,11 @@ test("the current workspace replays its font, shared icons and managed Admin rou
       await writeFile(join(root, path, "package.json"), await readFile(join(source, path, "package.json")))
     }
   }
+  const applications = await readApplications(source)
   const saved = JSON.parse(await readFile(join(source, "template-versions.json"), "utf8")).dependencies
   const receipt = await updateDependencies({
     root,
+    applications,
     templates: {},
     previous: {},
     saved,
@@ -259,17 +262,74 @@ test("the current workspace replays its font, shared icons and managed Admin rou
     font.version,
   )
   const icons = required(receipt.entries.find((entry) => entry.id === "catalog:default:lucide-react"))
-  const router = required(receipt.entries.find((entry) => entry.id === "apps/admin:dependencies:react-router"))
   assert(icons, "Shared icons need a catalog dependency receipt")
-  assert(router, "The managed Admin router needs an offline dependency receipt")
   assert.equal(ui.dependencies["lucide-react"], "catalog:")
-  const admin = JSON.parse(await readFile(join(root, "apps/admin/package.json"), "utf8"))
-  assert.equal(admin.dependencies["lucide-react"], "catalog:")
-  assert.equal(admin.dependencies["react-router"], router.version)
+  for (const app of applications.filter((entry) => entry.type === "admin")) {
+    const router = required(receipt.entries.find((entry) => entry.id === `${app.path}:dependencies:react-router`))
+    const admin = JSON.parse(await readFile(join(root, app.path, "package.json"), "utf8"))
+    assert.equal(admin.dependencies["lucide-react"], "catalog:")
+    assert.equal(admin.dependencies["react-router"], router.version)
+  }
   assert.equal(
     receipt.entries.some((entry) => entry.id === "packages/ui:dependencies:lucide-react"),
     false,
   )
+})
+
+test("managed dependency policies follow registered types while unmanaged explicit dependencies remain locked", async (t) => {
+  for (const registered of [false, true])
+    await t.test(registered ? "custom Admin instance" : "unmanaged apps/admin", async (t) => {
+      const root = await fixture(t)
+      const id = registered ? "console" : "admin",
+        path = `apps/${id}`
+      const original = {
+        name: `external-${id}`,
+        dependencies: { react: registered ? "catalog:" : "^18.0.0", "react-router": registered ? "8.4.0" : "^7.0.0" },
+      }
+      await mkdir(join(root, path))
+      await writeFile(join(root, path, "package.json"), JSON.stringify(original))
+      await writeFile(
+        join(root, "pnpm-lock.yaml"),
+        `catalogs:\n  default:\n    react:\n      version: 19.3.0\nimporters:\n  ${path}:\n    dependencies:\n      react:\n        version: ${registered ? "19.3.0" : "18.3.1"}\n      react-router:\n        version: ${registered ? "8.4.0" : "7.2.0"}\n`,
+      )
+      const registry = registryFixture({
+        react: releases({ "19.3.0": {}, "18.3.1": {} }),
+        tool: releases({ "2.0.0": {} }),
+        helper: releases({ "2.1.0": {} }),
+        "react-router": releases({
+          "8.4.1": { peerDependencies: { react: "^19" } },
+          "7.2.0": { peerDependencies: { react: "^18" } },
+        }),
+      })
+      const applications = registered
+        ? [
+            application(
+              id,
+              { type: "admin", port: 5210 },
+              { type: "admin", legacy: false, instanceId: "test-console", integrationVersion: 1 },
+            ),
+          ]
+        : []
+      const receipt = await updateDependencies({ root, templates: {}, previous: {}, registry, applications })
+      const actual = JSON.parse(await readFile(join(root, path, "package.json"), "utf8"))
+      if (registered) {
+        assert.equal(actual.dependencies["react-router"], "8.4.1")
+        assert.equal(actual.dependencies.react, "catalog:")
+      } else {
+        assert.deepEqual(actual, original)
+        assert(!receipt.entries.some((entry) => entry.location?.path === path))
+      }
+      await updateDependencies({
+        root,
+        templates: {},
+        previous: {},
+        offline: true,
+        saved: receipt,
+        registry: offlineRegistry,
+        applications,
+      })
+      assert.deepEqual(JSON.parse(await readFile(join(root, path, "package.json"), "utf8")), actual)
+    })
 })
 
 test("shared source and manifest contracts survive upgrades; offline replay never queries registry", async (t) => {

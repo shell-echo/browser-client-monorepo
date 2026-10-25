@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
+import { readApplications } from "../lib/apps.mts"
 import { test } from "node:test"
-import { spawnSync, execFileSync } from "node:child_process"
+import { spawnSync } from "node:child_process"
 import { mkdtemp, mkdir, readFile, rm, writeFile, symlink } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
@@ -108,15 +109,18 @@ test("reinit preserves upstream lint additions while shared rules override templ
   assert.equal(await readFile(file, "utf8"), first)
 })
 
-test("real TypeScript resolves shared presets while keeping consumer-relative paths and environments", () => {
-  for (const [app, filename] of [
-    ["apps/web", "tsconfig.json"],
-    ["apps/admin", "tsconfig.app.json"],
-    ["apps/extension", "tsconfig.app.json"],
-    ["packages/ui", "tsconfig.json"],
-    ["apps/admin", "tsconfig.node.json"],
-    ["apps/extension", "tsconfig.node.json"],
-  ]) {
+test("real TypeScript resolves shared presets while keeping consumer-relative paths and environments", async () => {
+  const apps = await readApplications(root)
+  const consumers = apps.flatMap((app) =>
+    app.type === "web"
+      ? [[app.path, "tsconfig.json"]]
+      : [
+          [app.path, "tsconfig.app.json"],
+          [app.path, "tsconfig.node.json"],
+        ],
+  )
+  consumers.push(["packages/ui", "tsconfig.json"])
+  for (const [app, filename] of consumers) {
     const directory = join(root, app)
     const ts: typeof import("typescript") = createRequire(join(directory, "package.json"))("typescript")
     const config = ts.getParsedCommandLineOfConfigFile(
@@ -141,8 +145,10 @@ test("real TypeScript resolves shared presets while keeping consumer-relative pa
       assert.equal(config.options.pathsBasePath, directory)
     }
     if (config.options.tsBuildInfoFile) assert(config.options.tsBuildInfoFile.startsWith(join(directory, "node_modules")))
-    if (app === "apps/extension" && filename === "tsconfig.app.json") assert(config.options.types!.includes("chrome"))
-    if (app === "apps/web") assert((config.options.plugins as { name: string }[]).some((plugin) => plugin.name === "next"))
+    if (apps.find((entry) => entry.path === app)?.type === "extension" && filename === "tsconfig.app.json")
+      assert(config.options.types!.includes("chrome"))
+    if (apps.find((entry) => entry.path === app)?.type === "web")
+      assert((config.options.plugins as { name: string }[]).some((plugin) => plugin.name === "next"))
   }
 })
 
@@ -153,7 +159,9 @@ test("real Oxlint rejects invalid React Hooks in both applications and the share
     file,
     'import { useState } from "react";\nexport function Broken({ enabled }: { enabled: boolean }) { if (enabled) useState(0); return null; }\n',
   )
-  for (const app of ["apps/admin", "apps/extension", "packages/ui"]) {
+  const apps = await readApplications(root)
+  const viteApps = apps.filter((app) => app.type !== "web").map((app) => app.path)
+  for (const app of [...viteApps, "packages/ui"]) {
     const result = spawnSync(process.execPath, [oxlint(app), "--config", join(root, app, ".oxlintrc.json"), file], {
       cwd: join(root, app),
       encoding: "utf8",
@@ -164,7 +172,7 @@ test("real Oxlint rejects invalid React Hooks in both applications and the share
   }
   // Options must survive JSON inheritance too, not just rule severity.
   await writeFile(file, "export const answer = 42;\nexport function Probe() { return <div />; }\n")
-  for (const app of ["apps/admin", "apps/extension"]) {
+  for (const app of viteApps) {
     const result = spawnSync(
       process.execPath,
       [oxlint(app), "--config", join(root, app, ".oxlintrc.json"), "--deny-warnings", file],
@@ -172,29 +180,4 @@ test("real Oxlint rejects invalid React Hooks in both applications and the share
     )
     assert.equal(result.status, 0, result.error ?? result.stdout + result.stderr)
   }
-})
-
-test("real ESLint combines shared policy with Next rules and ignores generated extension output", () => {
-  const app = join(root, "apps/web")
-  // Match the real CLI's cwd so eslint-plugin-react can detect the app's React.
-  execFileSync(
-    process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      `
-    import assert from "node:assert/strict"
-    import { ESLint } from "eslint"
-    const eslint = new ESLint()
-    const config = await eslint.calculateConfigForFile("src/app/page.tsx")
-    assert.equal(config.linterOptions.reportUnusedDisableDirectives, 2)
-    assert(config.rules["@next/next/no-html-link-for-pages"])
-    assert(config.rules["@typescript-eslint/no-unused-vars"])
-    assert.equal(await eslint.isPathIgnored("dist-dev/generated.js"), true)
-    const [result] = await eslint.lintText("// eslint-disable-next-line no-debugger\\nexport const value = 1;", { filePath: "src/config-probe.ts" })
-    assert(result.messages.some((message) => message.severity === 2 && /Unused eslint-disable directive/.test(message.message)))
-  `,
-    ],
-    { cwd: app, encoding: "utf8", timeout: lintTimeout },
-  )
 })

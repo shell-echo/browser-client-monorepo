@@ -1,12 +1,17 @@
-import type { CommandResult, GeneratorRecord } from "./contracts.mts"
+import type { CommandResult, GeneratorRecord, TemplateVersions } from "./contracts.mts"
 import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
 import { lstat, mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { ignored, managed } from "./workspace.mts"
 import { targets } from "./integrate.mts"
+import { readApplications } from "./apps.mts"
+import { exists } from "./workspace.mts"
 
 export async function preservedSnapshot(root: string) {
+  const managedIds = (await exists(join(root, "apps.config.json")))
+    ? (await readApplications(root)).map((app) => app.id)
+    : targets
   const files: [string, number, string][] = []
   async function visit(path = "") {
     for (const name of (await readdir(join(root, path))).sort()) {
@@ -14,7 +19,8 @@ export async function preservedSnapshot(root: string) {
       if (ignored(child)) continue
       const parts = child.split("/")
       if (!path && ["package.json", "pnpm-workspace.yaml", "pnpm-lock.yaml", "template-versions.json"].includes(name)) continue
-      if (parts.length === 3 && parts[0] === "apps" && targets.some((target) => target === parts[1]) && managed(name)) continue
+      if (parts.length === 3 && parts[0] === "apps" && managedIds.some((target) => target === parts[1]) && managed(name))
+        continue
       if (parts.length === 3 && parts[0] === "packages" && name === "package.json") continue
       const stat = await lstat(join(root, child))
       assert(!stat.isSymbolicLink(), `Unexpected symbolic link in source: ${child}`)
@@ -36,12 +42,16 @@ export async function preservedSnapshot(root: string) {
 }
 
 export async function seedReinitAcceptance(workspace: string) {
+  const apps = (await exists(join(workspace, "apps.config.json")))
+    ? await readApplications(workspace)
+    : targets.map((id) => ({ id, type: id, path: `apps/${id}` }))
   // These untracked probes do not depend on starter routes, titles or modules.
   for (const path of [
-    "apps/web/public/dist/reinit-business.txt",
-    "apps/admin/src/dist/reinit-business.txt",
-    "apps/extension/public/reinit-business.txt",
-    "apps/admin/.env.reinit-verification",
+    ...apps.flatMap((app) =>
+      app.type === "admin"
+        ? [`${app.path}/src/dist/reinit-business.txt`, `${app.path}/.env.reinit-verification`]
+        : [`${app.path}/public/${app.type === "web" ? "dist/" : ""}reinit-business.txt`],
+    ),
     "packages/ui/src/reinit-business.txt",
   ]) {
     await mkdir(join(workspace, path, ".."), { recursive: true })
@@ -55,7 +65,13 @@ export function dependencyVersions(records: { dependencies?: { entries?: { id: s
     .sort(([a], [b]) => a.localeCompare(b))
 }
 
-export function generatorVersions(records: Partial<Record<"web" | "admin" | "extension", Partial<GeneratorRecord>>>) {
+export function generatorVersions(
+  records: TemplateVersions | Partial<Record<"web" | "admin" | "extension", Partial<GeneratorRecord>>>,
+) {
+  if ("applications" in records && records.applications)
+    return Object.entries(records.applications)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, record]) => [name, record.generator, record.version])
   return (["web", "admin", "extension"] as const).map((name) => [name, records[name]?.generator, records[name]?.version])
 }
 

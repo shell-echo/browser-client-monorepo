@@ -7,7 +7,7 @@ import {
   saveWorkspaceName,
   subscribeWorkspaceName,
   validateWorkspaceName,
-} from "../../apps/extension/src/lib/settings.ts"
+} from "../src/lib/settings.ts"
 
 function environment(t: import("node:test").TestContext, extension = true) {
   const previous = {

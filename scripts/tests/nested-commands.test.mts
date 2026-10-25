@@ -10,9 +10,78 @@ import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import { test } from "node:test"
 import { createCommandRunner } from "../lib/commands.mts"
+import { createCommandScope, inspectCommandScope, releaseRetainedCommandScope } from "../lib/command-scopes.mts"
 import { exists, fingerprint, promote } from "../lib/workspace.mts"
 
 const commands = new URL("../lib/commands.mts", import.meta.url).href
+
+test("recovery evidence reclamation rejects an unrelated directory before changing it", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "browser-client-unrelated-"))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const owner = { version: 1, token: "fixture-token", pid: process.pid, state: "settled", retainForRecovery: true }
+  await writeFile(join(directory, "owner.json"), JSON.stringify(owner))
+  await writeFile(join(directory, "business.txt"), "preserve")
+  assert.throws(() => releaseRetainedCommandScope(directory), /non-command temporary directory/)
+  assert.deepEqual(JSON.parse(await readFile(join(directory, "owner.json"), "utf8")), owner)
+  assert.equal(await readFile(join(directory, "business.txt"), "utf8"), "preserve")
+})
+
+test("releasing one recovery scope preserves retained siblings until each is released", async (t) => {
+  const outer = createCommandScope({})
+  outer.attach(process.pid)
+  t.after(() => rm(outer.path, { recursive: true, force: true }))
+  const first = createCommandScope(outer.env),
+    second = createCommandScope(outer.env)
+  for (const scope of [first, second]) {
+    scope.attach(process.pid)
+    scope.retain()
+  }
+  outer.settle()
+  assert(await exists(first.path))
+  assert(await exists(second.path))
+  releaseRetainedCommandScope(first.path)
+  assert(await exists(second.path), "Releasing a sibling discarded another recovery's evidence")
+  assert(inspectCommandScope(second.path).some((record) => record.retainForRecovery === true))
+  releaseRetainedCommandScope(second.path)
+  assert.equal(await exists(outer.path), false)
+})
+
+test("explicit runner and command environments register children beneath their recovery owner", async (t) => {
+  for (const source of ["runner", "command"] as const) {
+    await t.test(source, async () => {
+      const before = process.env.BROWSER_CLIENT_COMMAND_SCOPE
+      const parent = createCommandScope()
+      parent.attach(process.pid)
+      const runner = createCommandRunner(source === "runner" ? { env: parent.env } : {})
+      try {
+        const child = runner.start(
+          process.execPath,
+          ["-e", "console.log(process.env.BROWSER_CLIENT_COMMAND_SCOPE);setInterval(()=>{},1000)"],
+          { capture: true, ...(source === "command" ? { env: parent.env } : {}) },
+        )
+        await Promise.race([
+          once(child.child.stdout!, "data"),
+          child.done.then(() => assert.fail("The owned child exited before readiness")),
+        ])
+        assert(
+          inspectCommandScope(parent.path).some((record) => record.pid === child.child.pid),
+          "The recovery owner cannot observe its running child",
+        )
+        assert.equal(process.env.BROWSER_CLIENT_COMMAND_SCOPE, before, "Scope registration mutated the global environment")
+        await child.stop()
+        parent.stopping()
+        assert.throws(
+          () => runner.start(process.execPath, ["-e", "process.exit(0)"], { env: parent.env }),
+          (error) => toError(error).unsafeToRestore === true && /Parent command is stopping/.test(toError(error).message),
+          "An explicit stopping owner permitted another command to start",
+        )
+      } finally {
+        await runner.close()
+        parent.settle()
+      }
+    })
+  }
+})
 const gone = (pid: number | undefined) => {
   try {
     assert(pid)
@@ -89,6 +158,7 @@ test(
     await assert.rejects(
       promote({
         root: f.root,
+        validationWrites: ["apps/data"],
         stage: f.stage,
         backup: f.backup,
         paths: ["apps"],
@@ -162,6 +232,7 @@ test("unconfirmed nested registration retains both versions and prohibits rollba
       await assert.rejects(
         promote({
           root: f.root,
+          validationWrites: ["apps/data"],
           stage: f.stage,
           backup: f.backup,
           paths: ["apps"],
@@ -214,6 +285,20 @@ test("the real reinit CLI retains its lock when ownership fails before a child h
     token = "ownership-regression"
   await mkdir(parent, { mode: 0o700 })
   await writeFile(join(parent, "owner.json"), JSON.stringify({ version: 1, token, pid: process.pid, state: "stopping" }))
+  await mkdir(join(f.root, "apps/extension"), { recursive: true })
+  await mkdir(join(f.root, "packages"), { recursive: true })
+  const identity = { instanceId: "fixture-extension", type: "extension", legacy: false, integrationVersion: 1 }
+  await writeFile(join(f.root, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n  - packages/*\n")
+  await writeFile(
+    join(f.root, "apps.config.json"),
+    JSON.stringify({ schemaVersion: 1, apps: { extension: { type: "extension", port: 5174 } } }),
+  )
+  await writeFile(
+    join(f.root, "template-versions.json"),
+    JSON.stringify({ schemaVersion: 2, applications: { extension: identity } }),
+  )
+  await writeFile(join(f.root, "apps/extension/package.json"), JSON.stringify({ name: "@browser-client/extension" }))
+  await writeFile(join(f.root, "apps/extension/app-identity.json"), JSON.stringify(identity))
   const before = await fingerprint(f.root)
   const result = await promisify(execFile)(
     process.execPath,

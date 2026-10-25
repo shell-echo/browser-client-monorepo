@@ -1,14 +1,34 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
-  "globalDependencies": ["packages/typescript-config/**", "packages/eslint-config/**", "packages/oxlint-config/**"],
+  "globalDependencies": [
+    "packages/typescript-config/**",
+    "packages/eslint-config/**",
+    "packages/oxlint-config/**",
+    "apps.config.json",
+    "template-versions.json",
+    "scripts/lib/app-runtime.mts",
+    "scripts/lib/apps.mts",
+    "scripts/lib/verification-resources.mts",
+    "scripts/run-app.mts"
+  ],
+  "globalEnv": ["BROWSER_CLIENT_LOW_RESOURCE", "RAYON_NUM_THREADS", "UV_THREADPOOL_SIZE", "GOMAXPROCS"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
-    "dev": { "cache": false, "persistent": true, "passThroughEnv": ["EXTENSION_DEV_PORT"] },
-    "lint": { "dependsOn": ["^lint"] },
-    "typecheck": { "dependsOn": ["^typecheck"], "cache": false }
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["EXTENSION_DEV_PORT", "APP_DEV_PORT", "APP_INSTANCE_ID"]
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "cache": false
+    }
   }
 }

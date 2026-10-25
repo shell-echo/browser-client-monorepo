@@ -10,6 +10,6 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts", "**/*.mts"],
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", "tests", "browser-tests.config.mts"],
   "extends": "@browser-client/typescript-config/nextjs.json"
 }

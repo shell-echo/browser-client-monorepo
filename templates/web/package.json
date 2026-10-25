@@ -1,0 +1,30 @@
+{
+  "name": "@browser-client/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node ../../scripts/run-app.mts dev",
+    "build": "next build",
+    "start": "node ../../scripts/run-app.mts start",
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.4.1",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "@browser-client/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "4.3.3",
+    "@types/node": "catalog:next",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-next": "16.4.1",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:next",
+    "@browser-client/typescript-config": "workspace:*",
+    "@browser-client/eslint-config": "workspace:*"
+  }
+}

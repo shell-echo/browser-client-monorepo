@@ -23,6 +23,10 @@ The shadcn tooling graph resolves `ip-address@10.7.4`, the upstream fix for [GHS
 
 Security regressions check every locked IP parser version and the installed tooling consumers against the `10.7.4` minimum. A separate process with a five-second deadline checks million-character malformed zone identifiers and normal IPv4 / IPv6 parsing. These tests are part of `pnpm check`, including online and offline reinit candidate validation; a vulnerable cached version fails before replacement. Online auditing continues to check for newly published advisories.
 
+## Upstream tooling fixes
+
+The shadcn tooling catalog now uses the upstream Zod 4 integration in shadcn 4.22.1. The lockfile also refreshes compatible HTTP and URI transitives: Zod >=4.6.6, body-parser >=2.4.0, undici >=7.30.1 on the 7.x line, and fast-uri >=3.1.9 on the 3.x line. These address [Zod collection resource exhaustion](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5), [body-parser compressed-body failures](https://github.com/advisories/GHSA-27r3-jxmh-p828), [undici response-stream failures](https://github.com/advisories/GHSA-xjj6-f33q-929c), and [fast-uri scheme decoding](https://github.com/advisories/GHSA-w74x-v6f9-j3xg), together with the related advisories returned by the live audit. The upgrade uses upstream dependency ranges; it does not override Zod 3 consumers to a different major or add audit exceptions. Regressions inspect every locked affected package and load the real shadcn CLI and its Zod schema API. They run in normal checks and reinit's candidate/final checks, including offline replay.
+
 ## Scheduled checks
 
 `.github/workflows/security-audit.yml` also runs frozen installation and the same patch-aware audit every Monday at 01:23 UTC (09:23 Asia/Shanghai), with a manual trigger available. The schedule takes effect on the default branch after publication; execution time depends on GitHub's scheduler. It checks the existing lockfile without upgrading dependencies or changing source. Unresolved advisories fail the workflow and remain visible in its logs.

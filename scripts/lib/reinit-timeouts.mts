@@ -12,5 +12,5 @@ export function reinitTimeouts(env = process.env) {
 }
 
 export function timeoutForCommand(args: string[], timeouts: ReturnType<typeof reinitTimeouts>) {
-  return ["test:web-admin", "test:extension"].includes(args[0]) ? timeouts.browser : timeouts.command
+  return ["test:web-admin", "test:extension", "test:browser"].includes(args[0]) ? timeouts.browser : timeouts.command
 }

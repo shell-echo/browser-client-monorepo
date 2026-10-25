@@ -7,6 +7,7 @@ import { join } from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
 import { createCommandRunner } from "./commands.mts"
 import { createPhaseReporter } from "./maintenance-report.mts"
+import { lowResourceVerification } from "./verification-resources.mts"
 
 // Browser checks share process ownership, log capture and bounded readiness waits.
 export function createVerificationRunner({
@@ -14,6 +15,7 @@ export function createVerificationRunner({
   report,
   ...options
 }: RunnerOptions & { logDir: string; report?: MaintenanceReport }) {
+  if (report) report.resourceMode = lowResourceVerification({ ...process.env, ...options.env }) ? "low" : "default"
   const runner = createCommandRunner(options)
   const phase: Phase = report ? createPhaseReporter({ report }).phase : async (_name, work) => work()
   function start(command: string, args: string[], logName: string, env: NodeJS.ProcessEnv = {}, timeoutMs?: number) {

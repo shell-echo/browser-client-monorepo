@@ -6,6 +6,7 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { test } from "node:test"
 import { normalizeAppGitignore } from "../lib/gitignore.mts"
+import { readApplications } from "../lib/apps.mts"
 
 const source = fileURLToPath(new URL("../../", import.meta.url))
 
@@ -29,11 +30,15 @@ function ignored(root: string, path: string) {
 
 test("Git preserves generated-looking business paths and environment examples at every workspace", async (t) => {
   const root = await fixture(t)
-  for (const path of [".", "apps/web", "apps/admin", "apps/extension"]) {
+  const apps = await readApplications(source)
+  for (const path of [".", ...apps.map((app) => app.path)]) {
     await mkdir(join(root, path), { recursive: true })
     await writeFile(join(root, path, ".gitignore"), await readFile(join(source, path, ".gitignore")))
   }
-  for (const workspace of [".", "apps/web", "apps/admin", "apps/extension", "packages/ui"]) {
+  const probe = "apps/ignore-probe"
+  await mkdir(join(root, probe), { recursive: true })
+  await writeFile(join(root, probe, ".gitignore"), normalizeAppGitignore("next-env.d.ts\n.env*\n"))
+  for (const workspace of [".", ...apps.map((app) => app.path), probe, "packages/ui"]) {
     for (const path of [
       "public/dist/vendor.js",
       "public/dist-dev/config.json",
@@ -67,7 +72,8 @@ test("Git preserves generated-looking business paths and environment examples at
     }
   }
   assert.equal(ignored(root, "docs/dist/example.json"), false)
-  assert.equal(ignored(root, "apps/web/next-env.d.ts"), true)
+  for (const path of [probe, ...apps.filter((app) => app.type === "web").map((app) => app.path)])
+    assert.equal(ignored(root, `${path}/next-env.d.ts`), true)
 })
 
 test("fresh official ignore rules are normalized without dropping upstream custom exclusions", async (t) => {

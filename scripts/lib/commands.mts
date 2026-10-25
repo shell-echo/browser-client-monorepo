@@ -76,14 +76,17 @@ export function createCommandRunner({ cwd, env = {}, timeoutMs = 180_000, graceM
     check()
     const limit = options.timeoutMs ?? timeoutMs
     if (limit !== 0) positiveTimeout(limit, timeoutMs)
-    const scope = createCommandScope()
+    // Register beneath the same owner that the child inherits. Maintenance
+    // and recovery pass their explicit scope without changing process.env.
+    const environment = { ...process.env, ...env, ...options.env }
+    const scope = createCommandScope(environment)
     let child: ReturnType<typeof spawn>
     try {
       child = spawn(command, args, {
         cwd: options.cwd ?? cwd,
         shell: false,
         detached: process.platform !== "win32",
-        env: { ...process.env, ...env, ...options.env, ...scope.env },
+        env: { ...environment, ...scope.env },
         stdio: options.stdio ?? (options.capture ? ["ignore", "pipe", "inherit"] : "inherit"),
       })
     } catch (caught) {

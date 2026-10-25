@@ -64,7 +64,11 @@ export interface GeneratorRecord {
   version: string
   generatedAt?: string
 }
-export type TemplateVersions = Partial<Record<Target, GeneratorRecord>> & { dependencies?: DependencyReceipt }
+export type TemplateVersions = Partial<Record<Target, GeneratorRecord>> & {
+  schemaVersion?: 2
+  applications?: Record<string, import("./apps.mts").AppIdentity & Partial<GeneratorRecord>>
+  dependencies?: DependencyReceipt
+}
 export interface RegistryMetadata {
   version: string
   peerDependencies?: VersionMap

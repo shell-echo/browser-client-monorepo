@@ -21,6 +21,9 @@ import { join } from "node:path"
 import semver from "semver"
 import { parse, parseDocument } from "yaml"
 import { mergeManifest, readJson, writeJson } from "./integrate.mts"
+import { readApplications, toolchainFor, type Application } from "./apps.mts"
+import { exists } from "./workspace.mts"
+import { catalogRange } from "./catalogs.mts"
 
 const fields = ["dependencies", "devDependencies"] as const
 const stable = (version: string | undefined) =>
@@ -31,7 +34,7 @@ const supports = (version: string | undefined, range: string) =>
 const minimumVersions: VersionMap = { eslint: "10.0.0" }
 // These application dependencies belong to the starter integration. Keep
 // user-added dependencies locked unless explicitly added to this policy.
-const applicationDependencies: Record<string, VersionMap> = { "apps/admin": { "react-router": "^8.0.0" } }
+const applicationDependencies: Record<string, VersionMap> = { admin: { "react-router": "^8.0.0" } }
 const minimumRequirements = (name: string) =>
   Object.hasOwn(minimumVersions, name) ? [{ from: "Project minimum version policy", range: `>=${minimumVersions[name]}` }] : []
 
@@ -265,6 +268,8 @@ export type UpdateOptions = {
   templates: Partial<Record<string, PackageManifest>>
   previous: Partial<Record<string, PackageManifest>>
   saved?: DependencyReceipt
+  applications?: Application[]
+  retainExisting?: boolean
 } & ({ offline: true; registry?: Registry } | { offline?: boolean; registry: Registry })
 
 export async function updateDependencies({
@@ -274,12 +279,23 @@ export async function updateDependencies({
   registry,
   offline = false,
   saved,
+  applications,
+  retainExisting = false,
 }: UpdateOptions): Promise<DependencyReceipt> {
   const document = parseDocument(await readFile(join(root, "pnpm-workspace.yaml"), "utf8"))
   assert.equal(document.errors.length, 0, "Invalid workspace YAML")
   const workspace: WorkspacePolicy = document.toJS()
   const lock: Lockfile = parse(await readFile(join(root, "pnpm-lock.yaml"), "utf8"))
   const manifests = await manifestsAt(root)
+  const apps =
+    applications ??
+    (await readApplications(root).catch(async (error) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT" && !(await exists(join(root, "apps.config.json"))))
+        return undefined
+      throw error
+    }))
+  const typeOf = (id: string) =>
+    apps?.find((app) => app.id === id)?.type ?? (apps ? undefined : ["web", "admin", "extension"].includes(id) ? id : undefined)
   const variables = new Map<string, PlannedVariable>(),
     scopes: DependencyScope[] = []
   const add = (
@@ -295,7 +311,16 @@ export async function updateDependencies({
       const current = location.catalog
         ? lock.catalogs?.[location.catalog]?.[name]?.version
         : lock.importers?.[location.path!]?.[location.field!]?.[name]?.version?.split("(")[0]
-      variables.set(id, { id, name, previous: value, current, location, required: [], strictLatest, fixed })
+      variables.set(id, {
+        id,
+        name,
+        previous: value,
+        current,
+        location,
+        required: [],
+        strictLatest,
+        fixed: fixed ?? (retainExisting && !strictLatest && stable(current) ? current : undefined),
+      })
     }
     variables.get(id)!.required.push(...required)
     return id
@@ -307,7 +332,14 @@ export async function updateDependencies({
         name === "@types/node" ? [{ from: "Node.js runtime", range: `^${process.versions.node.split(".")[0]}.0.0` }] : []
       if (
         name === "typescript" &&
-        ((group === "next" && !templates.web) || (group === "vite" && !templates.admin && !templates.extension))
+        ((group === "next" && !Object.keys(templates).some((id) => typeOf(id) === "web")) ||
+          (group === "vite" && !Object.keys(templates).some((id) => ["admin", "extension"].includes(typeOf(id) ?? ""))) ||
+          manifests.some(
+            (item) =>
+              item.path.startsWith("apps/") &&
+              !templates[item.path.split("/")[1]] &&
+              fields.some((field) => item.manifest[field]?.typescript === `catalog:${group}`),
+          ))
       ) {
         required.push({ from: `Unrebuilt ${group} toolchain`, range })
       }
@@ -318,19 +350,26 @@ export async function updateDependencies({
     const { path } = item,
       target = path.split("/")[1],
       template = templates[target]
-    if (path.startsWith("apps/") && template) item.manifest = mergeManifest(template, previous[target], target)
+    const type = typeOf(target)
+    const applicationPolicy = type ? applicationDependencies[type] : undefined
+    const automaticCatalogs = !apps || path === "." || path.startsWith("packages/") || Boolean(type)
+    if (path.startsWith("apps/") && template) {
+      assert(type, `Application template type is missing: ${target}`)
+      item.manifest = mergeManifest(template, previous[target], target, type as import("./contracts.mts").Target)
+    }
     const scope: DependencyScope = { path, name: item.manifest.name, peers: item.manifest.peerDependencies, dependencies: {} }
     scopes.push(scope)
     for (const field of fields)
       for (const [name, value] of Object.entries(item.manifest[field] ?? {})) {
         if (value.startsWith("workspace:")) continue
         const location: DependencyLocation = { path, field, name }
-        const toolchain = target === "web" ? "next" : "vite"
+        const toolchain =
+          type === "web" ? toolchainFor("web") : path.startsWith("packages/") ? "vite" : type ? "vite" : undefined
         const catalog = value.startsWith("catalog:")
           ? value.slice(8) || "default"
-          : Object.hasOwn(workspace.catalog ?? {}, name)
+          : automaticCatalogs && Object.hasOwn(workspace.catalog ?? {}, name)
             ? "default"
-            : Object.hasOwn(workspace.catalogs?.[toolchain] ?? {}, name)
+            : toolchain && Object.hasOwn(workspace.catalogs?.[toolchain] ?? {}, name)
               ? toolchain
               : undefined
         const declared = Object.hasOwn(template?.[field] ?? {}, name) ? template?.[field]?.[name] : undefined
@@ -345,10 +384,13 @@ export async function updateDependencies({
                 },
               ]
             : []
+        if (!template && ["next", "eslint-config-next", "vite", "@crxjs/vite-plugin"].includes(name))
+          required.push({
+            from: `${path} unrebuilt framework`,
+            range: value.startsWith("catalog:") ? catalogRange(workspace, name, value) : value,
+          })
         const applicationRange =
-          field === "dependencies" && Object.hasOwn(applicationDependencies[path] ?? {}, name)
-            ? applicationDependencies[path][name]
-            : undefined
+          field === "dependencies" && Object.hasOwn(applicationPolicy ?? {}, name) ? applicationPolicy![name] : undefined
         if (applicationRange) required.push({ from: `${path} project integration`, range: applicationRange })
         if (template && ["tailwindcss", "@tailwindcss/vite"].includes(name) && !template[field]?.[name])
           required.push({ from: `${path} Tailwind integration`, range: "^4.1.0" })
@@ -367,6 +409,7 @@ export async function updateDependencies({
           assert(variables.has(id), `catalog is missing ${name}`)
           variables.get(id)!.required.push(...required)
           variables.get(id)!.strictLatest ||= strictLatest
+          if (strictLatest && retainExisting) variables.get(id)!.fixed = undefined
           item.manifest[field]![name] = catalog === "default" ? "catalog:" : `catalog:${catalog}`
         } else if (semver.validRange(value)) {
           const fixed = managed

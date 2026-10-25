@@ -1,0 +1,34 @@
+{
+  "name": "@browser-client/extension",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "preview:ui": "vite --mode preview-ui"
+  },
+  "dependencies": {
+    "@browser-client/ui": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "3.0.0",
+    "@tailwindcss/vite": "catalog:",
+    "@types/chrome": "0.3.5",
+    "@types/node": "catalog:vite",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "6.1.2",
+    "oxlint": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:vite",
+    "vite": "8.3.4",
+    "@browser-client/typescript-config": "workspace:*",
+    "@browser-client/oxlint-config": "workspace:*"
+  }
+}

@@ -2,6 +2,12 @@ name: Reinit acceptance
 
 on:
   workflow_dispatch:
+    inputs:
+      suite:
+        description: Acceptance suite
+        type: choice
+        default: reinit
+        options: [reinit, compositions]
 
 permissions:
   contents: read
@@ -17,7 +23,7 @@ env:
 jobs:
   reinit:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v7
         with:
@@ -32,6 +38,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:reinit
+        if: inputs.suite == 'reinit'
+      - run: pnpm test:apps
+        if: inputs.suite == 'compositions'
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -44,5 +53,16 @@ jobs:
             .reinit/verification/reinit-*/workspace/.reinit/verification/*/report.json
             .reinit/verification/reinit-*/workspace/.reinit/verification/*/*.log
             .reinit/verification/reinit-*/workspace/.reinit/verification/*/*.png
+            .reinit/verification/reinit-*/workspace/.reinit/verification/*/*/report.json
+            .reinit/verification/reinit-*/workspace/.reinit/verification/*/*/*.log
+            .reinit/verification/reinit-*/workspace/.reinit/verification/*/*/*.png
+            .reinit/verification/apps-*/report.json
+            .reinit/verification/apps-*/*.log
+            .reinit/verification/apps-*/workspace/.reinit/reports/*.json
+            .reinit/verification/apps-*/workspace/.reinit/verification/*/report.json
+            .reinit/verification/apps-*/workspace/.reinit/verification/*/*.log
+            .reinit/verification/apps-*/workspace/.reinit/verification/*/*/report.json
+            .reinit/verification/apps-*/workspace/.reinit/verification/*/*/*.log
+            .reinit/verification/apps-*/workspace/.reinit/verification/*/*/*.png
           if-no-files-found: warn
           retention-days: 7

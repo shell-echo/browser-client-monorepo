@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { readApplications } from "../lib/apps.mts"
 import { readFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -82,7 +83,7 @@ test("Next theme recovery discards only invalid preferences when storage writes 
 test("the shared design system resolves to official shadcn preset b0 without fallbacks", async () => {
   const cli = join(root, "node_modules/shadcn/dist/index.js")
   const preset = JSON.parse(
-    execFileSync(process.execPath, [cli, "preset", "resolve", "--json", "--cwd", join(root, "apps/admin")], {
+    execFileSync(process.execPath, [cli, "preset", "resolve", "--json", "--cwd", join(root, "packages/ui")], {
       encoding: "utf8",
       timeout: 30_000,
     }),
@@ -90,7 +91,7 @@ test("the shared design system resolves to official shadcn preset b0 without fal
   assert.equal(preset.code, "b0")
   assert.deepEqual(preset.fallbacks, [])
   const ui = JSON.parse(await readFile(join(root, "packages/ui/components.json"), "utf8"))
-  for (const app of ["web", "admin", "extension"]) {
+  for (const { id: app } of await readApplications(root)) {
     const config = JSON.parse(await readFile(join(root, "apps", app, "components.json"), "utf8"))
     for (const key of ["style", "iconLibrary", "menuColor", "menuAccent", "rtl"])
       assert.equal(config[key], ui[key], `${app}/${key}`)
@@ -140,13 +141,13 @@ test("the early CSP-safe bootstrap honors saved themes, system preference and un
 })
 
 test("Vite pages use identical external bootstrap assets ahead of the React entry", async () => {
-  for (const app of ["admin", "extension"]) {
+  for (const { id: app, type } of (await readApplications(root)).filter((app) => app.type !== "web")) {
     assert.equal(
       await readFile(join(root, "apps", app, "public/theme-init.js"), "utf8"),
       bootstrap,
       "Run pnpm theme:sync after editing the shared bootstrap",
     )
-    for (const page of app === "extension" ? ["index.html", "options.html"] : ["index.html"]) {
+    for (const page of type === "extension" ? ["index.html", "options.html"] : ["index.html"]) {
       const html = await readFile(join(root, "apps", app, page), "utf8")
       assert(html.indexOf('<script src="/theme-init.js">') < html.indexOf('<script type="module"'))
       assert(html.includes('<script src="/theme-init.js"></script>'))
@@ -175,4 +176,40 @@ test("reinit retains theme wrappers, HTML bootstrap and public assets while refr
   await preserveApp(previous, stage)
   for (const [file, contents] of Object.entries(files)) assert.equal(await readFile(join(stage, file), "utf8"), contents)
   assert.equal(await readFile(join(stage, "vite.config.ts"), "utf8"), "new official config")
+})
+
+test("bootstrap isolates new instances and migrates original preferences without losing quota-failed reads", () => {
+  for (const [legacy, quota, expected] of [
+    [false, false, "light"],
+    [true, false, "dark"],
+    [true, true, "dark"],
+  ] as const) {
+    const values = new Map([[THEME_STORAGE_KEY, "dark"]])
+    const classes = new Set<string>()
+    runInNewContext(bootstrap, {
+      window: {
+        localStorage: {
+          getItem: (key: string) => values.get(key) ?? null,
+          setItem: (key: string, value: string) => {
+            if (quota) throw Error("quota")
+            values.set(key, value)
+          },
+          removeItem: (key: string) => values.delete(key),
+        },
+        matchMedia: () => ({ matches: false }),
+      },
+      document: {
+        documentElement: {
+          dataset: { appNamespace: "second", appLegacy: String(legacy) },
+          classList: {
+            remove: (...items: string[]) => items.forEach((item) => classes.delete(item)),
+            add: (item: string) => classes.add(item),
+          },
+        },
+      },
+    })
+    assert(classes.has(expected))
+    assert.equal(values.get(`${THEME_STORAGE_KEY}:second`), legacy && !quota ? "dark" : undefined)
+    if (!legacy || quota) assert.equal(values.get(THEME_STORAGE_KEY), "dark")
+  }
 })

@@ -5,6 +5,7 @@ import assert from "node:assert/strict"
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import { readApplications } from "./lib/apps.mts"
 import { copySource, fingerprint, ignored } from "./lib/workspace.mts"
 import { handleCancellation, positiveTimeout } from "./lib/commands.mts"
 import { createVerificationRunner, finishVerification } from "./lib/verification.mts"
@@ -47,9 +48,11 @@ try {
   await runner.run("pnpm", ["install", "--offline", "--frozen-lockfile"], "install.log")
   await seedReinitAcceptance(workspace)
   const preserved = await preservedSnapshot(workspace)
+  const identities = await readApplications(workspace)
 
   await runner.run("pnpm", ["reinit", "--apply"], "online.log")
   assert.deepEqual(await preservedSnapshot(workspace), preserved, "Online reinit changed preserved business files")
+  assert.deepEqual(await readApplications(workspace), identities, "Online reinit changed instance identities, types or ports")
   const recordsPath = join(workspace, "template-versions.json")
   const online: TemplateVersions = JSON.parse(await readFile(recordsPath, "utf8"))
   assert.equal(online.dependencies!.policy, "stable-compatible-v1")
@@ -60,6 +63,7 @@ try {
 
   await runner.run("pnpm", ["reinit", "--apply", "--offline"], "offline.log")
   assert.deepEqual(await preservedSnapshot(workspace), preserved, "Offline reinit changed preserved business files")
+  assert.deepEqual(await readApplications(workspace), identities, "Offline reinit changed instance identities, types or ports")
   const offlineBytes = await readFile(recordsPath, "utf8")
   const offline: TemplateVersions = JSON.parse(offlineBytes)
   assert.deepEqual(generatorVersions(offline), generatorVersions(online), "Offline generator versions drifted")

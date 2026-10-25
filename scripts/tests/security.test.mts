@@ -6,7 +6,7 @@ interface BraceNode {
 }
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { fileURLToPath } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import { createRequire } from "node:module"
 import { readFile, realpath } from "node:fs/promises"
 import { join } from "node:path"
@@ -16,6 +16,39 @@ import { createCommandRunner } from "../lib/commands.mts"
 import { bracesAdvisory, classifyAudit, verifyBracesPatch } from "../lib/dependency-security.mts"
 
 const root = fileURLToPath(new URL("../../", import.meta.url))
+
+test("locked tooling transitives retain upstream fixes for collection, HTTP and URI advisories", async () => {
+  const lock = parse(await readFile(join(root, "pnpm-lock.yaml"), "utf8"))
+  const fixedRanges: Record<string, string> = {
+    zod: ">=4.6.6",
+    "body-parser": "^1.20.9 || >=2.4.0",
+    undici: "^6.29.1 || ^7.30.1 || >=8.12.2",
+    "fast-uri": "^2.4.8 || ^3.1.9 || >=4.2.3",
+  }
+  for (const [name, range] of Object.entries(fixedRanges)) {
+    for (const entry of Object.keys(lock.packages).filter((key) => key.startsWith(`${name}@`))) {
+      const version = entry.slice(name.length + 1)
+      assert(semver.satisfies(version, range), `${entry} is below the tested upstream security floor ${range}`)
+    }
+  }
+  const cli = createRequire(await realpath(join(root, "node_modules/shadcn/package.json")))
+  const zod = cli("zod")
+  assert(semver.gte(cli("zod/package.json").version, "4.6.6"), "shadcn must resolve patched Zod 4")
+  const schema = zod.object({ name: zod.string(), values: zod.array(zod.number()).max(2) })
+  assert.deepEqual(schema.parse({ name: "workspace", values: [1, 2] }), { name: "workspace", values: [1, 2] })
+  assert.equal(schema.safeParse({ name: "workspace", values: [1, 2, 3] }).success, false)
+})
+
+test("upstream shadcn CLI loads with its native Zod 4 dependency graph", async (t) => {
+  const runner = createCommandRunner({ cwd: root, timeoutMs: 15_000 })
+  t.after(() => runner.close())
+  const manifestPath = await realpath(join(root, "node_modules/shadcn/package.json"))
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"))
+  const bin = typeof manifest.bin === "string" ? manifest.bin : manifest.bin.shadcn
+  const cli = fileURLToPath(new URL(bin, pathToFileURL(manifestPath)))
+  const output = await runner.run(process.execPath, [cli, "--version"], { capture: true })
+  assert.equal(output.trim(), manifest.version)
+})
 
 async function ipParsers() {
   const cli = createRequire(await realpath(join(root, "node_modules/shadcn/package.json")))

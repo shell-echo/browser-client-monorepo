@@ -93,10 +93,18 @@ async function shareOxlint(root: string, app: string, preset: string) {
   await writeConfig(file, config)
 }
 
-export async function integrateTooling(root: string, target: string) {
+export async function integrateTooling(root: string, target: string, type = target) {
   const app = join(root, target === "ui" ? "packages/ui" : `apps/${target}`)
-  if (target === "web") {
+  if (type === "web") {
     await shareTypeScript(root, app, "tsconfig.json", "nextjs")
+    const tsconfig = await readConfig(join(app, "tsconfig.json"))
+    const excluded = tsconfig.exclude ?? []
+    if (!Array.isArray(excluded) || !excluded.every((value: unknown) => typeof value === "string"))
+      throw new Error("Invalid Next TypeScript exclude list")
+    // These native Node modules are checked by the tooling compiler, rather
+    // than pulling the entire engineering toolchain into Next's TS program.
+    tsconfig.exclude = [...new Set([...excluded, "tests", "browser-tests.config.mts"])]
+    await writeConfig(join(app, "tsconfig.json"), tsconfig)
     const file = join(app, "eslint.config.mjs")
     let config = await readFile(file, "utf8")
     if (!config.includes('"@browser-client/eslint-config/base"')) {

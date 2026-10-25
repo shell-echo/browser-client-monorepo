@@ -1,22 +1,37 @@
 {
-  "web": {
-    "generator": "create-next-app",
-    "version": "16.4.1",
-    "generatedAt": "2026-10-15T07:12:39.414Z"
-  },
-  "admin": {
-    "generator": "create-vite",
-    "version": "9.2.1",
-    "generatedAt": "2026-10-15T07:12:40.403Z"
-  },
-  "extension": {
-    "generator": "create-vite",
-    "version": "9.2.1",
-    "generatedAt": "2026-10-15T07:12:41.172Z"
+  "schemaVersion": 2,
+  "applications": {
+    "web": {
+      "instanceId": "starter-web",
+      "type": "web",
+      "legacy": true,
+      "integrationVersion": 1,
+      "generator": "create-next-app",
+      "version": "16.4.1",
+      "generatedAt": "2026-10-15T07:12:39.414Z"
+    },
+    "admin": {
+      "instanceId": "starter-admin",
+      "type": "admin",
+      "legacy": true,
+      "integrationVersion": 1,
+      "generator": "create-vite",
+      "version": "9.2.1",
+      "generatedAt": "2026-10-15T07:12:40.403Z"
+    },
+    "extension": {
+      "instanceId": "starter-extension",
+      "type": "extension",
+      "legacy": true,
+      "integrationVersion": 1,
+      "generator": "create-vite",
+      "version": "9.2.1",
+      "generatedAt": "2026-10-15T07:12:41.172Z"
+    }
   },
   "dependencies": {
     "policy": "stable-compatible-v1",
-    "resolvedAt": "2026-10-16T03:47:01.745Z",
+    "resolvedAt": "2026-10-25T02:41:05.143Z",
     "entries": [
       {
         "id": "catalog:default:react",
@@ -244,17 +259,20 @@
       {
         "id": "catalog:default:shadcn",
         "name": "shadcn",
-        "previous": "4.21.5",
-        "current": "4.21.5",
+        "previous": "4.22.1",
+        "current": "4.22.1",
         "location": {
           "catalog": "default",
           "name": "shadcn"
         },
         "required": [],
         "strictLatest": false,
-        "latest": "4.21.5",
-        "version": "4.21.5",
-        "reasons": []
+        "fixed": "4.22.1",
+        "version": "4.22.1",
+        "latest": "4.22.1",
+        "reasons": [
+          "Application dependency retained at its current locked version"
+        ]
       },
       {
         "id": "catalog:next:typescript",

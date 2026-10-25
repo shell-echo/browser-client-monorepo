@@ -9,11 +9,22 @@ interface ScopeOwner {
   token: string
   pid: number | null
   state: "starting" | "running" | "stopping" | "settled"
+  retainForRecovery?: boolean
 }
 import { randomUUID } from "node:crypto"
-import { lstatSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
-import { dirname, isAbsolute, join, relative, sep } from "node:path"
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path"
 
 const environmentKey = "BROWSER_CLIENT_COMMAND_SCOPE"
 const filename = "owner.json"
@@ -29,7 +40,59 @@ function readOwner(path: string, token: string): ScopeOwner {
     throw new Error(`Invalid process ownership record: ${path}`)
   if (owner.pid !== null && (!Number.isSafeInteger(owner.pid) || owner.pid < 2))
     throw new Error(`Invalid owned process identifier: ${path}`)
+  if (owner.retainForRecovery !== undefined && typeof owner.retainForRecovery !== "boolean")
+    throw new Error(`Invalid recovery retention record: ${path}`)
   return owner
+}
+
+function retained(path: string, token: string): boolean {
+  if (readOwner(path, token).retainForRecovery) return true
+  for (const entry of readdirSync(path, { withFileTypes: true })) {
+    if (!entry.name.startsWith("child-")) continue
+    if (!entry.isDirectory() || entry.isSymbolicLink()) throw new Error("Invalid recovery ownership tree")
+    if (retained(join(path, entry.name), token)) return true
+  }
+  return false
+}
+
+// Failed maintenance must keep ownership evidence after its outer runner exits.
+export function releaseRetainedCommandScope(path: string) {
+  const initial = JSON.parse(readFileSync(join(path, filename), "utf8")) as ScopeOwner
+  const owner = readOwner(path, initial.token)
+  if (!owner.retainForRecovery) return
+  let root = path
+  while (existsSync(join(dirname(root), filename))) {
+    root = dirname(root)
+    readOwner(root, initial.token)
+  }
+  if (realpathSync(dirname(root)) !== realpathSync(tmpdir()) || !/^browser-client-command-[A-Za-z0-9]{6}$/.test(basename(root)))
+    throw new Error(`Refusing to reclaim a non-command temporary directory: ${root}`)
+  writeOwner(path, { ...owner, retainForRecovery: false })
+  try {
+    if (readOwner(root, initial.token).state === "settled" && !retained(root, initial.token)) rmSync(root, { recursive: true })
+  } catch (error) {
+    // A sibling recovery may already have reclaimed their shared settled root.
+    if (toError(error).code !== "ENOENT") throw error
+  }
+}
+
+// Recovery only observes recorded groups. It never signals an unrelated
+// process or assumes that a dead parent implies all detached children exited.
+export function inspectCommandScope(path: string) {
+  const initial = JSON.parse(readFileSync(join(path, filename), "utf8")) as ScopeOwner
+  const result: ScopeOwner[] = []
+  function visit(directory: string) {
+    const record = readOwner(directory, initial.token)
+    if (record.state === "settled") return
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (!entry.name.startsWith("child-")) continue
+      if (!entry.isDirectory() || entry.isSymbolicLink()) throw new Error("Invalid recovery ownership tree")
+      visit(join(directory, entry.name))
+    }
+    result.push(record)
+  }
+  visit(path)
+  return result
 }
 
 function writeOwner(path: string, owner: ScopeOwner) {
@@ -55,9 +118,9 @@ function checkAncestors({ root, path, token }: ScopeLocation) {
 // nested runner can stop its own services without touching sibling commands.
 // Keep settled records until the outer command completes, so a killed middle
 // process cannot hide its separately detached children from the outer runner.
-export function createCommandScope() {
+export function createCommandScope(environment: NodeJS.ProcessEnv = process.env) {
   try {
-    return prepareScope()
+    return prepareScope(environment)
   } catch (caught) {
     const error = toError(caught)
     error.unsafeToRestore = true
@@ -65,10 +128,10 @@ export function createCommandScope() {
   }
 }
 
-function prepareScope() {
+function prepareScope(environment: NodeJS.ProcessEnv) {
   let inherited: ScopeLocation | undefined
-  if (process.env[environmentKey] !== undefined) {
-    inherited = JSON.parse(process.env[environmentKey])
+  if (environment[environmentKey] !== undefined) {
+    inherited = JSON.parse(environment[environmentKey])
     checkAncestors(inherited!)
   }
   const path = mkdtempSync(join(inherited?.path ?? tmpdir(), inherited ? "child-" : "browser-client-command-"))
@@ -109,11 +172,16 @@ function prepareScope() {
     path,
     env: { [environmentKey]: JSON.stringify({ root, path, token }) },
     attach: (pid: number | undefined) => update("running", pid ?? null),
+    retain: () => {
+      owner = { ...owner, retainForRecovery: true }
+      writeOwner(path, owner)
+    },
     stopping: () => update("stopping"),
     records,
     settle: () => {
+      if (owner.retainForRecovery) owner = { ...owner, retainForRecovery: false }
       update("settled")
-      if (!inherited) rmSync(path, { recursive: true, force: true })
+      if (!inherited && !retained(path, token)) rmSync(path, { recursive: true, force: true })
     },
     discard: () => rmSync(path, { recursive: true, force: true }),
   }

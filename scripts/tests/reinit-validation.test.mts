@@ -57,8 +57,7 @@ test("online preflight completes both browser suites before replacing the origin
       "check",
       "audit:security",
       "exec playwright install chromium",
-      "test:web-admin",
-      "test:extension",
+      "test:browser",
     ],
   )
   for (const call of f.calls) assert.equal(call.cwd, f.stage)
@@ -76,7 +75,7 @@ test("offline preflight runs browser verification without downloading browsers o
   await validateBeforePromotion(f.options)
   assert.deepEqual(
     f.calls.map(({ command }) => command),
-    ["exec node scripts/format-reinit.mts extension", "check", "test:web-admin", "test:extension"],
+    ["exec node scripts/format-reinit.mts extension", "check", "test:browser"],
   )
   assert.equal(f.promoted(), true)
 })
@@ -88,8 +87,7 @@ test("failed candidate checks never promote and preserve the original source, lo
     "check",
     "audit:security",
     "exec playwright install chromium",
-    "test:web-admin",
-    "test:extension",
+    "test:browser",
   ]
   for (const failure of sequence)
     await t.test(failure, async (t) => {
@@ -135,7 +133,7 @@ test("editing a generated-looking business asset during browser verification pre
     validateBeforePromotion({
       ...f.options,
       run: async (args) => {
-        if (args[0] === "test:web-admin") await put(f.root, f.asset, "user edit")
+        if (args[0] === "test:browser") await put(f.root, f.asset, "user edit")
       },
     }),
     /Workspace changed/,
@@ -194,7 +192,7 @@ test("a real browser-gate timeout stops its process and preserves the original p
     validateBeforePromotion({
       ...f.options,
       run: async (args) => {
-        if (args[0] !== "test:web-admin") return
+        if (args[0] !== "test:browser") return
         const handle = runner.start(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
           timeoutMs: timeoutForCommand(args, timeouts),
           stdio: "ignore",

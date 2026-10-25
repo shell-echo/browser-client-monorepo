@@ -119,7 +119,7 @@ export async function verifyAdminTemplates({ pageFor, url, runDir, errors, passe
     () => document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") === "expanded",
   )
   await page.evaluate(() => {
-    document.cookie = "sidebar_state=invalid; path=/"
+    document.cookie = `sidebar_state_${document.documentElement.dataset.appNamespace}=invalid; path=/`
   })
   await page.reload()
   await page.waitForFunction(
