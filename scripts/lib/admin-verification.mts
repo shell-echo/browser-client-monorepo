@@ -156,14 +156,18 @@ export async function verifyAdminTemplates({ pageFor, url, runDir, errors, passe
   await page.getByRole("button", { name: "Toggle Playground", exact: true }).click()
   await page.getByRole("link", { name: "History", exact: true }).waitFor()
 
+  const content = page.locator('[data-slot="sidebar-inset"]')
   for (const state of ["collapsed", "expanded"]) {
     if ((await desktopSidebar.getAttribute("data-state")) !== state) await toggle.click()
     await page.waitForFunction(
       (expected) => document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") === expected,
       state,
     )
+    await content.evaluate((element) => {
+      element.setAttribute("data-breakpoint-probe", "preserved")
+    })
     const cookie = await page.evaluate(() => document.cookie)
-    for (const width of [390, 320]) {
+    for (const width of [767, 390, 320]) {
       await page.setViewportSize({ width, height: 844 })
       await desktopSidebar.waitFor({ state: "detached" })
       const dialog = page.getByRole("dialog", { name: "Sidebar", exact: true })
@@ -189,6 +193,11 @@ export async function verifyAdminTemplates({ pageFor, url, runDir, errors, passe
       await page.setViewportSize({ width: 1280, height: 844 })
       await desktopSidebar.waitFor({ state: "attached" })
       assert.equal(await page.evaluate(() => document.cookie), cookie, "Mobile navigation changed saved preferences")
+      assert.equal(
+        await content.getAttribute("data-breakpoint-probe"),
+        "preserved",
+        "Crossing breakpoints remounted page content",
+      )
     }
     await page.reload()
     await page.waitForFunction(
@@ -197,7 +206,7 @@ export async function verifyAdminTemplates({ pageFor, url, runDir, errors, passe
     )
   }
   passed(
-    "Admin discards mobile drawers across breakpoints while retaining collapsed / expanded desktop preferences and keyboard recovery",
+    "Admin discards mobile drawers at the 767 / 768px boundary without remounting content, retaining desktop preferences and keyboard recovery",
   )
 
   for (const width of [1280, 768, 390, 320]) {

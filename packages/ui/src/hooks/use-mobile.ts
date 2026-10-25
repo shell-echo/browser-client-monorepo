@@ -1,11 +1,15 @@
 "use client"
 
-import { useSyncExternalStore } from "react"
+import { useCallback, useSyncExternalStore } from "react"
 
 const MOBILE_QUERY = "(max-width: 767px)"
 
-function subscribe(onChange: () => void) {
+function subscribe(onStoreChange: () => void, onBreakpointChange?: (isMobile: boolean) => void) {
   const media = window.matchMedia(MOBILE_QUERY)
+  const onChange = (event: MediaQueryListEvent) => {
+    onBreakpointChange?.(event.matches)
+    onStoreChange()
+  }
   media.addEventListener("change", onChange)
   return () => media.removeEventListener("change", onChange)
 }
@@ -13,6 +17,10 @@ function subscribe(onChange: () => void) {
 const getSnapshot = () => window.matchMedia(MOBILE_QUERY).matches
 const getServerSnapshot = () => false
 
-export function useIsMobile() {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+export function useIsMobile(onBreakpointChange?: (isMobile: boolean) => void) {
+  const subscribeToChanges = useCallback(
+    (onStoreChange: () => void) => subscribe(onStoreChange, onBreakpointChange),
+    [onBreakpointChange],
+  )
+  return useSyncExternalStore(subscribeToChanges, getSnapshot, getServerSnapshot)
 }

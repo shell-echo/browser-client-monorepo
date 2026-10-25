@@ -54,11 +54,12 @@ test("official versions win while custom dependencies and scripts survive", () =
   assert.equal(result.devDependencies["@browser-client/eslint-config"], "workspace:*")
 })
 
-test("source, untracked files, env and manifest survive; generated configs refresh", async (t) => {
+test("source, agent instructions, untracked files, env and manifest survive; generated configs refresh", async (t) => {
   const root = await fixture(t)
   const old = join(root, "old"),
     stage = join(root, "stage")
   await put(old, "src/feature.ts", "business")
+  await put(old, "AGENTS.md", "# Existing application instructions\n\nKeep the official managed block and custom rules.\n")
   await put(old, ".env.local", "test-only")
   await put(old, "public/manifest.json", "manifest")
   await put(old, "manifest.config.ts", "typed-business-manifest")
@@ -68,10 +69,12 @@ test("source, untracked files, env and manifest survive; generated configs refre
   await put(old, "pnpm-workspace.yaml", "nested-workspace")
   await put(old, "node_modules/cache", "ignored")
   await put(stage, "src/demo.ts", "upstream-demo")
+  await put(stage, "AGENTS.md", "upstream instructions")
   await put(stage, "vite.config.ts", "new-config")
   await preserveApp(old, stage)
   for (const [file, value] of [
     ["src/feature.ts", "business"],
+    ["AGENTS.md", "# Existing application instructions\n\nKeep the official managed block and custom rules.\n"],
     [".env.local", "test-only"],
     ["public/manifest.json", "manifest"],
     ["options.html", "options"],
