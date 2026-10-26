@@ -36,7 +36,10 @@ async function killTree(pid: number | null | undefined, signal: NodeJS.Signals) 
       process.kill(-pid, signal)
     } catch (caught) {
       const error = toError(caught)
-      if (error.code !== "ESRCH") throw error
+      // macOS may deny a signal while reaping an exited group. Every caller
+      // still waits for a real ESRCH; persistent EPERM must exhaust that
+      // bounded wait and retain ownership evidence, never imply success.
+      if (error.code !== "ESRCH" && error.code !== "EPERM") throw error
     }
   }
 }

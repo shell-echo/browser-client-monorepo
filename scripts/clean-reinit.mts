@@ -4,6 +4,10 @@ interface CleanupMetadata {
   stage?: string
   status?: string
   runDir?: string
+  appId?: unknown
+  expected?: unknown
+  instances?: unknown
+  sourceFingerprint?: unknown
 }
 interface CleanupRecord {
   id: string
@@ -12,6 +16,8 @@ interface CleanupRecord {
   digest?: string
   metadata?: CleanupMetadata
   time: number
+  guards?: { marker: string; digest: string }[]
+  verificationRoot?: string
 }
 export interface CleanupOptions {
   keep?: number
@@ -93,6 +99,65 @@ async function records(state: string, group: string, filename: string) {
   return result.sort((a, b) => b.time - a.time || b.id.localeCompare(a.id))
 }
 
+// A suite owns only its explicitly recorded instance directories. Do not walk
+// arbitrary subtrees or infer success from the parent report alone.
+async function verificationRecords(record: CleanupRecord): Promise<CleanupRecord[] | undefined> {
+  const metadata = record.metadata!
+  if (metadata.expected === undefined && metadata.instances === undefined) return [record]
+  const { expected, instances, sourceFingerprint } = metadata
+  if (
+    !Array.isArray(expected) ||
+    !Array.isArray(instances) ||
+    !expected.length ||
+    expected.length !== instances.length ||
+    new Set(expected).size !== expected.length ||
+    !expected.every((id: unknown) => typeof id === "string" && /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id) && id.length <= 48) ||
+    typeof sourceFingerprint !== "string" ||
+    !sourceFingerprint
+  )
+    return undefined
+  const result: CleanupRecord[] = []
+  for (const id of expected as string[]) {
+    const path = join(record.path, id)
+    const matches = instances.filter(
+      (value: unknown) => value && typeof value === "object" && "appId" in value && value.appId === id,
+    )
+    if (matches.length !== 1) return undefined
+    const summary = matches[0] as CleanupMetadata
+    if (summary.status !== "passed" || summary.runDir !== path || summary.sourceFingerprint !== sourceFingerprint)
+      return undefined
+    if (!(await exists(path))) return undefined
+    await directory(path)
+    const marker = join(path, "report.json")
+    let content: string, child: CleanupMetadata
+    try {
+      const stat = await lstat(marker)
+      if (!stat.isFile() || stat.isSymbolicLink()) return undefined
+      content = await readFile(marker, "utf8")
+      child = JSON.parse(content)
+    } catch {
+      return undefined
+    }
+    if (
+      !child ||
+      child.appId !== id ||
+      child.status !== "passed" ||
+      child.runDir !== path ||
+      child.sourceFingerprint !== sourceFingerprint
+    )
+      return undefined
+    result.push({
+      ...record,
+      path,
+      marker,
+      digest: digest(content),
+      metadata: child,
+      guards: [{ marker: record.marker, digest: record.digest! }],
+    })
+  }
+  return result
+}
+
 export async function planCleanup(
   root: string,
   { keep = 3, days = 7, lockOwner, sizes = false, signal }: CleanupOptions = {},
@@ -136,13 +201,22 @@ export async function planCleanup(
       plan.protected.push({ path: record.path, reason: "Recent, failed or unknown verification" })
       continue
     }
-    for (const child of ["workspace", "profile-dev", "profile-production"]) {
-      const path = join(record.path, child)
-      if (await exists(path)) {
-        await directory(path)
-        plan.candidates.push({ ...record, path, kind: "verification" })
+    const instances = await verificationRecords(record)
+    const candidates: CleanupPlan["candidates"] = []
+    let occupied = false
+    for (const instance of instances ?? []) {
+      for (const child of ["workspace", "profile-dev", "profile-production"]) {
+        const path = join(instance.path, child)
+        if (await exists(path)) {
+          await directory(path)
+          if (child === "workspace" && (await exists(join(path, ".reinit/lock")))) occupied = true
+          candidates.push({ ...instance, path, kind: "verification", verificationRoot: instance.path })
+        }
       }
     }
+    if (!instances || occupied)
+      plan.protected.push({ path: record.path, reason: "Incomplete, changed or active instance verification" })
+    else plan.candidates.push(...candidates)
   }
   if (sizes) plan.usage = await summarizeMaintenance(state, plan.candidates, { signal })
   return plan
@@ -171,8 +245,12 @@ export async function cleanReinit(root: string, options: CleanupOptions): Promis
     // Verify every marker before deleting any part of a backup or candidate.
     for (const candidate of plan.candidates) {
       checkInterrupted()
-      if (digest(await readFile(candidate.marker, "utf8")) !== candidate.digest)
-        throw new Error("Workspace changed after the cleanup plan was generated; stopping cleanup")
+      for (const guard of [{ marker: candidate.marker, digest: candidate.digest }, ...(candidate.guards ?? [])]) {
+        if (digest(await readFile(guard.marker, "utf8")) !== guard.digest)
+          throw new Error("Workspace changed after the cleanup plan was generated; stopping cleanup")
+      }
+      if (candidate.verificationRoot && (await exists(join(candidate.verificationRoot, "workspace/.reinit/lock"))))
+        throw new Error("Verification workspace became active; stopping cleanup")
     }
     for (const candidate of plan.candidates) {
       checkInterrupted()

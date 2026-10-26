@@ -141,14 +141,19 @@ test("the early CSP-safe bootstrap honors saved themes, system preference and un
 })
 
 test("Vite pages use identical external bootstrap assets ahead of the React entry", async () => {
-  for (const { id: app, type } of (await readApplications(root)).filter((app) => app.type !== "web")) {
+  const applications = (await readApplications(root)).filter((app) => app.type !== "web")
+  const destinations = [
+    ...applications,
+    ...(["admin", "extension"] as const).map((type) => ({ path: `templates/${type}`, type })),
+  ]
+  for (const { path, type } of destinations) {
     assert.equal(
-      await readFile(join(root, "apps", app, "public/theme-init.js"), "utf8"),
+      await readFile(join(root, path, "public/theme-init.js"), "utf8"),
       bootstrap,
       "Run pnpm theme:sync after editing the shared bootstrap",
     )
     for (const page of type === "extension" ? ["index.html", "options.html"] : ["index.html"]) {
-      const html = await readFile(join(root, "apps", app, page), "utf8")
+      const html = await readFile(join(root, path, page), "utf8")
       assert(html.indexOf('<script src="/theme-init.js">') < html.indexOf('<script type="module"'))
       assert(html.includes('<script src="/theme-init.js"></script>'))
     }

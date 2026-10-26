@@ -34,6 +34,122 @@ async function verification(root: string, id: string, status: string, age: numbe
   return path
 }
 
+async function browserSuite(root: string, id: string, status = "passed", age = 20) {
+  const path = join(root, ".reinit/verification", id)
+  const instances = []
+  for (const appId of ["console", "studio", "addon", "companion"]) {
+    const runDir = join(path, appId)
+    for (const child of ["workspace", "profile-dev", "profile-production"]) {
+      await mkdir(join(runDir, child), { recursive: true })
+      await writeFile(join(runDir, child, "probe"), "disposable data")
+    }
+    const report = { appId, runDir, status: "passed", sourceFingerprint: "fixture-source" }
+    await writeFile(join(runDir, "report.json"), JSON.stringify(report))
+    await writeFile(join(runDir, "server.log"), "retained instance log")
+    await writeFile(join(runDir, "dark.png"), "retained screenshot")
+    instances.push(report)
+  }
+  await writeFile(
+    join(path, "report.json"),
+    JSON.stringify({
+      runDir: path,
+      status,
+      sourceFingerprint: "fixture-source",
+      expected: instances.map((instance) => instance.appId),
+      instances,
+    }),
+  )
+  await writeFile(join(path, "console.log"), "retained suite log")
+  const time = new Date(Date.now() - age * 86_400_000)
+  await utimes(path, time, time)
+  return path
+}
+
+test("cleanup removes expired multi-instance copies and profiles while retaining every report, log and screenshot", async (t) => {
+  const root = await fixture(t)
+  const old = await browserSuite(root, "browser-old")
+  const recent = await browserSuite(root, "browser-recent", "passed", 1)
+  const failed = await browserSuite(root, "browser-failed", "failed", 30)
+  const unknown = join(old, "unlisted/workspace")
+  await mkdir(unknown, { recursive: true })
+  await writeFile(join(unknown, "business.txt"), "keep unknown data")
+  const oldTime = new Date(Date.now() - 20 * 86_400_000)
+  await utimes(old, oldTime, oldTime)
+  const report = await readFile(join(old, "report.json"), "utf8")
+  const options = { keep: 1, days: 7, apply: false }
+  const plan = await cleanReinit(root, options)
+  assert.equal(plan.candidates.length, 12)
+  for (const candidate of plan.candidates) assert.equal(await exists(candidate.path), true, "Preview deleted data")
+  await cleanReinit(root, { ...options, apply: true })
+  for (const app of ["console", "studio", "addon", "companion"]) {
+    for (const child of ["workspace", "profile-dev", "profile-production"]) {
+      assert.equal(await exists(join(old, app, child)), false)
+      assert.equal(await exists(join(recent, app, child)), true)
+      assert.equal(await exists(join(failed, app, child)), true)
+    }
+    assert.equal(JSON.parse(await readFile(join(old, app, "report.json"), "utf8")).status, "passed")
+    assert.equal(await readFile(join(old, app, "server.log"), "utf8"), "retained instance log")
+    assert.equal(await readFile(join(old, app, "dark.png"), "utf8"), "retained screenshot")
+  }
+  assert.equal(await readFile(join(old, "report.json"), "utf8"), report)
+  assert.equal(await readFile(join(old, "console.log"), "utf8"), "retained suite log")
+  assert.equal(await readFile(join(unknown, "business.txt"), "utf8"), "keep unknown data")
+  assert.equal(await exists(join(root, ".reinit/lock")), false)
+})
+
+test("cleanup protects the whole suite when an instance report is missing, failed, stale, malformed or occupied", async (t) => {
+  for (const change of ["missing", "failed", "stale", "malformed", "identity", "path", "duplicate", "traversal", "lock"]) {
+    await t.test(change, async (t) => {
+      const root = await fixture(t)
+      const path = await browserSuite(root, "browser-old")
+      await browserSuite(root, "browser-recent", "passed", 1)
+      const marker = join(path, "addon/report.json")
+      const report = JSON.parse(await readFile(marker, "utf8"))
+      if (change === "missing") await rm(marker)
+      else if (change === "malformed") await writeFile(marker, "{invalid")
+      else if (change === "lock") await mkdir(join(path, "addon/workspace/.reinit/lock"), { recursive: true })
+      else if (["duplicate", "traversal"].includes(change)) {
+        const parent = JSON.parse(await readFile(join(path, "report.json"), "utf8"))
+        parent.expected[0] = change === "duplicate" ? "studio" : "../outside"
+        await writeFile(join(path, "report.json"), JSON.stringify(parent))
+      } else {
+        if (change === "failed") report.status = "failed"
+        if (change === "stale") report.sourceFingerprint = "another-source"
+        if (change === "identity") report.appId = "other"
+        if (change === "path") report.runDir = join(root, "outside")
+        await writeFile(marker, JSON.stringify(report))
+      }
+      const plan = await cleanReinit(root, { keep: 1, days: 7, apply: true })
+      assert.equal(plan.candidates.length, 0)
+      assert(plan.protected.some((record) => record.path === path))
+      for (const app of ["console", "studio", "addon", "companion"])
+        assert.equal(await readFile(join(path, app, "workspace/probe"), "utf8"), "disposable data")
+      if (change === "lock") assert.equal(await exists(join(path, "addon/workspace/.reinit/lock")), true)
+    })
+  }
+})
+
+test("cleanup rejects linked instance directories and nested assets before deleting any candidate", async (t) => {
+  for (const child of ["addon", "addon/workspace", "addon/profile-dev"]) {
+    await t.test(child, async (t) => {
+      const root = await fixture(t)
+      const path = await browserSuite(root, "browser-old")
+      await browserSuite(root, "browser-recent", "passed", 1)
+      const outside = join(root, "outside")
+      await mkdir(outside)
+      await writeFile(join(outside, "business.txt"), "keep external data")
+      await rm(join(path, child), { recursive: true })
+      await symlink(outside, join(path, child), "dir")
+      const oldTime = new Date(Date.now() - 20 * 86_400_000)
+      await utimes(path, oldTime, oldTime)
+      await assert.rejects(cleanReinit(root, { keep: 1, days: 7, apply: true }), /real directory/)
+      assert.equal(await readFile(join(path, "console/workspace/probe"), "utf8"), "disposable data")
+      assert.equal(await readFile(join(outside, "business.txt"), "utf8"), "keep external data")
+      assert.equal(await exists(join(root, ".reinit/lock")), false)
+    })
+  }
+})
+
 test("cleanup defaults to preview and refuses ambiguous or unsafe retention flags", () => {
   assert.equal(parseCleanupArgs([]).apply, false)
   assert.deepEqual(parseCleanupArgs(["--keep=1", "--days=0", "--apply"]), {

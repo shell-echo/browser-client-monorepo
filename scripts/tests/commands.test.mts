@@ -3,11 +3,13 @@ import { toError } from "../lib/contracts.mts"
 import assert from "node:assert/strict"
 import { once } from "node:events"
 import { test } from "node:test"
+import type { TestContext } from "node:test"
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { setTimeout as delay } from "node:timers/promises"
 import { createCommandRunner, positiveTimeout } from "../lib/commands.mts"
+import { inspectCommandScope } from "../lib/command-scopes.mts"
 import { promote } from "../lib/workspace.mts"
 
 const gone = (pid: number | undefined) => {
@@ -31,6 +33,128 @@ const ready = (handle: CommandHandle) => {
     }),
   ])
 }
+
+async function permissionFixture(t: TestContext) {
+  const kill = process.kill.bind(process)
+  const runner = createCommandRunner({ timeoutMs: 5000, graceMs: 100 })
+  const handle = runner.start(
+    process.execPath,
+    [
+      "-e",
+      `process.on('SIGTERM',()=>{});process.stdin.on('data',()=>process.exit(0));
+console.log(JSON.parse(process.env.BROWSER_CLIENT_COMMAND_SCOPE).path);setInterval(()=>{},1000)`,
+    ],
+    { stdio: ["pipe", "pipe", "ignore"] },
+  )
+  const closed = once(handle.child, "close")
+  const ownership: { path?: string } = {}
+  let restore = () => {}
+  t.after(async () => {
+    restore()
+    try {
+      kill(-handle.child.pid!, "SIGKILL")
+    } catch (caught) {
+      if (toError(caught).code !== "ESRCH" && toError(caught).code !== "EPERM") throw caught
+    }
+    await closed
+    await runner.close().catch(() => {})
+    let exited = false
+    for (let attempt = 0; attempt < 100; attempt++) {
+      try {
+        kill(-handle.child.pid!, 0)
+      } catch (caught) {
+        if (toError(caught).code === "ESRCH") {
+          exited = true
+          break
+        }
+        if (toError(caught).code !== "EPERM") throw caught
+      }
+      await delay(20)
+    }
+    assert(exited, "Keep ownership evidence until the fixture's process group has exited")
+    if (ownership.path) await rm(ownership.path, { recursive: true, force: true })
+  })
+  const [data] = await ready(handle)
+  const scopePath = String(data).trim()
+  ownership.path = scopePath
+  assert.equal(inspectCommandScope(scopePath).at(-1)?.pid, handle.child.pid)
+  return { runner, handle, scopePath, kill, setRestore: (callback: () => void) => (restore = callback) }
+}
+
+for (const deniedSignal of ["SIGTERM", "SIGKILL"] as const)
+  test(
+    `transient ${deniedSignal} EPERM waits for a real process-group exit before settling`,
+    { skip: process.platform === "win32" },
+    async (t) => {
+      const fixture = await permissionFixture(t)
+      let denied = 0,
+        probeDenied = 0,
+        exitConfirmed = false
+      const signals: (number | NodeJS.Signals | undefined)[] = []
+      const mock = t.mock.method(process, "kill", (pid: number, signal?: number | NodeJS.Signals) => {
+        if (pid === -fixture.handle.child.pid!) {
+          if (signal !== 0) signals.push(signal)
+          if (signal === deniedSignal) {
+            denied++
+            // The fixture exits independently; a denied signal is never exit evidence.
+            fixture.handle.child.stdin!.end("exit\n")
+            throw Object.assign(new Error("Transient process-group signal"), { code: "EPERM" })
+          }
+          if (signal === 0 && denied && !probeDenied) {
+            probeDenied++
+            throw Object.assign(new Error("Transient process-group probe"), { code: "EPERM" })
+          }
+        }
+        try {
+          return fixture.kill(pid, signal)
+        } catch (caught) {
+          if (pid === -fixture.handle.child.pid! && signal === 0 && toError(caught).code === "ESRCH") exitConfirmed = true
+          throw caught
+        }
+      })
+      fixture.setRestore(() => mock.mock.restore())
+      const reason = new Error("cancelled by permission regression")
+      await fixture.handle.stop(reason)
+      const result = await fixture.handle.done
+      assert.equal(result.reason, reason)
+      assert.equal(result.code, 0)
+      assert.equal(denied, 1)
+      assert.equal(probeDenied, 1)
+      assert(exitConfirmed, "Only a real ESRCH may establish that the owned group exited")
+      assert.equal(signals.includes("SIGKILL"), deniedSignal === "SIGKILL")
+      await fixture.runner.close()
+    },
+  )
+
+test(
+  "persistent process-group EPERM rejects cleanup and retains live ownership evidence",
+  { skip: process.platform === "win32" },
+  async (t) => {
+    const fixture = await permissionFixture(t)
+    const signals: (number | NodeJS.Signals | undefined)[] = []
+    const mock = t.mock.method(process, "kill", (pid: number, signal?: number | NodeJS.Signals) => {
+      if (pid === -fixture.handle.child.pid!) {
+        signals.push(signal)
+        throw Object.assign(new Error("Persistent process-group permission denial"), { code: "EPERM" })
+      }
+      return fixture.kill(pid, signal)
+    })
+    fixture.setRestore(() => mock.mock.restore())
+    const isUnsafeExit = (error: unknown) => {
+      assert.match(toError(error).message, /Cannot confirm the process tree has exited/)
+      assert.equal(toError(error).unsafeToRestore, true)
+      return true
+    }
+    await assert.rejects(fixture.handle.stop(), isUnsafeExit)
+    await assert.rejects(fixture.handle.done, isUnsafeExit)
+    await assert.rejects(fixture.runner.close(), isUnsafeExit)
+    assert(signals.includes("SIGTERM"))
+    assert(signals.includes("SIGKILL"))
+    assert.equal(fixture.kill(-fixture.handle.child.pid!, 0), true)
+    const records = inspectCommandScope(fixture.scopePath)
+    assert(records.some((record) => record.pid === fixture.handle.child.pid && record.state === "stopping"))
+  },
+)
 
 test("command runner captures output and reports exit and launch failures", async (t) => {
   const runner = createCommandRunner()
