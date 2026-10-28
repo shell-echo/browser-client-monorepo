@@ -2,6 +2,8 @@
 
 [Project home](../README.md) · [Development](development.md) · [Reinit](reinit.md) · [Testing](testing.md) · [Security](security.md)
 
+Production hosting, environment inputs and per-instance Extension ZIP packaging are covered in [Deployment and delivery](deployment.md).
+
 Run commands from the repository root. Paths in this guide are relative to that root.
 
 ## Web template
@@ -150,11 +152,11 @@ Web applies its theme before hydration and uses `suppressHydrationWarning` on `h
 3. Choose **Load unpacked** and select `apps/extension/dist-dev`.
 4. Open the **Workspace** popup from the extension icon and choose **Open settings** to open the **Settings** page. The popup shows the current workspace; settings provide the workspace-name form and appearance menu. Both include the product name and GitHub icon link. You can also open settings through **Extension options** in the extension management page. The background initializes the default workspace without overwriting an existing name.
 
-`manifest.config.ts`, using CRXJS `defineManifest`, is the only manifest source. `src/background.ts`, `index.html`, and `options.html` are the background, popup, and options entries. CRXJS discovers entries and generates resource paths from the manifest; do not add another manifest under `public/`.
+`manifest.config.ts`, using CRXJS `defineManifest`, is the only manifest source. `src/background.ts`, `index.html`, `options.html`, `sidepanel.html`, and `src/content.ts` are the background, popup, options, side-panel, and isolated content-agent entries. CRXJS discovers entries and generates resource paths from the manifest; do not add another manifest under `public/`.
 
 Popup / options support React Fast Refresh, including shared UI components and styles. Ordinary component edits can retain React state. Background or manifest changes may reload the extension and reset state. CRXJS injects localhost development connections, permissions, and CSP into development output only. The default port is 5174. Override it with `EXTENSION_DEV_PORT=3202 pnpm dev:extension` to keep HTTP and WebSocket ports synchronized; do not override only `--port`.
 
-Build production output with `pnpm --filter @browser-client/extension build` and load or package `apps/extension/dist`. Production is independent of the development server, retains only `storage` permission and strict CSP, and has no content scripts, website host permissions, or HMR client. **Publish `dist`, not `dist-dev`.** Reload the extension manually after rebuilding production output.
+Build production output with `pnpm --filter @browser-client/extension build` and load or package `apps/extension/dist`. Production is independent of the development server and has no HMR client. Unified communication retains `storage`, `activeTab`, `scripting`, and `sidePanel`, strict CSP, and the explicitly configured website host/content-script allowlist; the broker separately enforces document-scoped consent. See the [communication guide](extension-communication.md) before changing that policy. **Publish `dist`, not `dist-dev`.** Reload the extension manually after rebuilding production output.
 
 `pnpm preview:extension` previews UI in a normal web page without CRXJS or extension APIs. It shares the extension development port, so run only one of these services at a time.
 
@@ -172,3 +174,7 @@ Build production output with `pnpm --filter @browser-client/extension build` and
 - [TypeScript configuration inheritance](https://www.typescriptlang.org/tsconfig/extends.html)
 - [ESLint shareable configuration](https://eslint.org/docs/latest/extend/shareable-configs)
 - [Oxlint configuration inheritance](https://oxc.rs/docs/guide/usage/linter/config.html#extend-shared-configs)
+
+## 扩展统一通信
+
+Web、popup、options、side panel 和隔离 content agent 共用版本化 SDK，由 Service Worker 集中路由与按文档授权。接入与安全边界见 [通信指南](extension-communication.md)。Web 示例位于 `/extension`；生产站点和自定义端口必须显式配置精确 origin，不自动扩大信任。共享包、side panel 入口和 manifest 随独立种子及 reinit 保留，生产检查覆盖通信入口策略。协议回归与真实浏览器的后台终止/恢复、撤权和风暴验收分别记录；资源不足时不启动重型验证。

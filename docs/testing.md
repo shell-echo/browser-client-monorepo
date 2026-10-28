@@ -39,6 +39,31 @@ The wrapper lowers its own scheduling priority, then inherits that priority into
 
 This profile is opt-in through `verify:low`; ordinary development and CI commands retain their defaults. The private `BROWSER_CLIENT_LOW_RESOURCE=1` marker and thread settings propagate to isolated maintenance/browser workspaces. Reinit's Next.js adapter reapplies the conditional worker configuration, and Turborepo hashes the resource settings so normal and low-resource builds use separate cache entries. Browser reports record `resourceMode`. No dependencies, business files or test assertions are replaced by this profile.
 
+### Optional resource guard
+
+```sh
+pnpm verify:low --guard check
+pnpm verify:low --guard test:browser admin
+pnpm verify:low --guard --wait-ms=600000 test:accessibility
+pnpm verify:low --guard --resume=guard-1793010000000-1234abcd
+```
+
+Guard mode supports macOS and Linux. Startup requires three consecutive observations about 20 seconds apart: CPU idle at least 80%, memory availability at least 40%, and normal memory pressure. macOS uses the second interval sample of `top -l 2`, `memory_pressure -Q` and kernel pressure; load average is not a CPU-idle measurement. Linux uses interval `/proc/stat`, `MemAvailable` and zero full-stall PSI over its ten-second window. Unsupported platforms or unreadable observations never count as healthy. Plain serial `verify:low` remains available separately. Under memory pressure the guard omits CPU/process scans and waits with lightweight observations.
+
+Runtime sampling is about every 15 seconds. Abnormal memory pressure, memory below 40%, CPU idle below 35%, idle below 50% twice, unavailable observations, or observed owned-process RSS over 2 GiB stops only the owned command tree. This is sampled protection, not an OS quota or a guarantee against unrelated system load. Priority and single-worker settings remain enabled. Runtime resource stops require a fifteen-minute cooldown before resume.
+
+Every attempt retains `report.json`, `resources.jsonl` and command output in a new `.reinit/verification/guard-*` directory. Exit 75 means startup capacity was unavailable or resource protection stopped work; test failures and unsafe cleanup still fail. Startup waits default to ten minutes. Resume validates source fingerprint, Node/platform, successful cleanup and cooldown, then reruns the recorded task in a new attempt directory. It does not skip arbitrary steps inside interrupted maintenance or mark unexecuted assertions passed. Changed source requires a fresh run. Startup-only waits have no runtime cooldown.
+
+One guard runs per project at a time. Its coordination lock is separate from the maintenance lock. After an unexpected controller exit, another run can reclaim it only after the recorded owner and every known command group are confirmed absent. Old coordination/scope/report data is retained. Unreadable or uncertain ownership refuses startup; unknown/failed attempts cannot resume automatically. Inspect these records and use normal maintenance recovery for any affected isolated workspace. Do not remove locks blindly.
+
+### Accessibility acceptance
+
+`pnpm test:browser` validates the real axe-core engine against accessible and deliberately invalid label/contrast fixtures. Web/Admin instances scan their main configured route. Admin seeds also declare `/login`, `/dashboard` and `/missing-page` through `accessibilityPaths`; add business routes to preserved instance browser configuration as needed. Paths must stay on the local application origin.
+
+Actual production popup/options pages are audited without relaxing extension CSP. Scans cover light/dark themes and desktop/mobile widths and check automatically detectable WCAG 2 A/AA, 2.1 A/AA and 2.2 AA rules. Violations and manual-review findings are retained; no failing rules are disabled. The engine is a root development dependency and is not bundled into applications. Existing keyboard, focus, recovery and business assertions still run; automated scans do not establish complete accessibility conformance.
+
+Each instance report needs successful, nonempty accessibility coverage. Missing/empty/failed/stale evidence fails the browser gate. `accessibility.jsonl` contains rule IDs, selectors and failure summaries, without page HTML or form values. CI retains it alongside reports/logs/screenshots. `pnpm test:accessibility` runs the small real-engine regression. Ordinary `pnpm check` includes pure configuration/report tests and does not launch Chromium. See [Playwright accessibility testing](https://playwright.dev/docs/accessibility-testing).
+
 `test:web-admin` creates source copies and local Git boundaries under `.reinit/verification/web-admin-*/`, installs offline from the lockfile, and rebuilds Web / Admin. Next.js production and Vite preview servers verify English page content, language metadata, accessible GitHub icon links, bundled Inter, shared component styles, theme interactions, and browser / console / resource errors. Web additionally verifies the responsive site template, navigation drawer / keyboard recovery, section links and documentation links at 320 / 390 / 768 / 1280px, invalid stored themes before hydration, invalid cross-tab updates, cleared storage, and unavailable storage. Simulated storage quota failures cover valid and invalid saved preferences, first paint without hydration, system changes, manual switching, reloads, and preservation of unrelated stored data. Admin additionally verifies its centered homepage, login and dashboard templates, native email validation, client-side navigation, deep links / reloads, unknown routes, and responsive drawer / menu behavior at the same widths. Separate fault contexts intercept real login / dashboard production chunks to verify recovery from HTTP and network errors, return-to-home navigation, and refresh retry; normal-page error checks remain strict. Reports, server logs, and screenshots remain in that directory. Tests close their own browsers and processes and verify the original source is unchanged.
 
 ### Custom business browser assertions
@@ -99,3 +124,7 @@ Application-specific unit regressions live with their instance, so removing a cl
 Cleanup regressions use disposable flat and multi-instance report trees. They verify retention windows, removal of expired copies / profiles, preservation of every report / log / screenshot and unlisted directory, and protection for failed, missing, malformed, mismatched, linked or locked instance data. Theme synchronization regressions cover empty, Web-only and multiple Vite compositions, seed creation, repeated synchronization, and preservation of updated seed assets through the same source-integration helper used by app add. Custom or linked destinations fail before any asset is updated. These fixtures run in `pnpm test`; they do not generate official templates, start Chromium, or clean real maintenance data.
 
 The [Security audit workflow](../.github/workflows/security-audit.yml) runs weekly and on manual dispatch. [Dependabot](../.github/dependabot.yml) maintains GitHub Actions versions. See [Dependency security](security.md#scheduled-checks) for their schedules and scope; npm dependency upgrades remain part of reinit.
+
+## 扩展统一通信
+
+Web、popup、options、side panel 和隔离 content agent 共用版本化 SDK，由 Service Worker 集中路由与按文档授权。接入与安全边界见 [通信指南](extension-communication.md)。Web 示例位于 `/extension`；生产站点和自定义端口必须显式配置精确 origin，不自动扩大信任。共享包、side panel 入口和 manifest 随独立种子及 reinit 保留，生产检查覆盖通信入口策略。协议回归与真实浏览器的后台终止/恢复、撤权和风暴验收分别记录；资源不足时不启动重型验证。

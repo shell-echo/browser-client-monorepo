@@ -13,6 +13,7 @@ A TypeScript monorepo for a Next.js web app, Vite admin, and CRXJS browser exten
 - **Shared tooling:** pnpm workspaces and catalogs, Turborepo, TypeScript presets, ESLint 10, Oxlint, Prettier, and VS Code settings.
 - **Framework refreshes:** official Next.js / Vite scaffolds, compatible dependency solving, source preservation, and recoverable backups.
 - **Validation:** production builds, browser interactions, responsive layouts, extension HMR / CSP, and checks before reinit replacement.
+- **Delivery:** per-instance production ZIP packaging, deployment guidance, optional resource protection, and WCAG accessibility scans.
 
 ## Previews
 
@@ -58,18 +59,18 @@ For an ordinary browser preview of extension UI, stop the extension dev service 
 
 ## Applications
 
-| Application                 | Start individually       | Default URL / output                            | Included pages                                                       |
-| --------------------------- | ------------------------ | ----------------------------------------------- | -------------------------------------------------------------------- |
-| [Web](apps/web)             | `pnpm dev:web`           | `http://127.0.0.1:3000`                         | Welcome, responsive navigation, feature cards, documentation links   |
-| [Admin](apps/admin)         | `pnpm dev:admin`         | `http://127.0.0.1:5173`                         | Overview, `/login`, `/dashboard`, not-found and route recovery pages |
-| [Extension](apps/extension) | `pnpm dev:extension`     | Load `apps/extension/dist-dev`; dev port `5174` | Workspace popup, Settings, background service worker                 |
-| Extension UI preview        | `pnpm preview:extension` | `http://127.0.0.1:5174`                         | Ordinary browser preview of popup and settings                       |
+| Application                 | Start individually       | Default URL / output                            | Included pages                                                         |
+| --------------------------- | ------------------------ | ----------------------------------------------- | ---------------------------------------------------------------------- |
+| [Web](apps/web)             | `pnpm dev:web`           | `http://127.0.0.1:3000`                         | Welcome, responsive navigation, feature cards, `/extension` connection |
+| [Admin](apps/admin)         | `pnpm dev:admin`         | `http://127.0.0.1:5173`                         | Overview, `/login`, `/dashboard`, not-found and route recovery pages   |
+| [Extension](apps/extension) | `pnpm dev:extension`     | Load `apps/extension/dist-dev`; dev port `5174` | Workspace popup, Settings, side panel, background service worker       |
+| Extension UI preview        | `pnpm preview:extension` | `http://127.0.0.1:5174`                         | Ordinary browser preview of popup and settings                         |
 
 `pnpm dev` starts Web, Admin, and the actual extension dev service. Extension development and UI preview share port `5174`; run one at a time. All development servers bind to localhost.
 
 Admin is based on the official shadcn [login-05](https://ui.shadcn.com/blocks/login#login-05) and [sidebar-08](https://ui.shadcn.com/blocks/sidebar#sidebar-08) blocks. Its login actions are UI examples; authentication, protected routes, backend services, and production data must be connected by the application. Production Admin hosts need an SPA fallback for routes such as `/dashboard`.
 
-The extension stores workspace preferences locally, synchronizes popup / settings changes, and handles read / write failures. Production output is **`apps/extension/dist`**; it keeps only the `storage` permission and strict CSP. [Development and production extension setup](docs/development.md#browser-extension).
+The extension stores workspace preferences locally, synchronizes popup / settings changes, and handles read / write failures. Production output is **`apps/extension/dist`**; unified communication uses `storage`, `activeTab`, `scripting`, and `sidePanel`, with an explicit website allowlist, an isolated content agent, and strict CSP. See [communication and authorization](docs/extension-communication.md) and [development and production setup](docs/development.md#browser-extension).
 
 ## Composable applications
 
@@ -137,6 +138,9 @@ Run commands from the repository root. The single `pnpm-lock.yaml` and workspace
 | `pnpm check`                        | Formatting, compatibility, unit tests, lint, types, builds, and extension output checks |
 | `pnpm test:web-admin`               | Production browser checks for Web and Admin                                             |
 | `pnpm test:extension`               | Actual extension loading, settings, themes, HMR, production build, and UI preview       |
+| `pnpm verify:low --guard check`     | Wait for CPU/memory headroom and monitor owned verification processes                   |
+| `pnpm test:accessibility`           | Check the real accessibility engine using valid and deliberately invalid pages          |
+| `pnpm extension:package <id>`       | Validate a built Extension and create a private production ZIP and receipt              |
 | `pnpm test:reinit`                  | Slower real online / offline rebuild acceptance in an isolated copy                     |
 | `pnpm audit:security`               | Audit locked dependencies and verify the local security patch                           |
 
@@ -144,16 +148,21 @@ Before the first browser test, run `pnpm exec playwright install chromium`; Linu
 
 ## Documentation
 
-| Guide                                   | Contents                                                                                      |
-| --------------------------------------- | --------------------------------------------------------------------------------------------- |
-| [Development](docs/development.md)      | Templates, shared configuration, shadcn/ui, themes, editor setup, and extension workflow      |
-| [Reinit and upgrades](docs/reinit.md)   | Preservation contract, compatible dependencies, offline mode, timeouts, recovery, and cleanup |
-| [Testing and CI](docs/testing.md)       | Browser assertions, regression suites, real reinit acceptance, reports, and workflows         |
-| [Dependency security](docs/security.md) | Audits, the current patch, and scheduled checks                                               |
-| [Screenshot gallery](docs/previews.md)  | Dark / mobile previews and screenshot capture notes                                           |
+| Guide                                         | Contents                                                                                      |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [Development](docs/development.md)            | Templates, shared configuration, shadcn/ui, themes, editor setup, and extension workflow      |
+| [Reinit and upgrades](docs/reinit.md)         | Preservation contract, compatible dependencies, offline mode, timeouts, recovery, and cleanup |
+| [Testing and CI](docs/testing.md)             | Browser assertions, regression suites, real reinit acceptance, reports, and workflows         |
+| [Deployment and delivery](docs/deployment.md) | Web hosting, Admin routing, environment inputs and per-instance Extension ZIPs                |
+| [Dependency security](docs/security.md)       | Audits, the current patch, and scheduled checks                                               |
+| [Screenshot gallery](docs/previews.md)        | Dark / mobile previews and screenshot capture notes                                           |
 
 ## Contributing
 
 Keep application features in their application and reusable primitives in `packages/ui`. Update `browser-tests.config.mts` when replacing starter screens, and put persistent framework customizations in the reinit integration adapters.
 
 Run `pnpm check` and the affected browser suites before proposing changes. Update documentation and screenshots when behavior or starter UI changes. [Development conventions and configuration](docs/development.md).
+
+## 扩展统一通信
+
+Web、popup、options、side panel 和隔离 content agent 共用版本化 SDK，由 Service Worker 集中路由与按文档授权。接入与安全边界见 [通信指南](docs/extension-communication.md)。Web 示例位于 `/extension`；生产站点和自定义端口必须显式配置精确 origin，不自动扩大信任。共享包、side panel 入口和 manifest 随独立种子及 reinit 保留，生产检查覆盖通信入口策略。协议回归与真实浏览器的后台终止/恢复、撤权和风暴验收分别记录；资源不足时不启动重型验证。
