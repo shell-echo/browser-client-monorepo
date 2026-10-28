@@ -1,5 +1,7 @@
 # Composable applications
 
+[English documentation](README.md) · [简体中文](zh-CN/applications.md)
+
 [Project home](../README.md) · [Development](development.md) · [Reinit](reinit.md) · [Testing](testing.md)
 
 The default Web, Admin and Extension are instances of three built-in templates. Keep one application, multiple instances of one type, any combination, or an explicit empty registry with the shared packages retained.

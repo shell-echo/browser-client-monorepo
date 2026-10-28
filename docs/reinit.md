@@ -1,5 +1,7 @@
 # Reinit and dependency upgrades
 
+[English documentation](README.md) · [简体中文](zh-CN/reinit.md)
+
 [Project home](../README.md) · [Development](development.md) · [Reinit](reinit.md) · [Testing](testing.md) · [Security](security.md)
 
 Root verification tools, deployment documentation and instance `accessibilityPaths` remain part of the preserved project. Accessibility assertions run in the browser gate before replacement; axe-core participates in root dependency compatibility planning and recorded offline replay. The optional [resource guard](testing.md#optional-resource-guard) wraps verification without changing reinit assertions or its recovery authority. Production ZIP delivery is described in [Deployment and delivery](deployment.md).
@@ -118,6 +120,6 @@ Failed / incomplete recovery records, directories without valid records, and mig
 
 `--sizes` is optional because scanning large backup trees can take time. It reports data by top-level maintenance directory and estimates how much logical data is eligible under the existing retention policy. Symbolic links are measured without following their targets. Hard links and shared filesystem blocks mean logical sizes can exceed the disk space actually reclaimed. Preview remains read-only; `--sizes` does not change eligibility or delete failed workspaces.
 
-## 扩展统一通信
+## Extension communication preservation
 
-Web、popup、options、side panel 和隔离 content agent 共用版本化 SDK，由 Service Worker 集中路由与按文档授权。接入与安全边界见 [通信指南](extension-communication.md)。Web 示例位于 `/extension`；生产站点和自定义端口必须显式配置精确 origin，不自动扩大信任。共享包、side panel 入口和 manifest 随独立种子及 reinit 保留，生产检查覆盖通信入口策略。协议回归与真实浏览器的后台终止/恢复、撤权和风暴验收分别记录；资源不足时不启动重型验证。
+Reinit preserves the shared SDK, extension manifest and side-panel entry, source policies, and instance browser assertions. Independent seeds contain the same integration for new instances. Origin allowlists are never expanded automatically; production entry checks and real-browser gates remain required. See [Extension communication](extension-communication.md).

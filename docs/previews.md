@@ -1,5 +1,7 @@
 # Screenshot gallery
 
+[English documentation](README.md) · [简体中文](zh-CN/previews.md)
+
 [Project home](../README.md) · [Development](development.md) · [Reinit](reinit.md) · [Testing](testing.md)
 
 These screenshots show the included starter UI in dark mode with the shared b0 preset and bundled Inter font. All previews use the same theme for a consistent presentation. Select an image to view its original size.

@@ -1,5 +1,7 @@
 # Deployment and delivery
 
+[English documentation](README.md) · [简体中文](zh-CN/deployment.md)
+
 [Project home](../README.md) · [Applications](applications.md) · [Reinit](reinit.md) · [Testing](testing.md)
 
 This guide covers the default root-path templates. Choose hosting and credentials in the derived business project. Building or packaging does not deploy a service or submit an extension to a store.

@@ -1,5 +1,7 @@
 # Development guide
 
+[English documentation](README.md) · [简体中文](zh-CN/development.md)
+
 [Project home](../README.md) · [Development](development.md) · [Reinit](reinit.md) · [Testing](testing.md) · [Security](security.md)
 
 Production hosting, environment inputs and per-instance Extension ZIP packaging are covered in [Deployment and delivery](deployment.md).
@@ -14,10 +16,11 @@ The page remains a Next.js Server Component in `apps/web/src/app/page.tsx`; inte
 
 ## Extension templates
 
-| Entry          | Purpose                                                                                               |
-| -------------- | ----------------------------------------------------------------------------------------------------- |
-| `index.html`   | Compact 360px popup with the current workspace, theme menu, GitHub icon, and **Open settings** action |
-| `options.html` | Responsive settings page with a workspace-name form and shared theme menu                             |
+| Entry            | Purpose                                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `index.html`     | Compact 360px popup with the current workspace, theme menu, GitHub icon, and **Open settings** action |
+| `options.html`   | Responsive settings page with a workspace-name form and shared theme menu                             |
+| `sidepanel.html` | Connection and authorization controls beside the selected browser tab                                 |
 
 Page components live in `apps/extension/src/pages/`. The settings adapter in `src/lib/settings.ts` reads and writes the existing `chrome.storage.local.workspaceName` key without requesting new permissions. Saving trims surrounding whitespace and accepts 1–80 characters. The popup follows storage changes without reloading. Unsaved settings drafts survive external updates and failed saves; load failures require a successful retry before an editable form is shown. **Open settings** uses `chrome.runtime.openOptionsPage()` and reports failures with a retryable action.
 
@@ -44,7 +47,7 @@ Lazy route failures show a responsive recovery page with **Refresh page** and **
 
 Reinit preserves these source directories, shared UI, and Admin-specific router / icon dependencies. Its required browser suite checks both templates before replacement, including form behavior, theme changes, direct URL reloads, mobile drawers, menus, and horizontal overflow at 320 / 390 / 768 / 1280px.
 
-Admin restores its desktop sidebar preference from the `sidebar_state` cookie after reloads and route navigation. Only `true` and `false` are accepted; missing, invalid, or unavailable cookies use the expanded default. Writes retain the existing seven-day lifetime and root path. Cookie restrictions do not prevent toggling. The client-only Admin layout initializes this preference; the shared provider keeps its explicit `defaultOpen` / controlled-state contract so SSR consumers can supply server-derived state without hydration mismatches.
+Admin restores its desktop sidebar preference from the instance-namespaced `sidebar_state_<namespace>` cookie after reloads and route navigation. Original instances can migrate the legacy `sidebar_state` cookie when explicitly marked. Only `true` and `false` are accepted; missing, invalid, or unavailable cookies use the expanded default. Writes retain the seven-day lifetime, root path, and `SameSite=Lax`. Cookie restrictions do not prevent toggling. The client-only Admin layout initializes this preference; the shared provider keeps its explicit `defaultOpen` / controlled-state contract so SSR consumers can supply server-derived state without hydration mismatches.
 
 ## Shared configuration
 
@@ -175,6 +178,6 @@ Build production output with `pnpm --filter @browser-client/extension build` and
 - [ESLint shareable configuration](https://eslint.org/docs/latest/extend/shareable-configs)
 - [Oxlint configuration inheritance](https://oxc.rs/docs/guide/usage/linter/config.html#extend-shared-configs)
 
-## 扩展统一通信
+## Extension communication
 
-Web、popup、options、side panel 和隔离 content agent 共用版本化 SDK，由 Service Worker 集中路由与按文档授权。接入与安全边界见 [通信指南](extension-communication.md)。Web 示例位于 `/extension`；生产站点和自定义端口必须显式配置精确 origin，不自动扩大信任。共享包、side panel 入口和 manifest 随独立种子及 reinit 保留，生产检查覆盖通信入口策略。协议回归与真实浏览器的后台终止/恢复、撤权和风暴验收分别记录；资源不足时不启动重型验证。
+Use the shared SDK for Web, popup, options, side panel, and the isolated content agent. Start with the Web `/extension` example, then configure each production origin or custom port explicitly in the extension policy. See the [communication guide](extension-communication.md) for integration, authorization, and limits.

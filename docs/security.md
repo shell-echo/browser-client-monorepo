@@ -1,5 +1,7 @@
 # Dependency security
 
+[English documentation](README.md) · [简体中文](zh-CN/security.md)
+
 [Project home](../README.md) · [Development](development.md) · [Reinit](reinit.md) · [Testing](testing.md) · [Security](security.md)
 
 The project audits the locked dependency graph and verifies local mitigations before accepting them. Policy and commands are defined in [the workspace configuration](../pnpm-workspace.yaml), [the audit script](../scripts/audit-dependencies.mts), and [security regression tests](../scripts/tests/security.test.mts).

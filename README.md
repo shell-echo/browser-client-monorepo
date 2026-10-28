@@ -1,16 +1,28 @@
 # Browser Client
 
+**English** · [简体中文](README.zh-CN.md)
+
 [![CI](https://github.com/shell-echo/browser-client-monorepo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shell-echo/browser-client-monorepo/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A TypeScript monorepo for a Next.js web app, Vite admin, and CRXJS browser extension. Share one shadcn/ui design system and refresh framework foundations from official templates with `reinit`.
+A TypeScript monorepo starter for **Next.js web apps, React admin dashboards, and Chrome / Edge Manifest V3 extensions**. Build them together with shared shadcn/ui components, a permissioned extension communication SDK, and recoverable framework refreshes from official templates.
 
-[Quick start](#quick-start) · [Previews](#previews) · [Applications](#applications) · [Reinit](#reinit) · [Documentation](#documentation)
+[Quick start](#quick-start) · [Previews](#previews) · [Extension SDK](#extension-sdk) · [Applications](#applications) · [Reinit](#reinit) · [Documentation](#documentation)
+
+## Who this is for
+
+- Build a website, an admin dashboard, and a browser extension in one pnpm / Turborepo workspace, with consistent UI and tooling.
+- Connect your website to an installed extension through native Chrome Ports, with explicit page approval and Service Worker authorization.
+- Keep business code while refreshing framework foundations, or compose multiple independent Web, Admin, and Extension instances from reusable seeds.
+
+Start with the clients you need. Authentication, business APIs, production hosting, and store publication are integration work for your application.
 
 ## Included
 
 - **Three applications:** a responsive web starter, Admin login / dashboard templates, and Chrome / Edge Manifest V3 popup / settings pages.
 - **Shared UI:** shadcn preset **b0**, Base UI, bundled **Inter**, Lucide icons, and light / dark / system themes. UI text is English.
 - **Shared tooling:** pnpm workspaces and catalogs, Turborepo, TypeScript presets, ESLint 10, Oxlint, Prettier, and VS Code settings.
+- **Extension communication:** one dependency-free SDK for Web, popup, settings, and side panel; document-scoped grants, read-only website capabilities, subscriptions, and bounded reconnects.
 - **Framework refreshes:** official Next.js / Vite scaffolds, compatible dependency solving, source preservation, and recoverable backups.
 - **Validation:** production builds, browser interactions, responsive layouts, extension HMR / CSP, and checks before reinit replacement.
 - **Delivery:** per-instance production ZIP packaging, deployment guidance, optional resource protection, and WCAG accessibility scans.
@@ -72,6 +84,14 @@ Admin is based on the official shadcn [login-05](https://ui.shadcn.com/blocks/lo
 
 The extension stores workspace preferences locally, synchronizes popup / settings changes, and handles read / write failures. Production output is **`apps/extension/dist`**; unified communication uses `storage`, `activeTab`, `scripting`, and `sidePanel`, with an explicit website allowlist, an isolated content agent, and strict CSP. See [communication and authorization](docs/extension-communication.md) and [development and production setup](docs/development.md#browser-extension).
 
+## Extension SDK
+
+`@browser-client/extension-sdk` connects Web, popup, options, and side panel through native Chrome Ports. The extension Service Worker validates sender identity, routes requests, and grants access to a specific origin, tab, and document. An isolated content agent handles approved page reads.
+
+To try it, load the extension, open the Web app's `/extension` page, enter its Extension ID, request access, and approve that page in the extension's **Connections** UI. The Web example can read the workspace name and explicitly request its own selected text. Navigation or revocation ends that grant.
+
+Production origins and custom ports need an explicit allowlist entry and an extension rebuild. Websites receive read-only capabilities; arbitrary script execution, network proxies, screenshots, and downloads are outside this version. [Setup, SDK examples, permissions, and traffic limits](docs/extension-communication.md).
+
 ## Composable applications
 
 Keep only Admin, add multiple Web/Admin instances, or retain the default three clients. Instance names and template types are independent. [Application registry, lifecycle and recovery](docs/applications.md).
@@ -116,6 +136,7 @@ apps/
   extension/            Vite + React + CRXJS / Manifest V3
 packages/
   ui/                   Shared shadcn/ui, bundled fonts, and themes
+  extension-sdk/        Runtime-validated protocol, clients, and authorization broker
   typescript-config/    TypeScript presets
   eslint-config/        Shared ESLint rules
   oxlint-config/        Shared Oxlint rules
@@ -136,6 +157,7 @@ Run commands from the repository root. The single `pnpm-lock.yaml` and workspace
 | `pnpm lint` / `pnpm typecheck`      | Check all workspaces                                                                    |
 | `pnpm typecheck:scripts`            | Strictly check engineering scripts, regression tests, and browser assertions            |
 | `pnpm check`                        | Formatting, compatibility, unit tests, lint, types, builds, and extension output checks |
+| `pnpm test:browser`                 | Sequential acceptance of every registered instance with strict coverage aggregation     |
 | `pnpm test:web-admin`               | Production browser checks for Web and Admin                                             |
 | `pnpm test:extension`               | Actual extension loading, settings, themes, HMR, production build, and UI preview       |
 | `pnpm verify:low --guard check`     | Wait for CPU/memory headroom and monitor owned verification processes                   |
@@ -148,14 +170,18 @@ Before the first browser test, run `pnpm exec playwright install chromium`; Linu
 
 ## Documentation
 
-| Guide                                         | Contents                                                                                      |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| [Development](docs/development.md)            | Templates, shared configuration, shadcn/ui, themes, editor setup, and extension workflow      |
-| [Reinit and upgrades](docs/reinit.md)         | Preservation contract, compatible dependencies, offline mode, timeouts, recovery, and cleanup |
-| [Testing and CI](docs/testing.md)             | Browser assertions, regression suites, real reinit acceptance, reports, and workflows         |
-| [Deployment and delivery](docs/deployment.md) | Web hosting, Admin routing, environment inputs and per-instance Extension ZIPs                |
-| [Dependency security](docs/security.md)       | Audits, the current patch, and scheduled checks                                               |
-| [Screenshot gallery](docs/previews.md)        | Dark / mobile previews and screenshot capture notes                                           |
+| Guide                                                      | Contents                                                                                      |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [Development](docs/development.md)                         | Templates, shared configuration, shadcn/ui, themes, editor setup, and extension workflow      |
+| [Application lifecycle](docs/applications.md)              | Registry, instance identity, adding, removing, restoring, and composing clients               |
+| [Extension communication](docs/extension-communication.md) | SDK usage, exact-origin trust, page approval, routing, recovery, and traffic limits           |
+| [Reinit and upgrades](docs/reinit.md)                      | Preservation contract, compatible dependencies, offline mode, timeouts, recovery, and cleanup |
+| [Testing and CI](docs/testing.md)                          | Browser assertions, regression suites, real reinit acceptance, reports, and workflows         |
+| [Deployment and delivery](docs/deployment.md)              | Web hosting, Admin routing, environment inputs and per-instance Extension ZIPs                |
+| [Dependency security](docs/security.md)                    | Audits, the current patch, and scheduled checks                                               |
+| [Screenshot gallery](docs/previews.md)                     | Dark / mobile previews and screenshot capture notes                                           |
+
+Every guide is also available in [Simplified Chinese](docs/zh-CN/README.md). Keep each page in one language and update both versions when commands or behavior change. Product UI labels and code identifiers retain their original spelling.
 
 ## Contributing
 
@@ -163,6 +189,6 @@ Keep application features in their application and reusable primitives in `packa
 
 Run `pnpm check` and the affected browser suites before proposing changes. Update documentation and screenshots when behavior or starter UI changes. [Development conventions and configuration](docs/development.md).
 
-## 扩展统一通信
+## License
 
-Web、popup、options、side panel 和隔离 content agent 共用版本化 SDK，由 Service Worker 集中路由与按文档授权。接入与安全边界见 [通信指南](docs/extension-communication.md)。Web 示例位于 `/extension`；生产站点和自定义端口必须显式配置精确 origin，不自动扩大信任。共享包、side panel 入口和 manifest 随独立种子及 reinit 保留，生产检查覆盖通信入口策略。协议回归与真实浏览器的后台终止/恢复、撤权和风暴验收分别记录；资源不足时不启动重型验证。
+[MIT](LICENSE).

@@ -1,5 +1,7 @@
 # Testing and continuous integration
 
+[English documentation](README.md) · [简体中文](zh-CN/testing.md)
+
 [Project home](../README.md) · [Development](development.md) · [Reinit](reinit.md) · [Testing](testing.md) · [Security](security.md)
 
 Use application-specific assertions together with the shared infrastructure checks. Reports and browser profiles stay in the private `.reinit/` directory.
@@ -125,6 +127,6 @@ Cleanup regressions use disposable flat and multi-instance report trees. They ve
 
 The [Security audit workflow](../.github/workflows/security-audit.yml) runs weekly and on manual dispatch. [Dependabot](../.github/dependabot.yml) maintains GitHub Actions versions. See [Dependency security](security.md#scheduled-checks) for their schedules and scope; npm dependency upgrades remain part of reinit.
 
-## 扩展统一通信
+## Extension communication acceptance
 
-Web、popup、options、side panel 和隔离 content agent 共用版本化 SDK，由 Service Worker 集中路由与按文档授权。接入与安全边界见 [通信指南](extension-communication.md)。Web 示例位于 `/extension`；生产站点和自定义端口必须显式配置精确 origin，不自动扩大信任。共享包、side panel 入口和 manifest 随独立种子及 reinit 保留，生产检查覆盖通信入口策略。协议回归与真实浏览器的后台终止/恢复、撤权和风暴验收分别记录；资源不足时不启动重型验证。
+SDK regressions cover identity validation, permission checks, document grants, revocation, message budgets, and disconnect cleanup. Real Chromium acceptance exercises Web → worker → agent → Web, worker termination and recovery, popup/options/side-panel subscriptions, navigation, revocation, and flooding from an independent document. Record unit and browser results separately; a resource cancellation does not establish a product pass. See [Extension communication](extension-communication.md).

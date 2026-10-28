@@ -1,5 +1,7 @@
 # Extension communication
 
+[English documentation](README.md) · [简体中文](zh-CN/extension-communication.md)
+
 Web, popup, options and side panel use `@browser-client/extension-sdk`. An isolated content script provides a small page agent. Each installed extension has its own Service Worker broker; Chrome native Ports are the default transport. There is no server, WebRTC dependency, global page event bus, all-tab broadcast or background heartbeat.
 
 ## Try the complete flow
@@ -55,6 +57,6 @@ Do not use these logical limits as a process memory cap or a guarantee against a
 
 `scripts/tests/extension-sdk.test.mts` covers protocol attacks, origin/frame/document identity, consent, revocation, worker-state reconstruction, selected-document routing, duplicates, deadlines, disconnect cleanup and message bursts/slow consumers. Production manifest checks include the external entry policy, content-agent assets and side-panel HTML. Real Chromium acceptance additionally verifies Web→worker→agent→Web, popup/options/side-panel subscriptions, revoked/navigated documents and worker termination/recovery. Mock Ports and modeled trusted lifecycle callbacks verify protocol behavior; they do not substitute for actual browser lifecycle acceptance or Chrome/Edge manual checks.
 
-Run validation only with the project's resource guard and enough host headroom. See [testing](testing.md) and [deployment](deployment.md). This feature's implementation, unit tests and real-browser acceptance must be reported separately until each has actually run.
+Run validation with enough host headroom; the project's resource guard is available for local verification. See [testing](testing.md) and [deployment](deployment.md). This feature's implementation, unit tests and real-browser acceptance must be reported separately until each has actually run.
 
 Chrome references: [messaging](https://developer.chrome.com/docs/extensions/develop/concepts/messaging), [worker lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle), [external connections](https://developer.chrome.com/docs/extensions/reference/manifest/externally-connectable), [scripting](https://developer.chrome.com/docs/extensions/reference/api/scripting), [side panel](https://developer.chrome.com/docs/extensions/reference/api/sidePanel).
