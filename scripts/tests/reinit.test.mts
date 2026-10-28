@@ -166,29 +166,51 @@ test("Welcome, Overview, Workspace and Settings pages and browser hooks survive 
     if (target !== "web")
       assert.equal(await readFile(join(candidate, "index.html"), "utf8"), await readFile(join(original, "index.html"), "utf8"))
     if (target === "extension") {
-      for (const file of ["index.html", "options.html", "manifest.config.ts"])
+      for (const file of ["index.html", "options.html", "sidepanel.html", "manifest.config.ts"])
         assert.equal(await readFile(join(candidate, file), "utf8"), await readFile(join(original, file), "utf8"))
     }
     const manifest = await readFile(join(original, "package.json"), "utf8").then(JSON.parse)
     const merged = mergeManifest({ dependencies: { react: "latest stable" } }, manifest, target)
     assert.equal(merged.dependencies["@browser-client/ui"], "workspace:*")
+    if (target !== "admin") assert.equal(merged.dependencies["@browser-client/extension-sdk"], "workspace:*")
     assert.equal(merged.dependencies.react, "latest stable")
     if (target === "extension") assert.equal(merged.scripts["preview:ui"], "vite --mode preview-ui")
   }
   for (const path of [
     "packages/ui",
+    "packages/extension-sdk",
+    "docs/extension-communication.md",
     "packages/eslint-config",
     "browser-tests.config.mts",
     "scripts/lib/web-verification.mts",
     "scripts/lib/admin-verification.mts",
     "scripts/lib/extension-verification.mts",
     "scripts/lib/theme-verification.mts",
+    "scripts/lib/resource-guard.mts",
+    "scripts/lib/resource-probes.mts",
+    "scripts/lib/accessibility.mts",
+    "scripts/verify-low-resource.mts",
+    "scripts/package-extension.mts",
+    "scripts/test-accessibility.mts",
+    "docs/deployment.md",
+    "package.json",
+    "template-versions.json",
     "scripts/tests/lint-scopes.test.mts",
     "scripts/tests/sidebar-state.test.mts",
     "scripts/tests/security.test.mts",
   ]) {
     await copySource(join(source, path), join(root, "candidate", path), { root: source })
     assert.equal(await fingerprint(join(root, "candidate", path)), await fingerprint(join(source, path)), path)
+  }
+  const rootManifest = JSON.parse(await readFile(join(root, "candidate/package.json"), "utf8"))
+  for (const command of ["verify:low", "extension:package", "test:accessibility"]) assert(rootManifest.scripts[command])
+  assert(rootManifest.devDependencies["axe-core"])
+  for (const target of ["admin", "web"]) {
+    const config = "browser-tests.config.mts"
+    assert.equal(
+      await readFile(join(root, "candidate", target, config), "utf8"),
+      await readFile(join(root, "previous", target, config), "utf8"),
+    )
   }
 })
 
@@ -280,7 +302,7 @@ test("Next adapter retains upstream CSS settings and removes the nested workspac
   await integrate(root, "web")
   const config = await readFile(join(root, "apps/web/next.config.ts"), "utf8")
   assert(config.includes("upstream-loader"))
-  assert(config.includes('transpilePackages: ["@browser-client/ui"]'))
+  assert(config.includes('transpilePackages: ["@browser-client/ui", "@browser-client/extension-sdk"]'))
   assert(config.includes('import { withVerificationResources } from "../../scripts/lib/verification-resources.mts"'))
   assert(config.includes("export default withVerificationResources(nextConfig)"))
   assert.equal(await exists(join(root, "apps/web/pnpm-workspace.yaml")), false)

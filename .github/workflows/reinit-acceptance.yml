@@ -52,17 +52,21 @@ jobs:
             .reinit/verification/reinit-*/workspace/.reinit/reports/*.json
             .reinit/verification/reinit-*/workspace/.reinit/verification/*/report.json
             .reinit/verification/reinit-*/workspace/.reinit/verification/*/*.log
+            .reinit/verification/reinit-*/workspace/.reinit/verification/*/*.jsonl
             .reinit/verification/reinit-*/workspace/.reinit/verification/*/*.png
             .reinit/verification/reinit-*/workspace/.reinit/verification/*/*/report.json
             .reinit/verification/reinit-*/workspace/.reinit/verification/*/*/*.log
+            .reinit/verification/reinit-*/workspace/.reinit/verification/*/*/*.jsonl
             .reinit/verification/reinit-*/workspace/.reinit/verification/*/*/*.png
             .reinit/verification/apps-*/report.json
             .reinit/verification/apps-*/*.log
             .reinit/verification/apps-*/workspace/.reinit/reports/*.json
             .reinit/verification/apps-*/workspace/.reinit/verification/*/report.json
             .reinit/verification/apps-*/workspace/.reinit/verification/*/*.log
+            .reinit/verification/apps-*/workspace/.reinit/verification/*/*.jsonl
             .reinit/verification/apps-*/workspace/.reinit/verification/*/*/report.json
             .reinit/verification/apps-*/workspace/.reinit/verification/*/*/*.log
+            .reinit/verification/apps-*/workspace/.reinit/verification/*/*/*.jsonl
             .reinit/verification/apps-*/workspace/.reinit/verification/*/*/*.png
           if-no-files-found: warn
           retention-days: 7

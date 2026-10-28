@@ -3,7 +3,14 @@ import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
-import { browserUrl, loadBrowserConfig, prepareHmrUpdate, validateBrowserConfig } from "../lib/browser-config.mts"
+import {
+  browserUrl,
+  loadBrowserConfig,
+  prepareHmrUpdate,
+  validateBrowserConfig,
+  validateCommunication,
+} from "../lib/browser-config.mts"
+import type { BrowserConfig } from "../lib/contracts.mts"
 
 const config = (): {
   web: Record<string, unknown>
@@ -17,6 +24,26 @@ const config = (): {
     verifyBackground() {},
     hmr: { file: "apps/extension/src/workspace.tsx", update: (source: string) => source + "\n// HMR\n", verify() {} },
   },
+})
+
+test("communication acceptance never starts a remote or ambiguous fixture service", () => {
+  const value: BrowserConfig["extension"] = {
+    verifyPage() {},
+    verifyBackground() {},
+    hmr: config().extension.hmr,
+    verifyConnections: async () => {},
+    communicationOrigin: "http://127.0.0.1:3000",
+  }
+  assert.doesNotThrow(() => validateCommunication(value))
+  for (const origin of [
+    "https://example.com",
+    "http://localhost",
+    "http://127.0.0.1:3000/path",
+    "http://localhost:80",
+    "http://127.0.0.1:3000/?x=1",
+  ]) {
+    assert.throws(() => validateCommunication({ ...value, communicationOrigin: origin }))
+  }
 })
 
 async function fixture(t: import("node:test").TestContext) {

@@ -1,3 +1,4 @@
+import "./bridge-background"
 import { DEFAULT_WORKSPACE_NAME } from "./lib/settings"
 
 // Register listeners at the top level so Manifest V3 can wake this worker.

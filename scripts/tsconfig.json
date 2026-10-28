@@ -5,5 +5,11 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node", "chrome"]
   },
-  "include": ["**/*.mts", "../browser-tests.config.mts", "../apps/*/browser-tests.config.mts", "../apps/*/tests/**/*.mts"]
+  "include": [
+    "**/*.mts",
+    "../browser-tests.config.mts",
+    "../apps/*/browser-tests.config.mts",
+    "../apps/*/tests/**/*.mts",
+    "../packages/extension-sdk/src/**/*.mts"
+  ]
 }

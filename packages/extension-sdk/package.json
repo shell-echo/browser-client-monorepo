@@ -1,0 +1,12 @@
+{
+  "name": "@browser-client/extension-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/client.mts",
+    "./protocol": "./src/protocol.mts",
+    "./broker": "./src/broker.mts",
+    "./agent": "./src/agent.mts"
+  }
+}

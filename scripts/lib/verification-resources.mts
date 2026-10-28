@@ -49,6 +49,8 @@ const tasks = new Set([
   "test:extension",
   "test:reinit",
   "test:apps",
+  "test:accessibility",
+  "audit:security",
   "lint:scripts",
   "typecheck:scripts",
   "format:check",

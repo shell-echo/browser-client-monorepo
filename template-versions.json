@@ -368,6 +368,21 @@
         ]
       },
       {
+        "id": ".:devDependencies:axe-core",
+        "name": "axe-core",
+        "previous": "4.14.0",
+        "current": "4.14.0",
+        "location": {
+          "path": ".",
+          "field": "devDependencies",
+          "name": "axe-core"
+        },
+        "required": [],
+        "strictLatest": false,
+        "version": "4.14.0",
+        "reasons": ["Direct audit tooling recorded from the existing locked and cached stable version; online reinit re-evaluates the registry."]
+      },
+      {
         "id": ".:devDependencies:es-module-lexer",
         "name": "es-module-lexer",
         "previous": "3.0.4",

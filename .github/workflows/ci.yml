@@ -63,8 +63,10 @@ jobs:
           path: |
             .reinit/verification/browser-*/report.json
             .reinit/verification/browser-*/*.log
+            .reinit/verification/browser-*/*.jsonl
             .reinit/verification/browser-*/*/report.json
             .reinit/verification/browser-*/*/*.log
             .reinit/verification/browser-*/*/*.png
+            .reinit/verification/browser-*/*/*.jsonl
           if-no-files-found: error
           retention-days: 7

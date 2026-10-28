@@ -18,7 +18,7 @@ import { stringify } from "yaml"
 import { updateDependencies, verifyResolvedUpdates } from "../lib/updates.mts"
 import { fingerprint } from "../lib/workspace.mts"
 
-const versions: VersionMap = { react: "19.3.0", tool: "2.0.0", helper: "2.1.0", next: "16.4.1" }
+const versions: VersionMap = { react: "19.3.0", tool: "2.0.0", helper: "2.1.0", next: "16.4.1", "axe-core": "4.14.0" }
 const registry: Registry = {
   versions: async () => assert.fail("Unexpected registry fallback"),
   latest: async (name: string) => {
@@ -111,6 +111,23 @@ test("deleted dependency and workspace receipts are retired during online and of
         assert.equal(await readFile(join(f.root, "business.txt"), "utf8"), "preserved business data\n")
       })
   }
+})
+
+test("root accessibility tooling requires a receipt and replays offline without registry access", async (t) => {
+  const f = await fixture(t)
+  f.manifests["."].devDependencies["axe-core"] = "4.14.0"
+  f.lock.importers["."].devDependencies["axe-core"] = locked("4.14.0")
+  await f.save()
+  const args = { root: f.root, templates: {}, previous: {}, saved: f.saved }
+  const before = await fingerprint(f.root)
+  await assert.rejects(updateDependencies({ ...args, offline: true, registry: offlineRegistry }), /axe-core/)
+  assert.equal(await fingerprint(f.root), before, "Missing offline receipt must not write partial updates")
+  const receipt = await updateDependencies({ ...args, registry })
+  assert(receipt.entries.some((entry) => entry.id === ".:devDependencies:axe-core" && entry.version === "4.14.0"))
+  const replay = await updateDependencies({ ...args, saved: receipt, offline: true, registry: offlineRegistry })
+  await verifyResolvedUpdates(f.root, replay)
+  assert.deepEqual(ids(replay), ids(receipt))
+  assert.equal(JSON.parse(await readFile(join(f.root, "package.json"), "utf8")).devDependencies["axe-core"], "4.14.0")
 })
 
 test("online declaration moves replace old receipts and remain replayable offline", async (t) => {

@@ -1,3 +1,4 @@
+import { ConnectionPanel } from "./connections"
 import { useState, type FormEvent } from "react"
 import { Button } from "@browser-client/ui/components/button"
 import { Card, CardContent, CardDescription, CardHeader } from "@browser-client/ui/components/card"
@@ -125,6 +126,7 @@ export function OptionsPage() {
             <ThemeSwitcher />
           </CardContent>
         </Card>
+        <ConnectionPanel />
       </main>
       <footer className="border-t">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-xs text-muted-foreground sm:px-6">

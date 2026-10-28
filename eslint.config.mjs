@@ -15,6 +15,8 @@ export default [
       "scripts/lib/admin-verification.mts",
       "scripts/lib/web-verification.mts",
       "scripts/lib/extension-verification.mts",
+      "scripts/lib/accessibility.mts",
+      "scripts/lib/extension-bridge-verification.mts",
       "browser-tests.config.mts",
     ],
     rules: { "no-restricted-globals": "off" },

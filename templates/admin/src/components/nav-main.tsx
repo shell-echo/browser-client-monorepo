@@ -38,7 +38,11 @@ export function NavMain({
             </SidebarMenuButton>
             {item.items?.length ? (
               <>
-                <CollapsibleTrigger render={<SidebarMenuAction className="aria-expanded:rotate-90" />}>
+                <CollapsibleTrigger
+                  render={
+                    <SidebarMenuAction className="top-1 size-6 peer-data-[size=default]/menu-button:top-1 aria-expanded:rotate-90" />
+                  }
+                >
                   <ChevronRightIcon />
                   <span className="sr-only">Toggle {item.title}</span>
                 </CollapsibleTrigger>

@@ -37,6 +37,7 @@ export function mergeManifest(
   }
   delete merged.packageManager
   merged.dependencies["@browser-client/ui"] = "workspace:*"
+  if (type === "web" || type === "extension") merged.dependencies["@browser-client/extension-sdk"] = "workspace:*"
   merged.devDependencies["@browser-client/typescript-config"] = "workspace:*"
   merged.devDependencies[type === "web" ? "@browser-client/eslint-config" : "@browser-client/oxlint-config"] = "workspace:*"
   if (type === "web") {
@@ -116,7 +117,7 @@ export async function integrate(
     config = replaceRequired(
       config,
       "const nextConfig: NextConfig = {",
-      'const nextConfig: NextConfig = {\n  transpilePackages: ["@browser-client/ui"],',
+      'const nextConfig: NextConfig = {\n  transpilePackages: ["@browser-client/ui", "@browser-client/extension-sdk"],',
       file,
     )
     // Retain the current official CSS loader and any future template settings.

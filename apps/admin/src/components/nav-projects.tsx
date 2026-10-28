@@ -39,7 +39,14 @@ export function NavProjects({
               <span>{item.name}</span>
             </SidebarMenuButton>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<SidebarMenuAction showOnHover className="aria-expanded:bg-muted" />}>
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuAction
+                    showOnHover
+                    className="top-1 size-6 peer-data-[size=default]/menu-button:top-1 aria-expanded:bg-muted"
+                  />
+                }
+              >
                 <MoreHorizontalIcon />
                 <span className="sr-only">More about {item.name}</span>
               </DropdownMenuTrigger>

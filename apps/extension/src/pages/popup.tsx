@@ -1,3 +1,4 @@
+import { ConnectionPanel } from "./connections"
 import { useState } from "react"
 import { Button } from "@browser-client/ui/components/button"
 import { Card, CardContent, CardHeader } from "@browser-client/ui/components/card"
@@ -67,6 +68,22 @@ export function PopupPage() {
             {openError}
           </p>
         )}
+        <Button
+          variant="outline"
+          onClick={() => {
+            if (!isExtensionContext()) {
+              window.location.assign("./sidepanel.html")
+              return
+            }
+            void chrome.windows
+              .getCurrent()
+              .then((window) => chrome.sidePanel.open({ windowId: window.id! }))
+              .catch(() => setOpenError("Unable to open the side panel."))
+          }}
+        >
+          Open side panel
+        </Button>
+        <ConnectionPanel />
       </main>
       <footer className="flex items-center justify-between gap-3 border-t px-5 py-3">
         <span className="text-xs text-muted-foreground">

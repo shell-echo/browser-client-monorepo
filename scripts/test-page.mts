@@ -18,7 +18,8 @@ import {
   verifyThemeWriteFailure,
   verifyThemeEventIsolation,
 } from "./lib/theme-verification.mts"
-import { browserUrl, loadApplicationBrowserConfig } from "./lib/browser-config.mts"
+import { browserUrl, loadApplicationBrowserConfig, accessibilityPaths } from "./lib/browser-config.mts"
+import { verifyAccessibility, accessibilityCoverage } from "./lib/accessibility.mts"
 import { assertTestPortAvailable, serverLogReady } from "./lib/test-ports.mts"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
@@ -126,6 +127,19 @@ try {
   })
   passed("Themes retain persistence, system preference, first paint, storage-event isolation and unavailable-storage recovery")
   if (app.type === "admin") await config.verifyRoutes({ pageFor, url: origin, runDir, errors: report.errors, passed })
+  await runner.phase("Accessibility: production routes, themes and viewports", async () => {
+    const scans = []
+    for (const path of accessibilityPaths(config)) {
+      const audit = await pageFor("accessibility", browserUrl(origin, path))
+      try {
+        scans.push(...(await verifyAccessibility(audit, runDir, path)))
+      } finally {
+        await audit.context().close()
+      }
+    }
+    report.accessibility = accessibilityCoverage(scans)
+  })
+  passed("WCAG accessibility scans passed for every configured route in light/dark themes at desktop/mobile widths")
   assert.deepEqual(report.errors, [], "Browser runtime, console or resource errors detected")
   assert.equal(await fingerprint(root), baseline, "Browser test changed the source workspace")
   passed("Production browser assertions passed in an isolated workspace without source changes")

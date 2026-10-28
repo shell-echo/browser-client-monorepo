@@ -248,7 +248,12 @@ test("maintenance refuses symlinked state directories before generating or chang
 })
 
 test("browser coverage cannot pass with missing, duplicate, skipped, unknown or stale instance reports", () => {
-  const good = { appId: "admin", status: "passed", sourceFingerprint: "baseline" }
+  const good = {
+    appId: "admin",
+    status: "passed",
+    sourceFingerprint: "baseline",
+    accessibility: { status: "passed" as const, engine: "4.14.0", scans: 4, violations: 0 as const },
+  }
   assert.doesNotThrow(() => verifyBrowserCoverage([], [], "baseline"))
   assert.doesNotThrow(() => verifyBrowserCoverage(["admin"], [good], "baseline"))
   for (const reports of [
@@ -257,6 +262,8 @@ test("browser coverage cannot pass with missing, duplicate, skipped, unknown or 
     [{ ...good, appId: "other" }],
     [{ ...good, status: "skipped" }],
     [{ ...good, sourceFingerprint: "old" }],
+    [{ ...good, accessibility: undefined }],
+    [{ ...good, accessibility: { ...good.accessibility, scans: 0 } }],
   ])
     assert.throws(() => verifyBrowserCoverage(["admin"], reports, "baseline"))
 })

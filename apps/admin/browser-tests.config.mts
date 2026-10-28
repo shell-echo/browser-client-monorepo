@@ -5,6 +5,7 @@ import { join } from "node:path"
 
 export default {
   path: "/",
+  accessibilityPaths: ["/login", "/dashboard", "/missing-page"],
   async verify({ page, runDir, passed }) {
     await verifyClientPage(page, "Overview")
     await page.screenshot({ path: join(runDir, "admin-desktop.png"), fullPage: true })

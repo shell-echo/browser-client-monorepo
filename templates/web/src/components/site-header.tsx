@@ -19,6 +19,7 @@ const links = [
   { href: "#overview", label: "Overview" },
   { href: "#features", label: "Features" },
   { href: "#resources", label: "Resources" },
+  { href: "/extension", label: "Connect extension" },
 ]
 
 export function SiteHeader() {

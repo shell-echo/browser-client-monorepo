@@ -1,5 +1,5 @@
 import type { ChildProcess, StdioOptions } from "node:child_process"
-import type { Browser, Page } from "playwright"
+import type { Browser, BrowserContext, Page } from "playwright"
 
 export type Target = "web" | "admin" | "extension"
 export type DependencyField = "dependencies" | "devDependencies"
@@ -176,9 +176,10 @@ export interface HmrConfig {
   verify(context: { page: Page; popup: Page }): void | Promise<void>
 }
 export interface BrowserConfig {
-  web: { path: string; verify(context: BrowserAssertions): void | Promise<void> }
+  web: { path: string; accessibilityPaths?: string[]; verify(context: BrowserAssertions): void | Promise<void> }
   admin: {
     path: string
+    accessibilityPaths?: string[]
     verify(context: BrowserAssertions): void | Promise<void>
     verifyRoutes(context: RouteAssertions): void | Promise<void>
   }
@@ -187,6 +188,14 @@ export interface BrowserConfig {
     verifyBackground(context: { page: Page; until: Until }): void | Promise<void>
     verifyInteractions?(context: { popup: Page; options: Page; until: Until; runDir: string; profile: string }): Promise<void>
     verifyPreview?(context: { page: Page; until: Until; runDir: string }): Promise<void>
+    communicationOrigin?: string
+    verifyConnections?(context: {
+      context: BrowserContext
+      popup: Page
+      options: Page
+      until: Until
+      fixtureOrigin: string
+    }): Promise<void>
     hmr: HmrConfig
   }
 }

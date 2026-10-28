@@ -14,6 +14,7 @@ import { readApplications, selectApplications } from "./lib/apps.mts"
 import { chooseTheme, verifyThemes } from "./lib/theme-verification.mts"
 import { loadApplicationBrowserConfig, prepareHmrUpdate } from "./lib/browser-config.mts"
 import { assertTestPortAvailable, serverLogReady } from "./lib/test-ports.mts"
+import { verifyAccessibility, accessibilityCoverage } from "./lib/accessibility.mts"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 const selected = selectApplications(await readApplications(root), process.argv[2])[0]
@@ -281,11 +282,69 @@ try {
     }),
   )
   passed("Production extension themes and page synchronization passed under strict CSP without inline scripts")
+  await phase("Accessibility: production popup and options", async () => {
+    const scans = [
+      ...(await verifyAccessibility(production.popup, runDir, "popup", [360, 320])),
+      ...(await verifyAccessibility(production.options, runDir, "options")),
+    ]
+    if (config.extension.verifyConnections) {
+      const panel = await context!.newPage()
+      try {
+        await panel.goto(new URL("sidepanel.html", production.options.url()).href)
+        await verifyIdentity(panel)
+        scans.push(...(await verifyAccessibility(panel, runDir, "sidepanel", [360, 320])))
+      } finally {
+        await panel.close()
+      }
+    }
+    report.accessibility = accessibilityCoverage(scans)
+  })
   assert.deepEqual(network, [], "Production extension requested external HTTP resources")
   assert.deepEqual(report.errors, [], "Browser runtime errors detected")
   passed(
     "Production extension loaded independently after stopping the dev server; background, popup, options and storage passed without external HTTP requests or runtime errors",
   )
+  if (config.extension.verifyConnections) {
+    const fixtureUrl = new URL(config.extension.communicationOrigin ?? "")
+    assert(
+      ["127.0.0.1", "localhost"].includes(fixtureUrl.hostname) &&
+        fixtureUrl.protocol === "http:" &&
+        fixtureUrl.origin === config.extension.communicationOrigin,
+      "Communication fixture must use an explicit local HTTP origin",
+    )
+    const fixturePort = Number(fixtureUrl.port)
+    await assertTestPortAvailable(fixturePort)
+    const fixture = start(
+      process.execPath,
+      ["scripts/fixtures/extension-bridge.mts", String(fixturePort)],
+      "bridge-fixture.log",
+      {},
+      0,
+    )
+    try {
+      await until(async () => {
+        assert.equal(fixture.child.exitCode, null)
+        return (await fetch(fixtureUrl, { signal: AbortSignal.timeout(2000) })).ok
+      }, "Communication fixture ready")
+      await phase("Production unified SDK communication and worker recovery", () =>
+        config.extension.verifyConnections!({ context: context!, ...production, until, fixtureOrigin: fixtureUrl.origin }),
+      )
+      const allowedFixturePaths = ["/", "/fixture.js", "/sdk/client.mts", "/sdk/protocol.mts", "/favicon.ico"]
+      assert(
+        network.every((value) => {
+          const url = new URL(value)
+          return url.origin === fixtureUrl.origin && allowedFixturePaths.includes(url.pathname)
+        }),
+        "Communication acceptance requested a non-fixture network resource",
+      )
+      assert.deepEqual(report.errors, [], "Communication runtime errors detected")
+      passed(
+        "Web consent, document routing, targeted state, revocation, navigation, worker restart and flood limits passed with the actual SDK",
+      )
+    } finally {
+      await fixture.stop()
+    }
+  }
   if (config.extension.verifyPreview) {
     server = start(
       "pnpm",

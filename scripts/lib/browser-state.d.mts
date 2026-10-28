@@ -3,6 +3,14 @@ export {}
 // Test-only probes installed by browser callbacks in isolated profiles.
 declare global {
   interface Window {
+    __bridgeTest?: {
+      client: import("../../packages/extension-sdk/src/client.mts").BridgeClient | null
+      access: string[]
+      values: { name: string }[]
+      connect(id: string): Promise<void>
+      watch(): void
+      flood(id: string): Promise<boolean>
+    }
     __adminTemplateNavigation?: string
     __routeRecovery?: string
     __hmrSentinel?: string

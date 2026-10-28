@@ -14,18 +14,40 @@ export function browserUrl(origin: string, path: unknown) {
   return url.href
 }
 
+export function accessibilityPaths(config: { path: string; accessibilityPaths?: string[] }) {
+  const paths = config.accessibilityPaths ?? []
+  assert(Array.isArray(paths) && paths.length <= 20, "Accessibility paths must be a bounded list")
+  const result = [...new Set([config.path, ...paths])]
+  for (const path of result) browserUrl("http://127.0.0.1:3150", path)
+  return result
+}
+
+export function validateCommunication(config: BrowserConfig["extension"]) {
+  if (!config.verifyConnections) return
+  const url = new URL(config.communicationOrigin ?? "")
+  assert(
+    ["127.0.0.1", "localhost"].includes(url.hostname) &&
+      url.protocol === "http:" &&
+      url.origin === config.communicationOrigin &&
+      Number(url.port) >= 1024,
+    "Communication fixtures require an exact local HTTP origin and explicit unprivileged port",
+  )
+}
+
 export function validateBrowserConfig(candidate: unknown): BrowserConfig {
   const config = candidate as BrowserConfig
   for (const name of ["web", "admin"] as const) {
     browserUrl("http://127.0.0.1:3150", config?.[name]?.path)
+    accessibilityPaths(config[name])
     assert.equal(typeof config[name].verify, "function", `${name}.verify must provide business assertions`)
   }
   assert.equal(typeof config.admin.verifyRoutes, "function", "admin.verifyRoutes must provide route assertions")
   for (const name of ["verifyPage", "verifyBackground"] as const)
     assert.equal(typeof config?.extension?.[name], "function", `extension.${name} must provide business assertions`)
-  for (const name of ["verifyInteractions", "verifyPreview"] as const)
+  for (const name of ["verifyInteractions", "verifyPreview", "verifyConnections"] as const)
     if (config.extension[name] !== undefined)
       assert.equal(typeof config.extension[name], "function", `extension.${name} must be a function`)
+  validateCommunication(config.extension)
   const hmr = config.extension.hmr
   assert(typeof hmr?.file === "string" && hmr.file.startsWith("apps/extension/"), "HMR must target extension source")
   assert(!hmr.file.includes("\\") && !hmr.file.split("/").some((part) => ["..", ".", ""].includes(part)), "Invalid HMR path")
@@ -53,6 +75,7 @@ export async function loadApplicationBrowserConfig(root: string, app: Applicatio
   if (app.type !== "extension") {
     const config = candidate as BrowserConfig["admin"]
     browserUrl("http://127.0.0.1:3150", config.path)
+    accessibilityPaths(config)
     assert.equal(typeof config.verify, "function", `${app.id}.verify is required`)
     if (app.type === "admin") assert.equal(typeof config.verifyRoutes, "function", `${app.id}.verifyRoutes is required`)
     return { page: config, extension: undefined }
@@ -60,8 +83,9 @@ export async function loadApplicationBrowserConfig(root: string, app: Applicatio
   const config = candidate as BrowserConfig["extension"]
   for (const name of ["verifyPage", "verifyBackground"] as const)
     assert.equal(typeof config[name], "function", `${app.id}.${name} is required`)
-  for (const name of ["verifyInteractions", "verifyPreview"] as const)
+  for (const name of ["verifyInteractions", "verifyPreview", "verifyConnections"] as const)
     if (config[name] !== undefined) assert.equal(typeof config[name], "function", `${app.id}.${name} must be a function`)
+  validateCommunication(config)
   assert(config.hmr && typeof config.hmr.file === "string", `${app.id}.hmr is required`)
   const file = config.hmr.file.startsWith(`${app.path}/`) ? config.hmr.file : `${app.path}/${config.hmr.file}`
   assert(

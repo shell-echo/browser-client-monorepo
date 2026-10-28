@@ -20,7 +20,16 @@ export async function checkExtension(
   dist: string,
   source: Pick<
     chrome.runtime.ManifestV3,
-    "permissions" | "host_permissions" | "optional_permissions" | "optional_host_permissions" | "content_security_policy"
+    | "permissions"
+    | "host_permissions"
+    | "optional_permissions"
+    | "optional_host_permissions"
+    | "content_security_policy"
+    | "externally_connectable"
+    | "side_panel"
+    | "content_scripts"
+    | "incognito"
+    | "minimum_chrome_version"
   >,
 ) {
   // v3 uses an init function and descriptive record fields. Keep the previous
@@ -37,13 +46,46 @@ export async function checkExtension(
     )
   }
   assert.deepEqual(manifest.content_security_policy, source.content_security_policy, "Production CSP differs from source")
+  for (const field of ["externally_connectable", "side_panel", "incognito", "minimum_chrome_version"] as const) {
+    assert.deepEqual(manifest[field], source[field], `Production bridge policy differs from source: ${field}`)
+  }
+  assert.equal(
+    (manifest.content_scripts ?? []).length,
+    source.content_scripts?.length ?? 0,
+    "Production content script count differs",
+  )
+  for (const [index, script] of (source.content_scripts ?? []).entries()) {
+    for (const field of [
+      "matches",
+      "exclude_matches",
+      "all_frames",
+      "run_at",
+      "world",
+      "match_about_blank",
+      "match_origin_as_fallback",
+    ] as const) {
+      assert.deepEqual(
+        manifest.content_scripts[index][field],
+        script[field],
+        `Production content script policy differs: ${field}`,
+      )
+    }
+  }
   const localAsset = async (path: string, from = dist) => {
     const file = assetPath(dist, path, from)
     await access(file)
     return file
   }
   await localAsset(manifest.background.service_worker)
-  for (const page of [manifest.action.default_popup, manifest.options_page]) {
+  for (const script of manifest.content_scripts ?? []) {
+    assert(script.js?.length > 0, "Content script has no entry")
+    for (const path of [...script.js, ...(script.css ?? [])]) await localAsset(path)
+  }
+  for (const page of [
+    manifest.action.default_popup,
+    manifest.options_page,
+    ...(manifest.side_panel ? [manifest.side_panel.default_path] : []),
+  ]) {
     const file = await localAsset(page)
     const html = await readFile(file, "utf8")
     const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]

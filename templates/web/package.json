@@ -13,7 +13,8 @@
     "next": "16.4.1",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "@browser-client/ui": "workspace:*"
+    "@browser-client/ui": "workspace:*",
+    "@browser-client/extension-sdk": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "4.3.3",

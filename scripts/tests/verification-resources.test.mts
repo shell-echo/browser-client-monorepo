@@ -72,7 +72,16 @@ test("real low-resource CLI propagates environment and scheduling priority into 
   const directory = await fixture(t)
   await mkdir(join(directory, "scripts/lib"), { recursive: true })
   await cp(join(root, "scripts/verify-low-resource.mts"), join(directory, "scripts/verify-low-resource.mts"))
-  for (const name of ["commands", "command-scopes", "command-diagnostics", "contracts", "verification-resources"])
+  for (const name of [
+    "commands",
+    "command-scopes",
+    "command-diagnostics",
+    "contracts",
+    "verification-resources",
+    "resource-guard",
+    "resource-probes",
+    "workspace",
+  ])
     await cp(join(root, "scripts/lib", `${name}.mts`), join(directory, "scripts/lib", `${name}.mts`))
   await writeFile(join(directory, "package.json"), JSON.stringify({ private: true, scripts: { test: "node probe.mts" } }))
   await writeFile(

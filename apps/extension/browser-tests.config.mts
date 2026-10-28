@@ -1,5 +1,6 @@
 import type { BrowserConfig } from "../../scripts/lib/contracts.mts"
 import assert from "node:assert/strict"
+import { verifyExtensionBridge } from "../../scripts/lib/extension-bridge-verification.mts"
 import {
   verifyExtensionPage,
   verifyExtensionSettings,
@@ -8,6 +9,8 @@ import {
 
 export default {
   verifyPage: verifyExtensionPage,
+  communicationOrigin: "http://127.0.0.1:3000",
+  verifyConnections: verifyExtensionBridge,
   verifyInteractions: verifyExtensionSettings,
   verifyPreview: verifyExtensionPreview,
   async verifyBackground({ page, until }) {
