@@ -13,7 +13,13 @@ import { join } from "node:path"
 import semver from "semver"
 import { parse } from "yaml"
 import { createCommandRunner } from "../lib/commands.mts"
-import { bracesAdvisory, classifyAudit, verifyBracesPatch } from "../lib/dependency-security.mts"
+import {
+  bracesAdvisory,
+  classifyAudit,
+  deepmergeAdvisory,
+  verifyBracesPatch,
+  verifyDeepmergePatch,
+} from "../lib/dependency-security.mts"
 
 const root = fileURLToPath(new URL("../../", import.meta.url))
 
@@ -24,6 +30,7 @@ test("locked tooling transitives retain upstream fixes for collection, HTTP and 
     "body-parser": "^1.20.9 || >=2.4.0",
     undici: "^6.29.1 || ^7.30.1 || >=8.12.2",
     "fast-uri": "^2.4.8 || ^3.1.9 || >=4.2.3",
+    qs: ">=6.16.1",
   }
   for (const [name, range] of Object.entries(fixedRanges)) {
     for (const entry of Object.keys(lock.packages).filter((key) => key.startsWith(`${name}@`))) {
@@ -37,6 +44,32 @@ test("locked tooling transitives retain upstream fixes for collection, HTTP and 
   const schema = zod.object({ name: zod.string(), values: zod.array(zod.number()).max(2) })
   assert.deepEqual(schema.parse({ name: "workspace", values: [1, 2] }), { name: "workspace", values: [1, 2] })
   assert.equal(schema.safeParse({ name: "workspace", values: [1, 2, 3] }).success, false)
+})
+
+test("installed tooling qs consumers serialize hostile comma elements without throwing", async () => {
+  const cli = createRequire(await realpath(join(root, "node_modules/shadcn/package.json")))
+  const sdk = createRequire(cli.resolve("@modelcontextprotocol/sdk/server/index.js"))
+  const express = createRequire(sdk.resolve("express"))
+  const bodyParser = createRequire(express.resolve("body-parser"))
+  for (const consumer of [express, bodyParser]) {
+    assert(semver.gte(consumer("qs/package.json").version, "6.16.1"))
+    const qs = consumer("qs")
+    for (const encodeValuesOnly of [false, true]) {
+      for (const payload of [
+        JSON.parse('{"a":[{"toString":"x"}]}'),
+        qs.parse("a[0][toString]=x", { allowPrototypes: true }),
+        qs.parse("a[][b]=c", { plainObjects: true }),
+      ]) {
+        assert.equal(qs.stringify(payload, { arrayFormat: "comma", encodeValuesOnly }), "a=%5Bobject%20Object%5D")
+      }
+    }
+    assert.deepEqual(qs.parse("name=workspace&nested[value]=ok"), { name: "workspace", nested: { value: "ok" } })
+    assert.equal(qs.stringify({ a: ["x", "y"] }, { arrayFormat: "comma" }), "a=x%2Cy")
+  }
+})
+
+test("installed shadcn and registry deepmerge reject prototype poisoning and retain merge behavior", async () => {
+  assert.equal((await verifyDeepmergePatch(root)).verified, true)
 })
 
 test("upstream shadcn CLI loads with its native Zod 4 dependency graph", async (t) => {
@@ -135,4 +168,21 @@ test("audit only accepts the exact advisory/version after patch verification; ot
     assert.equal(classifyAudit(audit({ advisory }), receipt).unresolved.length, 1)
   }
   assert.throws(() => classifyAudit({ error: { message: "registry unavailable" } }, receipt), /response is invalid/)
+})
+
+test("deepmerge advisory classification requires its own verified receipt and exact nonempty findings", () => {
+  const known = { url: deepmergeAdvisory, module_name: "deepmerge", findings: [{ version: "4.3.1" }] }
+  const audit = (advisory: AuditAdvisory) => ({ metadata: { vulnerabilities: { low: 1 } }, advisories: { advisory } })
+  const receipt = { verified: true, version: "4.3.1" }
+  assert.equal(classifyAudit(audit(known), undefined, receipt).mitigated.length, 1)
+  assert.equal(classifyAudit(audit(known), receipt).unresolved.length, 1)
+  assert.equal(classifyAudit(audit(known), undefined, { ...receipt, verified: false }).unresolved.length, 1)
+  for (const advisory of [
+    { ...known, url: "https://github.com/advisories/GHSA-new" },
+    { ...known, module_name: "other" },
+    { ...known, findings: [] },
+    { ...known, findings: [{ version: "4.3.1" }, { version: "4.2.2" }] },
+  ]) {
+    assert.equal(classifyAudit(audit(advisory), undefined, receipt).unresolved.length, 1)
+  }
 })

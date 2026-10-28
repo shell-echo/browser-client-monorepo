@@ -1,2 +1,4 @@
 # Unified-diff blank context lines contain one space; preserve the patch syntax.
 patches/*.patch whitespace=-blank-at-eol
+# Deepmerge's upstream files use tabs; diff context prefixes them with a space.
+patches/deepmerge@4.3.1.patch whitespace=-blank-at-eol,-space-before-tab,-blank-at-eof

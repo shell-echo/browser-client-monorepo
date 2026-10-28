@@ -18,6 +18,7 @@ import { join } from "node:path"
 import { parse } from "yaml"
 
 export const bracesAdvisory = "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm"
+export const deepmergeAdvisory = "https://github.com/advisories/GHSA-gcqx-w48m-w2h4"
 
 export async function verifyBracesPatch(root: string) {
   const workspace = parse(await readFile(join(root, "pnpm-workspace.yaml"), "utf8"))
@@ -53,7 +54,66 @@ export async function verifyBracesPatch(root: string) {
   return { verified: true, version: "3.0.3", patchHash: hash }
 }
 
-export function classifyAudit(value: unknown, receipt?: { verified?: boolean; version?: string }) {
+export async function verifyDeepmergePatch(root: string) {
+  const workspace = parse(await readFile(join(root, "pnpm-workspace.yaml"), "utf8"))
+  const lock = parse(await readFile(join(root, "pnpm-lock.yaml"), "utf8"))
+  const patch = "patches/deepmerge@4.3.1.patch"
+  assert.equal(workspace.patchedDependencies?.["deepmerge@4.3.1"], patch, "Local deepmerge patch is not registered")
+  const hash = createHash("sha256")
+    .update(await readFile(join(root, patch)))
+    .digest("hex")
+  assert.equal(lock.patchedDependencies?.["deepmerge@4.3.1"], hash, "deepmerge patch does not match the lockfile")
+  assert.deepEqual(
+    Object.keys(lock.snapshots).filter((name) => name.startsWith("deepmerge@")),
+    [`deepmerge@4.3.1(patch_hash=${hash})`],
+    "Found a deepmerge version without the local patch",
+  )
+  const cli = createRequire(await realpath(join(root, "node_modules/shadcn/package.json")))
+  const registry = createRequire(cli.resolve("@shadcn/registry"))
+  for (const consumer of [cli, registry]) {
+    assert.equal(consumer("deepmerge/package.json").version, "4.3.1")
+    // Check both distributed entry points, not just the upstream source file.
+    for (const entry of ["deepmerge", "deepmerge/dist/umd.js"]) {
+      const merge = consumer(entry)
+      const payload = JSON.parse('{"__proto__":{"isAdmin":true}}')
+      const safe = (result: Record<string, unknown>) => {
+        assert.equal(Object.getPrototypeOf(result), Object.prototype)
+        assert.equal(result.isAdmin, undefined, `${entry} permits inherited attacker properties`)
+        assert.equal(Object.hasOwn(result, "__proto__"), false)
+      }
+      safe(merge(Object.create(null), payload))
+      safe(merge(payload, { enabled: true }))
+      safe(merge(payload, payload))
+      for (const session of [null, undefined, false, 0, ""]) {
+        safe(merge({ session }, { session: payload }).session)
+      }
+      safe(merge({ list: [] }, { list: [payload] }).list[0])
+      const symbol = Symbol("retained")
+      const date = new Date(0)
+      const target = { nested: { before: 1 }, list: [1], date, [symbol]: "symbol" }
+      const source = { nested: { after: 2 }, list: [2] }
+      assert.deepEqual(merge(target, source), {
+        nested: { before: 1, after: 2 },
+        list: [1, 2],
+        date,
+        [symbol]: "symbol",
+      })
+      assert.deepEqual(target.nested, { before: 1 }, "deepmerge must not mutate its target")
+      assert.deepEqual(merge.all([{ before: 1 }, { after: 2 }]), { before: 1, after: 2 })
+      assert.deepEqual(merge({ list: [1] }, { list: [2] }, { arrayMerge: (_target: unknown[], next: unknown[]) => next }), {
+        list: [2],
+      })
+      assert.equal(merge({}, { nested: source }, { clone: false }).nested, source)
+    }
+  }
+  return { verified: true, version: "4.3.1", patchHash: hash }
+}
+
+export function classifyAudit(
+  value: unknown,
+  receipt?: { verified?: boolean; version?: string },
+  deepmergeReceipt?: { verified?: boolean; version?: string },
+) {
   const audit = value as AuditResponse
   assert(
     audit.metadata?.vulnerabilities && audit.advisories && !audit.error,
@@ -62,12 +122,17 @@ export function classifyAudit(value: unknown, receipt?: { verified?: boolean; ve
   const mitigated = [],
     unresolved = []
   for (const advisory of Object.values(audit.advisories)) {
-    const patched =
-      receipt?.verified === true &&
-      advisory.url === bracesAdvisory &&
-      advisory.module_name === "braces" &&
-      (advisory.findings?.length ?? 0) > 0 &&
-      advisory.findings!.every((finding) => finding.version === receipt.version)
+    const patched = [
+      { receipt, url: bracesAdvisory, name: "braces" },
+      { receipt: deepmergeReceipt, url: deepmergeAdvisory, name: "deepmerge" },
+    ].some(
+      ({ receipt: verified, url, name }) =>
+        verified?.verified === true &&
+        advisory.url === url &&
+        advisory.module_name === name &&
+        (advisory.findings?.length ?? 0) > 0 &&
+        advisory.findings!.every((finding) => finding.version === verified.version),
+    )
     if (patched) mitigated.push(advisory)
     else unresolved.push(advisory)
   }

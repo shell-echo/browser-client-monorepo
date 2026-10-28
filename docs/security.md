@@ -13,9 +13,17 @@ pnpm audit --prod
 
 shadcn CLI is a root and UI development dependency; `shadcn/tailwind.css` still resolves during builds. The current lockfile includes its transitive `braces@3.0.3` dependency, patched locally for [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm). `patches/braces@3.0.3.patch` limits parser and recursive AST traversal depth for both strings and direct AST inputs. The patch is registered in `pnpm-workspace.yaml#patchedDependencies`, pinned in the single lockfile, and preserved by reinit.
 
-Raw `pnpm audit` uses package versions and may still report this advisory. `audit:security` first verifies the patch hash, lockfile coverage, and installed behavior, then reads the complete audit response. Only the verified `3.0.3` instance of this GHSA is classified as locally mitigated; no global ignore list is applied. Other packages, versions, advisories, or registry errors fail the check. Regression tests are included in `pnpm check`. The patch addresses recursion depth, not arbitrary glob / regular-expression resource consumption.
+Raw `pnpm audit` uses package versions and may still report this advisory. `audit:security` first verifies the patch hash, lockfile coverage, and installed behavior, then reads the complete audit response. Only exact advisory/version pairs with verified local patches are classified as locally mitigated; no global ignore list is applied. Other findings and registry errors fail the check. Regression tests are included in `pnpm check`. The braces patch addresses recursion depth, not arbitrary glob / regular-expression resource consumption.
 
 After upgrading to a verified upstream fix, remove the patch and its verification policy together. Removing an advisory record or changing a version string does not establish a fix.
+
+## Query serialization and merge protections
+
+The Express tooling chain now resolves the already locked `qs@6.16.1`, within Express's existing `^6.14.0` range. This is the upstream fix for [GHSA-6pq8-jhm2-2vcw](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw). Regressions exercise the actual Express and body-parser consumers with hostile JSON, prototype-enabled parsing, and null-prototype objects in both comma serialization paths, plus normal parsing and serialization.
+
+`deepmerge@4.3.1` has no upstream patched release for [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4). The local `patches/deepmerge@4.3.1.patch` drops `__proto__` keys before either source or target assignment, including the distributed CommonJS and UMD entry points. The approach follows the [proposed upstream repair](https://github.com/TehShrike/deepmerge/pull/274), which has not been released. It preserves ordinary deep merging, array merging, symbols, dates, and clone options.
+
+The audit verifies patch registration, the lockfile SHA, every locked deepmerge snapshot, and real installed shadcn and registry consumers before classifying this exact advisory/version as locally mitigated. Behavioral checks cover null-prototype targets, null/primitive nested defaults, own target keys, and array elements; they also check the returned object's prototype, since this attack does not modify global `Object.prototype`. New advisories, other versions, missing receipts, or registry errors remain failures. Remove this local patch and verification policy together when adopting a verified upstream fix.
 
 ## Upstream IP parser fix
 

@@ -2,7 +2,7 @@ import { toError } from "./lib/contracts.mts"
 import assert from "node:assert/strict"
 import { fileURLToPath } from "node:url"
 import { createCommandRunner, handleCancellation } from "./lib/commands.mts"
-import { classifyAudit, verifyBracesPatch } from "./lib/dependency-security.mts"
+import { classifyAudit, verifyBracesPatch, verifyDeepmergePatch } from "./lib/dependency-security.mts"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 const runner = createCommandRunner({
@@ -13,11 +13,13 @@ const runner = createCommandRunner({
 const dispose = handleCancellation(runner)
 try {
   const receipt = await verifyBracesPatch(root)
+  const deepmergeReceipt = await verifyDeepmergePatch(root)
   const result = await runner.start("pnpm", ["audit", "--json"], { capture: true }).done
   if (result.reason || result.error) throw result.reason ?? result.error
   assert(result.code === 0 || result.code === 1, "Dependency audit command failed")
-  const { mitigated, unresolved } = classifyAudit(JSON.parse(result.output), receipt)
+  const { mitigated, unresolved } = classifyAudit(JSON.parse(result.output), receipt, deepmergeReceipt)
   console.log(`Verified local braces patch: ${receipt.patchHash}`)
+  console.log(`Verified local deepmerge patch: ${deepmergeReceipt.patchHash}`)
   for (const advisory of mitigated)
     console.log(`Mitigated by a local patch (upstream version advisory remains): ${advisory.url}`)
   for (const advisory of unresolved)

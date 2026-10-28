@@ -62,6 +62,7 @@ minimumReleaseAgeExclude:
 
 patchedDependencies:
   braces@3.0.3: patches/braces@3.0.3.patch
+  deepmerge@4.3.1: patches/deepmerge@4.3.1.patch
 
 # Next 16.4.1 adapts legacy rule contexts for ESLint 10. Keep exceptions scoped
 # to tested plugin versions; scripts/tests/eslint.test.mts exercises their rules.
