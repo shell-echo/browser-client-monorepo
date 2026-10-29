@@ -14,7 +14,7 @@ function environment(t: import("node:test").TestContext, extension = true) {
     chrome: Object.getOwnPropertyDescriptor(globalThis, "chrome"),
     window: Object.getOwnPropertyDescriptor(globalThis, "window"),
   }
-  const values = new Map<string, string>()
+  const values = new Map<string, unknown>()
   type Notify = (event: Record<string, unknown>, area?: string) => void
   const listeners = new Set<Notify>()
   const storage = {
@@ -96,6 +96,34 @@ test("invalid names and storage write failures preserve existing settings", asyn
   }
   await assert.rejects(readWorkspaceName(), /read denied/)
 })
+
+for (const extension of [true, false]) {
+  test(`${extension ? "extension" : "preview"} reads bounded workspace names without changing stored data`, async (t) => {
+    const { values, storage } = environment(t, extension)
+    const key = extension ? "workspaceName" : "browser-client-workspace-name"
+    storage.set = async () => assert.fail("Reading settings must not write extension storage")
+    window.localStorage.setItem = () => assert.fail("Reading settings must not write preview storage")
+    values.set("unrelated", "keep me")
+    const cases: [unknown, string][] = [
+      [undefined, DEFAULT_WORKSPACE_NAME],
+      ["", DEFAULT_WORKSPACE_NAME],
+      ["\n\t ", DEFAULT_WORKSPACE_NAME],
+      ["  Existing workspace  ", "  Existing workspace  "],
+      ["W".repeat(80), "W".repeat(80)],
+      ["W".repeat(81), "W".repeat(80)],
+      ["  " + "Legacy workspace ".repeat(8), ("  " + "Legacy workspace ".repeat(8)).slice(0, 80)],
+    ]
+    if (extension)
+      cases.push([null, DEFAULT_WORKSPACE_NAME], [42, DEFAULT_WORKSPACE_NAME], [{ name: "invalid" }, DEFAULT_WORKSPACE_NAME])
+    for (const [stored, expected] of cases) {
+      values.set(key, stored)
+      const original = new Map(values)
+      assert.equal(await readWorkspaceName(), expected)
+      assert.equal(await readWorkspaceName(), expected)
+      assert.deepEqual(values, original, "Reading settings changed stored data")
+    }
+  })
+}
 
 test("extension subscriptions ignore unrelated keys and areas and detach on cleanup", (t) => {
   const { listeners } = environment(t)

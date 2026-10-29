@@ -1,7 +1,7 @@
 import { createBroker } from "@browser-client/extension-sdk/broker"
 import { PORT_NAME } from "@browser-client/extension-sdk/protocol"
 import { webOrigins } from "./bridge-policy"
-import { DEFAULT_WORKSPACE_NAME, validateWorkspaceName } from "./lib/settings"
+import { readWorkspaceName, validateWorkspaceName } from "./lib/settings"
 
 const grantKey = `bridge:grants:v1:${chrome.extension.inIncognitoContext ? "private" : "regular"}`
 const broker = createBroker({
@@ -11,10 +11,7 @@ const broker = createBroker({
   saveGrants: async (value) => {
     await chrome.storage.session.set({ [grantKey]: value })
   },
-  workspace: async () => {
-    const value: unknown = (await chrome.storage.local.get("workspaceName")).workspaceName
-    return typeof value === "string" && value.trim() ? value.slice(0, 80) : DEFAULT_WORKSPACE_NAME
-  },
+  workspace: readWorkspaceName,
   setWorkspace: async (value) => {
     await chrome.storage.local.set({ workspaceName: validateWorkspaceName(value) })
   },

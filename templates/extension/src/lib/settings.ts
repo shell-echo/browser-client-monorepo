@@ -18,7 +18,8 @@ export async function readWorkspaceName() {
   const value: unknown = isExtensionContext()
     ? (await chrome.storage.local.get("workspaceName")).workspaceName
     : window.localStorage.getItem(previewKey)
-  return typeof value === "string" && value.trim() ? value : DEFAULT_WORKSPACE_NAME
+  // Bound the displayed value without rewriting existing storage.
+  return typeof value === "string" && value.trim() ? value.slice(0, WORKSPACE_NAME_LIMIT) : DEFAULT_WORKSPACE_NAME
 }
 
 export async function saveWorkspaceName(value: string) {

@@ -79,6 +79,30 @@ export async function verifyExtensionBridge({
     )
     await panel.getByRole("status").filter({ hasText: updated }).waitFor()
     await popup.getByRole("status").filter({ hasText: updated }).waitFor()
+    const legacyName = "Legacy workspace ".repeat(6)
+    const boundedName = legacyName.slice(0, 80)
+    await options.evaluate((workspaceName) => chrome.storage.local.set({ workspaceName }), legacyName)
+    await until(
+      async () => (await popup.locator("[data-workspace-name]").innerText()) === boundedName,
+      "Popup bounds existing workspace names",
+    )
+    await until(
+      async () => (await options.getByRole("textbox", { name: "Workspace name", exact: true }).inputValue()) === boundedName,
+      "Options shares the bounded workspace read",
+    )
+    await panel.getByRole("status").filter({ hasText: boundedName }).waitFor()
+    await until(
+      () => site.evaluate((name) => window.__bridgeTest!.values.some((value) => value.name === name), boundedName),
+      "Web subscription shares the bounded workspace read",
+    )
+    assert.deepEqual(await site.evaluate(() => window.__bridgeTest!.client!.request("workspace.get", {})), {
+      name: boundedName,
+    })
+    assert.equal(
+      await options.evaluate(async () => (await chrome.storage.local.get("workspaceName")).workspaceName),
+      legacyName,
+      "Reading workspace settings must preserve the full stored value",
+    )
     await options.getByRole("button", { name: "Revoke access", exact: true }).click()
     await until(() => site.evaluate(() => window.__bridgeTest!.access.length === 0), "Web revocation snapshot")
     assert.equal(
