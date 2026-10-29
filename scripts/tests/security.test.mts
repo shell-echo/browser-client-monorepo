@@ -31,6 +31,7 @@ test("locked tooling transitives retain upstream fixes for collection, HTTP and 
     undici: "^6.29.1 || ^7.30.1 || >=8.12.2",
     "fast-uri": "^2.4.8 || ^3.1.9 || >=4.2.3",
     qs: ">=6.16.1",
+    systeminformation: ">=5.33.16",
   }
   for (const [name, range] of Object.entries(fixedRanges)) {
     for (const entry of Object.keys(lock.packages).filter((key) => key.startsWith(`${name}@`))) {
