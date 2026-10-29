@@ -13,6 +13,12 @@
 
 弹出页的 **Open side panel** 在所选标签页旁打开同样的控制界面。**Read selected page** 需要用户主动触发，并依赖 Chrome `activeTab`；受限制的浏览器页面无法读取。本版只暴露标题、来源与路径、选中文本，不提供页面 HTML、cookie、任意脚本、调试器命令、网络代理、截图或下载。
 
+## 工作区设置
+
+已安装扩展将 `workspaceName` 保存在 `chrome.storage.local`。弹出页、设置页和服务于侧边栏及网站 SDK 的后台共用[同一个读取函数](../../apps/extension/src/lib/settings.ts)，[独立扩展种子](../../templates/extension/src/lib/settings.ts)也遵循相同规则。读取最多返回前 80 个 UTF-16 代码单元，与 JavaScript 字符串长度规则一致。缺失、非字符串或仅含空白的值使用既有默认名称 `Browser Client`；其他已有空白保持原样。
+
+读取不会改写存储值或更换存储键。已有的超长名称仍完整保留在存储中，各端看到相同的截取结果。显式保存沿用原有校验：去掉首尾空白，长度须为 1–80 个 UTF-16 代码单元。普通网页预览使用独立的 `browser-client-workspace-name` localStorage 键，读取规则相同。回归测试覆盖已有数据及读取时的数据保留；浏览器验收核对弹出页、设置页、侧边栏、网站订阅与 SDK 返回值，并检查原始存储值未变。
+
 ## 配置可信网站
 
 每个扩展的 `src/bridge-policy.ts` 管理自己的白名单，独立扩展种子也有自己的策略。默认只允许 `http://127.0.0.1:3000` 和 `http://localhost:3000`。自定义网站端口或生产 HTTPS 来源必须主动加入并重建扩展，不能自动信任全部注册实例或使用生产来源通配符。

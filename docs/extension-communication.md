@@ -13,6 +13,12 @@ Web, popup, options and side panel use `@browser-client/extension-sdk`. An isola
 
 The popup's **Open side panel** button opens the same controls alongside the selected tab. **Read selected page** is an explicit user action and depends on Chrome's `activeTab` access. Restricted browser pages cannot be inspected. The first version exposes title, origin/path and selected text; it does not expose page HTML, cookies, arbitrary script execution, debugger commands, network proxies, screenshots or downloads.
 
+## Workspace settings
+
+The installed extension stores `workspaceName` in `chrome.storage.local`. Popup/options views and the broker serving side panel and Web SDK clients share [the same read function](../apps/extension/src/lib/settings.ts); [the independent Extension seed](../templates/extension/src/lib/settings.ts) follows the same rule. Reads expose at most the first 80 UTF-16 code units, matching JavaScript string length. Missing, non-string or whitespace-only values use the existing `Browser Client` default. Other existing whitespace is preserved.
+
+Reading never rewrites the stored value or changes its key. An existing longer name stays intact in storage while every view receives the same bounded name. Explicit saves keep the existing validation: trim surrounding whitespace and require 1–80 UTF-16 code units. Ordinary browser preview uses its separate `browser-client-workspace-name` localStorage key with the same read rule. Regression tests cover existing values and read-side data preservation; browser acceptance compares popup, options, side panel, Web subscriptions and SDK results against the original stored value.
+
 ## Configure trusted websites
 
 Each extension's `src/bridge-policy.ts` owns its allowlist. The independent Extension seed has its own copy. Defaults permit only `http://127.0.0.1:3000` and `http://localhost:3000`. A custom Web port or production HTTPS origin must be added deliberately and the extension rebuilt. Do not automatically trust every registered instance or use wildcard production origins.

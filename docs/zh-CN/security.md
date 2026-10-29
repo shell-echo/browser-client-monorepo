@@ -37,6 +37,12 @@ Express 工具链在原有 `^6.14.0` 范围内解析到锁定的 `qs@6.16.1`，�
 
 相关通告包括 [Zod 集合资源耗尽](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)、[body-parser 压缩请求体失败](https://github.com/advisories/GHSA-27r3-jxmh-p828)、[undici 响应流失败](https://github.com/advisories/GHSA-xjj6-f33q-929c)和 [fast-uri scheme 解码](https://github.com/advisories/GHSA-w74x-v6f9-j3xg)，以及实时审计返回的关联通告。升级遵守上游依赖范围，不强制将 Zod 3 消费者跨主版本替换，也不添加审计例外。测试检查全部受影响锁定包，并加载真实 shadcn CLI 和 Zod schema API，普通检查及 reinit 候选、最终检查均执行，包括离线重放。
 
+## 系统信息库上游修复
+
+工具链通过 `@dotenvx/dotenvx` 锁定 `systeminformation@5.33.16`，对应 [GHSA-3f7j-7jwc-fxfj](https://github.com/advisories/GHSA-3f7j-7jwc-fxfj) 的上游修复。该通告涉及 Windows 上向 `services()` 传入构造的服务名称时发生命令注入。此次补丁升级只更新该传递依赖的版本与完整性校验，保留其余依赖图。
+
+[安全回归测试](../../scripts/tests/security.test.mts)要求全部锁定的 `systeminformation` 版本不低于 `5.33.16`。这些版本检查进入 `pnpm check`，常规审计继续拒绝未解决通告。该包使用上游修复，没有添加本地补丁或通告例外。
+
 ## 定时检查
 
 `.github/workflows/security-audit.yml` 每周一 UTC 01:23，即北京时间 09:23，冻结安装并运行同一审计，也可手动触发。定时任务在发布到默认分支后生效，实际运行时间由 GitHub 调度决定。它只检查现有锁文件，不升级依赖或改源码；未解决问题使工作流失败并保留日志。
