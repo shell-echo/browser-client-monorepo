@@ -1,10 +1,26 @@
 "use client"
 
 import { useEffect, useRef, useState, type FormEvent } from "react"
+import {
+  createLangChainBrowserAgentTools,
+  createMcpBrowserAgentTools,
+  createOpenAiBrowserAgentTools,
+  invokeBrowserAgentTool,
+} from "@browser-client/browser-agent"
 import { chromeTransport, createClient, type BridgeClient, type PageInfo } from "@browser-client/extension-sdk"
 import { Button } from "@browser-client/ui/components/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@browser-client/ui/components/card"
 import { Input } from "@browser-client/ui/components/input"
 import { Label } from "@browser-client/ui/components/label"
+
+const mcpTools = createMcpBrowserAgentTools()
+const openAiTools = createOpenAiBrowserAgentTools()
+const langChainTools = createLangChainBrowserAgentTools(async () => undefined)
+const agentAdapters = [
+  { name: "MCP", tools: mcpTools, example: mcpTools[2]?.name ?? "" },
+  { name: "OpenAI", tools: openAiTools, example: openAiTools[2]?.function.name ?? "" },
+  { name: "LangChain", tools: langChainTools, example: langChainTools[2]?.name ?? "" },
+] as const
 
 export function ExtensionConnection() {
   const current = useRef<BridgeClient | null>(null)
@@ -17,6 +33,7 @@ export function ExtensionConnection() {
   const [page, setPage] = useState<PageInfo | null>(null)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [lastTool, setLastTool] = useState("No Agent tool has run yet.")
   useEffect(
     () => () => {
       cleanup.current?.()
@@ -38,6 +55,7 @@ export function ExtensionConnection() {
     setAccess([])
     setWorkspace("")
     setPage(null)
+    setLastTool("No Agent tool has run yet.")
     try {
       const sdk = createClient({ connect: chromeTransport(extensionId.trim()), reconnect: true })
       current.current = sdk
@@ -94,8 +112,14 @@ export function ExtensionConnection() {
     setBusy(true)
     setError("")
     try {
-      const value = await sdk.request("page.read", {})
-      if (current.current === sdk) setPage(value)
+      const value = (await invokeBrowserAgentTool((method, _params, options) => {
+        if (method !== "page.read") throw new Error(`Demo adapter cannot invoke ${method}`)
+        return sdk.request("page.read", {}, options)
+      }, "browser_page_read")) as PageInfo
+      if (current.current === sdk) {
+        setPage(value)
+        setLastTool("browser_page_read → page.read completed")
+      }
     } catch (reason) {
       if (current.current === sdk) setError(reason instanceof Error ? reason.message : "Unable to read this page")
     } finally {
@@ -149,8 +173,11 @@ export function ExtensionConnection() {
         </p>
       )}
       <Button variant="outline" disabled={busy || !access.includes("page.read")} onClick={() => void readPage()}>
-        Read this page selection
+        Run browser_page_read
       </Button>
+      <p className="text-sm text-muted-foreground" role="status">
+        Agent action: {lastTool}
+      </p>
       {page && (
         <dl className="space-y-2 break-words">
           <dt className="font-medium">Page title</dt>
@@ -164,6 +191,24 @@ export function ExtensionConnection() {
           {error}
         </p>
       )}
+      <Card aria-label="Agent tool adapters" className="bg-muted/30">
+        <CardHeader>
+          <CardTitle className="text-base">One capability, three adapters</CardTitle>
+          <CardDescription>
+            The demo invokes the same read-only capability through the shared contract. No framework is installed in the
+            extension runtime.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-3">
+          {agentAdapters.map(({ name, tools, example }) => (
+            <div key={name} className="rounded-lg border bg-background p-3">
+              <p className="font-medium">{name}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{tools.length} shared tools</p>
+              <code className="mt-3 block text-xs break-all text-muted-foreground">{example}</code>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </section>
   )
 }

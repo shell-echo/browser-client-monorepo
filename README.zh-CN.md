@@ -7,7 +7,7 @@
 
 面向 **Next.js 网站、React 管理后台和 Chrome / Edge Manifest V3 扩展**的 TypeScript 单仓库起始项目。多个客户端共享 shadcn/ui 组件、带授权控制的扩展通信 SDK，以及可恢复的官方框架模板更新流程。
 
-[快速开始](#快速开始) · [界面预览](#界面预览) · [浏览器 Agent 能力层](#浏览器-agent-能力层) · [应用组合](#应用组合) · [框架更新](#框架更新) · [文档](#文档)
+[快速开始](#快速开始) · [实时演示](#实时演示) · [界面预览](#界面预览) · [浏览器 Agent 能力层](#浏览器-agent-能力层) · [应用组合](#应用组合) · [框架更新](#框架更新) · [文档](#文档)
 
 ## 适合哪些需求
 
@@ -61,6 +61,10 @@ pnpm dev
 网站位于 **http://127.0.0.1:3000**，管理后台位于 **http://127.0.0.1:5173**。使用扩展时，在 `chrome://extensions` 或 `edge://extensions` 开启开发者模式，加载 **`apps/extension/dist-dev`**。
 
 只想在普通网页预览扩展界面时，先停止扩展开发服务，再执行 `pnpm preview:extension`。访问 **http://127.0.0.1:5174** 查看弹出页，访问 **http://127.0.0.1:5174/options.html** 查看设置页。预览偏好与已安装扩展的偏好分开存储。
+
+## 实时演示
+
+执行 `pnpm dev` 后打开 **http://127.0.0.1:3000/extension**，即可运行真实的浏览器 Agent 流程。演示页会连接 unpacked MV3 扩展，请求精确来源授权，通过共享契约执行 `browser_page_read`，并展示撤销授权和导航边界。[演示与录屏指南](docs/zh-CN/demo.md)包含完整步骤。
 
 ## 应用
 
@@ -181,6 +185,7 @@ template-versions.json    生成器版本与依赖收据
 | [应用生命周期](docs/zh-CN/applications.md)         | 注册表、身份、添加、移除、恢复与组合             |
 | [扩展通信](docs/zh-CN/extension-communication.md)  | SDK、精确来源白名单、页面批准、路由、恢复与限额  |
 | [浏览器 Agent 能力层](docs/zh-CN/browser-agent.md) | 与模板无关的能力契约和接入边界                   |
+| [浏览器 Agent 演示](docs/zh-CN/demo.md)            | 真实扩展连接流程和录屏清单                       |
 | [框架更新](docs/zh-CN/reinit.md)                   | 保留契约、兼容依赖、离线模式、超时、恢复与清理   |
 | [测试与 CI](docs/zh-CN/testing.md)                 | 浏览器断言、回归测试、真实更新验收、报告和工作流 |
 | [部署与交付](docs/zh-CN/deployment.md)             | 网站托管、后台路由、环境输入和按实例扩展 ZIP     |

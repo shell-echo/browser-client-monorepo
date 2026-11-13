@@ -7,7 +7,7 @@
 
 A TypeScript monorepo starter for **Next.js web apps, React admin dashboards, and Chrome / Edge Manifest V3 extensions**. Build them together with shared shadcn/ui components, a permissioned extension communication SDK, and recoverable framework refreshes from official templates.
 
-[Quick start](#quick-start) · [Previews](#previews) · [Browser Agent capability](#browser-agent-capability) · [Applications](#applications) · [Reinit](#reinit) · [Documentation](#documentation)
+[Quick start](#quick-start) · [Live demo](#live-demo) · [Previews](#previews) · [Browser Agent capability](#browser-agent-capability) · [Applications](#applications) · [Reinit](#reinit) · [Documentation](#documentation)
 
 ## Who this is for
 
@@ -69,6 +69,10 @@ pnpm dev
 Open Web at **http://127.0.0.1:3000** and Admin at **http://127.0.0.1:5173**. To use the extension, enable Developer mode in `chrome://extensions` or `edge://extensions` and load **`apps/extension/dist-dev`** as an unpacked extension.
 
 For an ordinary browser preview of extension UI, stop the extension dev service and run `pnpm preview:extension`. Open **http://127.0.0.1:5174** for Workspace or **http://127.0.0.1:5174/options.html** for Settings. Preview preferences are separate from installed-extension preferences.
+
+## Live demo
+
+Open **http://127.0.0.1:3000/extension** after starting `pnpm dev` to run the real Browser Agent flow. The page connects to the unpacked MV3 extension, requests exact-origin access, invokes the shared `browser_page_read` tool, and lets you observe revocation and navigation boundaries. See the [demo recording guide](docs/demo.md) for the full sequence.
 
 ## Applications
 
@@ -189,6 +193,7 @@ Before the first browser test, run `pnpm exec playwright install chromium`; Linu
 | [Application lifecycle](docs/applications.md)              | Registry, instance identity, adding, removing, restoring, and composing clients               |
 | [Extension communication](docs/extension-communication.md) | SDK usage, exact-origin trust, page approval, routing, recovery, and traffic limits           |
 | [Browser Agent capability](docs/browser-agent.md)          | Template-independent capability contract and integration boundary                             |
+| [Browser Agent demo](docs/demo.md)                         | Live extension connection flow and recording checklist                                        |
 | [Reinit and upgrades](docs/reinit.md)                      | Preservation contract, compatible dependencies, offline mode, timeouts, recovery, and cleanup |
 | [Testing and CI](docs/testing.md)                          | Browser assertions, regression suites, real reinit acceptance, reports, and workflows         |
 | [Deployment and delivery](docs/deployment.md)              | Web hosting, Admin routing, environment inputs and per-instance Extension ZIPs                |

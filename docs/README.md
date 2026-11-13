@@ -10,6 +10,7 @@ Choose a guide for the task you are working on. All commands run from the reposi
 | [Applications](applications.md)                       | Registry, instance identity, add/remove/restore, and multiple instances            |
 | [Extension communication](extension-communication.md) | Native Ports, SDK usage, user approval, exact-origin policies, routing, and limits |
 | [Browser Agent capability](browser-agent.md)          | Template-independent capability contract and integration boundary                  |
+| [Browser Agent demo](demo.md)                         | Live extension connection flow and recording checklist                             |
 | [Reinit](reinit.md)                                   | Official template refresh, dependency policy, preservation, recovery, and cleanup  |
 | [Testing and CI](testing.md)                          | Unit tests, browser assertions, accessibility, resource guards, and workflows      |
 | [Deployment and delivery](deployment.md)              | Next.js hosting, Admin SPA routing, environment inputs, and Extension ZIPs         |

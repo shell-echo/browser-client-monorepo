@@ -10,6 +10,7 @@
 | [应用生命周期](applications.md)         | 注册表、实例身份、添加、移除、恢复和多实例         |
 | [扩展通信](extension-communication.md)  | 原生 Port、SDK、用户批准、精确来源策略、路由与限额 |
 | [浏览器 Agent 能力层](browser-agent.md) | 与模板无关的能力契约和接入边界                     |
+| [浏览器 Agent 演示](demo.md)            | 真实扩展连接流程和录屏清单                         |
 | [框架更新](reinit.md)                   | 官方模板更新、依赖策略、源码保留、恢复与清理       |
 | [测试与 CI](testing.md)                 | 单元测试、浏览器断言、无障碍、资源保护和工作流     |
 | [部署与交付](deployment.md)             | Next.js 托管、管理后台路由、环境输入和扩展 ZIP     |

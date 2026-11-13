@@ -1,22 +1,61 @@
 import Link from "next/link"
+import { Badge } from "@browser-client/ui/components/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@browser-client/ui/components/card"
 import { ThemeSwitcher } from "@browser-client/ui/components/theme-switcher"
 import { ExtensionConnection } from "./connection"
 
+const demoSteps = [
+  ["01", "Ask", "The Agent requests only the read capabilities it needs."],
+  ["02", "Approve", "You approve this exact origin in the extension Connections screen."],
+  ["03", "Act", "The Agent reads the page through a bounded Chrome Native Port call."],
+] as const
+
 export default function ExtensionPage() {
   return (
-    <main className="mx-auto min-h-svh max-w-2xl space-y-6 px-4 py-12">
+    <main className="mx-auto min-h-svh max-w-5xl space-y-10 px-4 py-12 sm:px-6 lg:py-20">
       <div className="flex items-center justify-between gap-4">
         <Link className="underline underline-offset-4" href="/">
           Back to home
         </Link>
         <ThemeSwitcher />
       </div>
-      <h1 className="text-3xl font-semibold">Connect your browser</h1>
-      <p className="text-sm leading-7 text-muted-foreground">
-        Use your extension without leaving this page. You decide which information is shared, and can revoke access in the
-        extension at any time.
-      </p>
+      <section className="max-w-3xl space-y-5" aria-labelledby="demo-title">
+        <Badge variant="outline">Live Browser Agent demo · MV3 + Native Port</Badge>
+        <h1 id="demo-title" className="text-4xl font-semibold tracking-tight sm:text-6xl">
+          Give an Agent a safe browser handoff.
+        </h1>
+        <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
+          This page uses the real extension SDK. Connect your unpacked extension, approve this page, and run the same read-only
+          capability that MCP, OpenAI, and LangChain adapters expose.
+        </p>
+      </section>
+      <section aria-labelledby="steps-title">
+        <h2 id="steps-title" className="sr-only">
+          Demo steps
+        </h2>
+        <div className="grid gap-3 md:grid-cols-3">
+          {demoSteps.map(([number, title, description]) => (
+            <Card key={number} className="bg-muted/30">
+              <CardHeader>
+                <p className="text-xs font-medium text-muted-foreground">{number}</p>
+                <CardTitle className="text-base">{title}</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm leading-6 text-muted-foreground">{description}</CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
       <ExtensionConnection />
+      <section className="border-t pt-8 text-sm leading-7 text-muted-foreground" aria-labelledby="demo-notes-title">
+        <h2 id="demo-notes-title" className="font-medium text-foreground">
+          What this proves
+        </h2>
+        <ul className="mt-3 list-disc space-y-1 pl-5">
+          <li>Consent is explicit and tied to this origin, tab, and document.</li>
+          <li>Page reads stay bounded and read-only; the extension remains the execution boundary.</li>
+          <li>Revocation or navigation ends the grant without replaying an ambiguous write.</li>
+        </ul>
+      </section>
     </main>
   )
 }
