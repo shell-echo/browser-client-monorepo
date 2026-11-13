@@ -55,6 +55,34 @@ jobs:
       # The runner derives expected instances from the checked registry and
       # fails on missing, duplicate, skipped or stale per-instance reports.
       - run: pnpm test:browser
+      - name: Report browser verification failures
+        if: ${{ failure() }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readdir, readFile } from "node:fs/promises"
+          import { join, relative } from "node:path"
+
+          async function reports(directory) {
+            const result = []
+            for (const entry of await readdir(directory, { withFileTypes: true })) {
+              const path = join(directory, entry.name)
+              if (entry.isDirectory()) result.push(...(await reports(path)))
+              else if (entry.isFile() && entry.name === "report.json") result.push(path)
+            }
+            return result
+          }
+
+          for (const path of await reports(".reinit/verification")) {
+            const report = JSON.parse(await readFile(path, "utf8"))
+            if (report.status === "passed") continue
+            const detail = String(report.failure ?? `${report.appId ?? "suite"}: ${report.status}`)
+              .replace(/\r?\n/g, " ")
+              .replace(/%/g, "%25")
+              .replace(/\r/g, "%0D")
+              .replace(/\n/g, "%0A")
+            console.log(`::error file=${relative(".", path)}::${detail}`)
+          }
+          NODE
       - uses: actions/upload-artifact@v7
         if: always()
         with:
