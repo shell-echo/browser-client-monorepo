@@ -64,6 +64,14 @@ patchedDependencies:
   braces@3.0.3: patches/braces@3.0.3.patch
   deepmerge@4.3.1: patches/deepmerge@4.3.1.patch
 
+# Keep transitive tooling dependencies on the first upstream releases that
+# contain the fixes reported by the dependency audit. The minimatch selector
+# is limited to the v10 range; older v3 consumers retain their compatible API.
+overrides:
+  "@hono/node-server": 2.1.6
+  hono: 4.13.16
+  "minimatch@^10.2.4": 11.0.1
+
 # Next 16.4.1 adapts legacy rule contexts for ESLint 10. Keep exceptions scoped
 # to tested plugin versions; scripts/tests/eslint.test.mts exercises their rules.
 peerDependencyRules:
