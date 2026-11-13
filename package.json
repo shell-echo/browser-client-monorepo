@@ -19,7 +19,7 @@
     "format:check": "prettier --ignore-path .prettierignore --check .",
     "theme:sync": "node scripts/sync-theme-assets.mts",
     "lint": "pnpm lint:scripts && node scripts/app.mts run lint",
-    "lint:scripts": "eslint scripts packages/extension-sdk packages/eslint-config eslint.config.mjs browser-tests.config.mts",
+    "lint:scripts": "eslint scripts packages/browser-agent packages/extension-sdk packages/eslint-config eslint.config.mjs browser-tests.config.mts",
     "typecheck": "pnpm typecheck:scripts && node scripts/app.mts run typecheck",
     "test": "node scripts/test.mts",
     "check": "pnpm app doctor && pnpm format:check && node scripts/check-extension-compat.mts && pnpm test && pnpm lint && pnpm typecheck && pnpm build && node scripts/check-extension.mts",

@@ -10,6 +10,7 @@
     "../browser-tests.config.mts",
     "../apps/*/browser-tests.config.mts",
     "../apps/*/tests/**/*.mts",
+    "../packages/browser-agent/src/**/*.mts",
     "../packages/extension-sdk/src/**/*.mts"
   ]
 }

@@ -1,0 +1,11 @@
+{
+  "name": "@browser-client/browser-agent",
+  "version": "0.1.0",
+  "description": "Stable capability contracts for Agent-controlled browser runtimes",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.mts",
+    "./capabilities": "./src/capabilities.mts",
+    "./tools": "./src/tools.mts"
+  }
+}

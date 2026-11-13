@@ -2,7 +2,7 @@
 
 [English documentation](README.md) · [简体中文](zh-CN/extension-communication.md)
 
-Web, popup, options and side panel use `@browser-client/extension-sdk`. An isolated content script provides a small page agent. Each installed extension has its own Service Worker broker; Chrome native Ports are the default transport. There is no server, WebRTC dependency, global page event bus, all-tab broadcast or background heartbeat.
+The template's Chrome implementation is `@browser-client/extension-sdk`; its public capability contract lives in the template-independent `@browser-client/browser-agent` package. Web, popup, options and side panel use the SDK, while an isolated content script provides a small page agent. Each installed extension has its own Service Worker broker; Chrome native Ports are the default transport. There is no server, WebRTC dependency, global page event bus, all-tab broadcast or background heartbeat.
 
 ## Try the complete flow
 
@@ -59,7 +59,7 @@ Do not use these logical limits as a process memory cap or a guarantee against a
 
 ## Templates, maintenance and verification
 
-`packages/extension-sdk` has no external dependencies. Web and Extension manifests reference it with `workspace:*`; reinit restores that dependency and Next's transpilation setting. Source trees, manifest, side-panel HTML and the shared package survive the existing preservation chain. Seeds are synchronized explicitly; adding an instance does not clone an existing business app. No maintenance command may broaden an origin allowlist automatically.
+`packages/extension-sdk` depends only on the workspace capability contract `@browser-client/browser-agent`; it has no runtime third-party dependency. Web and Extension manifests reference both workspace packages with `workspace:*`; reinit restores those dependencies and Next's transpilation settings. Source trees, manifest, side-panel HTML and the shared packages survive the existing preservation chain. Seeds are synchronized explicitly; adding an instance does not clone an existing business app. No maintenance command may broaden an origin allowlist automatically.
 
 `scripts/tests/extension-sdk.test.mts` covers protocol attacks, origin/frame/document identity, consent, revocation, worker-state reconstruction, selected-document routing, duplicates, deadlines, disconnect cleanup and message bursts/slow consumers. Production manifest checks include the external entry policy, content-agent assets and side-panel HTML. Real Chromium acceptance additionally verifies Web→worker→agent→Web, popup/options/side-panel subscriptions, revoked/navigated documents and worker termination/recovery. Mock Ports and modeled trusted lifecycle callbacks verify protocol behavior; they do not substitute for actual browser lifecycle acceptance or Chrome/Edge manual checks.
 

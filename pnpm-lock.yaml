@@ -178,6 +178,9 @@ importers:
 
   apps/extension:
     dependencies:
+      '@browser-client/browser-agent':
+        specifier: workspace:*
+        version: link:../../packages/browser-agent
       '@browser-client/extension-sdk':
         specifier: workspace:*
         version: link:../../packages/extension-sdk
@@ -233,6 +236,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@browser-client/browser-agent':
+        specifier: workspace:*
+        version: link:../../packages/browser-agent
       '@browser-client/extension-sdk':
         specifier: workspace:*
         version: link:../../packages/extension-sdk
@@ -299,7 +305,13 @@ importers:
         specifier: 'catalog:'
         version: 10.12.0(jiti@2.7.0)(supports-color@7.2.0)
 
-  packages/extension-sdk: {}
+  packages/browser-agent: {}
+
+  packages/extension-sdk:
+    dependencies:
+      '@browser-client/browser-agent':
+        specifier: workspace:*
+        version: link:../browser-agent
 
   packages/oxlint-config: {}
 

@@ -172,13 +172,19 @@ test("Welcome, Overview, Workspace and Settings pages and browser hooks survive 
     const manifest = await readFile(join(original, "package.json"), "utf8").then(JSON.parse)
     const merged = mergeManifest({ dependencies: { react: "latest stable" } }, manifest, target)
     assert.equal(merged.dependencies["@browser-client/ui"], "workspace:*")
-    if (target !== "admin") assert.equal(merged.dependencies["@browser-client/extension-sdk"], "workspace:*")
+    if (target !== "admin") {
+      assert.equal(merged.dependencies["@browser-client/browser-agent"], "workspace:*")
+      assert.equal(merged.dependencies["@browser-client/extension-sdk"], "workspace:*")
+    }
     assert.equal(merged.dependencies.react, "latest stable")
     if (target === "extension") assert.equal(merged.scripts["preview:ui"], "vite --mode preview-ui")
   }
   for (const path of [
     "packages/ui",
+    "packages/browser-agent",
     "packages/extension-sdk",
+    "docs/browser-agent.md",
+    "docs/zh-CN/browser-agent.md",
     "docs/extension-communication.md",
     "packages/eslint-config",
     "browser-tests.config.mts",
@@ -302,7 +308,11 @@ test("Next adapter retains upstream CSS settings and removes the nested workspac
   await integrate(root, "web")
   const config = await readFile(join(root, "apps/web/next.config.ts"), "utf8")
   assert(config.includes("upstream-loader"))
-  assert(config.includes('transpilePackages: ["@browser-client/ui", "@browser-client/extension-sdk"]'))
+  assert(
+    config.includes(
+      'transpilePackages: ["@browser-client/ui", "@browser-client/browser-agent", "@browser-client/extension-sdk"]',
+    ),
+  )
   assert(config.includes('import { withVerificationResources } from "../../scripts/lib/verification-resources.mts"'))
   assert(config.includes("export default withVerificationResources(nextConfig)"))
   assert.equal(await exists(join(root, "apps/web/pnpm-workspace.yaml")), false)

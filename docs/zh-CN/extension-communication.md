@@ -2,7 +2,7 @@
 
 [English](../extension-communication.md) · [中文文档](README.md) · [项目首页](../../README.zh-CN.md)
 
-网站、弹出页、设置页和侧边栏共用 `@browser-client/extension-sdk`。隔离内容脚本提供有限的页面读取能力，每个已安装扩展由自己的 Service Worker 集中路由，默认传输是 Chrome 原生 Port。无需服务端、WebRTC、全局页面事件总线、全标签页广播或后台心跳。
+模板的 Chrome 实现是 `@browser-client/extension-sdk`，对外能力契约位于与模板无关的 `@browser-client/browser-agent`。网站、弹出页、设置页和侧边栏共用 SDK，隔离内容脚本提供有限的页面读取能力，每个已安装扩展由自己的 Service Worker 集中路由，默认传输是 Chrome 原生 Port。无需服务端、WebRTC、全局页面事件总线、全标签页广播或后台心跳。
 
 ## 体验完整流程
 
@@ -69,7 +69,7 @@ Service Worker 同步注册监听器，可正常终止并从会话存储恢复�
 
 ## 种子、维护与验证
 
-`packages/extension-sdk` 无外部依赖。网站和扩展通过 `workspace:*` 引用它，reinit 恢复该依赖及 Next.js 转译设置。源码树、manifest、侧边栏 HTML 和共享包由现有保留流程维护。种子显式同步，新实例不复制现有业务应用；维护命令不会自动扩大来源白名单。
+`packages/extension-sdk` 只依赖工作区能力契约 `@browser-client/browser-agent`，没有运行时第三方依赖。网站和扩展通过 `workspace:*` 引用两个包，reinit 恢复这些依赖及 Next.js 转译设置。源码树、manifest、侧边栏 HTML 和共享包由现有保留流程维护。种子显式同步，新实例不复制现有业务应用；维护命令不会自动扩大来源白名单。
 
 `scripts/tests/extension-sdk.test.mts` 覆盖协议攻击、来源/frame/document 身份、批准与撤销、状态重建、文档路由、重复响应、截止时间、断开清理、突发消息和慢消费者。生产 manifest 检查覆盖外部入口策略、内容脚本资源与侧边栏 HTML。真实 Chromium 另外验证网站到 worker、内容脚本再返回网站的完整链路，界面订阅、撤销、导航和 worker 终止恢复。模拟 Port 或可信生命周期回调不能替代真实浏览器验收，以及 Chrome / Edge 人工检查。
 

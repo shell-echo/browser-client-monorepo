@@ -26,6 +26,7 @@ test("Next loads conditional verification worker limits without changing normal 
         const rawModule = await loadConfig("phase-production-build", process.cwd(), {silent: true, rawConfig: true});
         const raw = rawModule.default ?? rawModule;
         assert(config.transpilePackages.includes("@browser-client/ui"));
+        assert(config.transpilePackages.includes("@browser-client/browser-agent"));
         assert(config.turbopack.rules["*.css"]);
         if (process.env.BROWSER_CLIENT_LOW_RESOURCE === "1") {
           assert.equal(config.experimental.cpus, 1);

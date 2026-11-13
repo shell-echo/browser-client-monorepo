@@ -7,7 +7,7 @@
 
 面向 **Next.js 网站、React 管理后台和 Chrome / Edge Manifest V3 扩展**的 TypeScript 单仓库起始项目。多个客户端共享 shadcn/ui 组件、带授权控制的扩展通信 SDK，以及可恢复的官方框架模板更新流程。
 
-[快速开始](#快速开始) · [界面预览](#界面预览) · [扩展通信-sdk](#扩展通信-sdk) · [应用组合](#应用组合) · [框架更新](#框架更新) · [文档](#文档)
+[快速开始](#快速开始) · [界面预览](#界面预览) · [浏览器 Agent 能力层](#浏览器-agent-能力层) · [应用组合](#应用组合) · [框架更新](#框架更新) · [文档](#文档)
 
 ## 适合哪些需求
 
@@ -23,6 +23,7 @@
 - **共享界面**：shadcn **b0** 预设、Base UI、本地打包的 Inter 字体、Lucide 图标，以及亮色、暗色和跟随系统主题。产品界面文案为英文。
 - **共享工具**：pnpm 工作区与 catalogs、Turborepo、TypeScript 预设、ESLint 10、Oxlint、Prettier 和 VS Code 设置。
 - **扩展通信**：不依赖外部包的统一 SDK，连接网站、弹出页、设置页和侧边栏，提供按文档授权、网站只读能力、订阅和有限重连。
+- **浏览器 Agent 能力层**：独立于模板界面的稳定能力契约，让 Agent 集成只依赖授权和传输约定，不依赖起始页面。
 - **框架更新**：从官方 Next.js / Vite 模板重建基础配置，求解兼容依赖，保留源码并生成可恢复备份。
 - **验证与交付**：生产构建、浏览器交互、响应式布局、扩展热更新与 CSP 检查、无障碍扫描、可选资源保护、按实例生成 ZIP 和部署指南。
 
@@ -76,6 +77,17 @@ pnpm dev
 
 扩展在本地存储工作区偏好，并同步弹出页与设置页，处理读写失败。生产产物位于 **`apps/extension/dist`**。通信使用 `storage`、`activeTab`、`scripting`、`sidePanel`，保留严格 CSP、明确的网站白名单和隔离内容脚本。
 
+## 浏览器 Agent 能力层
+
+仓库明确分成两层：
+
+- **能力层 — `@browser-client/browser-agent`：** 对外提供协议版本、能力目录、传输方式和授权模型描述。Agent 适配器可以只依赖这个小包，不引入模板的 React 页面。
+- **模板实现 — `@browser-client/extension-sdk`：** 基于能力契约实现 Chrome / Edge Manifest V3，包括原生 Port 客户端、Service Worker 路由器、隔离页面 Agent、精确来源批准界面和工作区示例。
+
+模板用于展示和验证能力，但不定义能力本身。业务项目可以替换网站、弹出页和工作区存储，同时复用同一套 Agent 接入契约。新增能力前，必须先补充公开目录、授权、身份绑定、限额和测试。
+
+参见[浏览器 Agent 接入指南](docs/zh-CN/browser-agent.md)和[扩展通信指南](docs/zh-CN/extension-communication.md)。
+
 ## 扩展通信 SDK
 
 `@browser-client/extension-sdk` 通过 Chrome 原生 Port 连接网站、弹出页、设置页和侧边栏。扩展 Service Worker 校验发送方身份、路由请求，并将授权绑定到精确来源、标签页和文档；隔离内容脚本负责已批准的页面读取。
@@ -128,6 +140,7 @@ apps/
   extension/            Vite + React + CRXJS / Manifest V3 扩展
 packages/
   ui/                   共享组件、本地字体与主题
+  browser-agent/        与模板无关的 Agent 能力契约和能力目录
   extension-sdk/        运行时协议校验、客户端和授权路由
   typescript-config/    TypeScript 预设
   eslint-config/        共享 ESLint 规则
@@ -162,16 +175,17 @@ template-versions.json    生成器版本与依赖收据
 
 ## 文档
 
-| 指南                                              | 内容                                             |
-| ------------------------------------------------- | ------------------------------------------------ |
-| [开发](docs/zh-CN/development.md)                 | 模板、共享配置、组件、主题、编辑器与扩展开发     |
-| [应用生命周期](docs/zh-CN/applications.md)        | 注册表、身份、添加、移除、恢复与组合             |
-| [扩展通信](docs/zh-CN/extension-communication.md) | SDK、精确来源白名单、页面批准、路由、恢复与限额  |
-| [框架更新](docs/zh-CN/reinit.md)                  | 保留契约、兼容依赖、离线模式、超时、恢复与清理   |
-| [测试与 CI](docs/zh-CN/testing.md)                | 浏览器断言、回归测试、真实更新验收、报告和工作流 |
-| [部署与交付](docs/zh-CN/deployment.md)            | 网站托管、后台路由、环境输入和按实例扩展 ZIP     |
-| [依赖安全](docs/zh-CN/security.md)                | 审计、安全补丁与定时检查                         |
-| [截图库](docs/zh-CN/previews.md)                  | 暗色与移动端预览、截图来源                       |
+| 指南                                               | 内容                                             |
+| -------------------------------------------------- | ------------------------------------------------ |
+| [开发](docs/zh-CN/development.md)                  | 模板、共享配置、组件、主题、编辑器与扩展开发     |
+| [应用生命周期](docs/zh-CN/applications.md)         | 注册表、身份、添加、移除、恢复与组合             |
+| [扩展通信](docs/zh-CN/extension-communication.md)  | SDK、精确来源白名单、页面批准、路由、恢复与限额  |
+| [浏览器 Agent 能力层](docs/zh-CN/browser-agent.md) | 与模板无关的能力契约和接入边界                   |
+| [框架更新](docs/zh-CN/reinit.md)                   | 保留契约、兼容依赖、离线模式、超时、恢复与清理   |
+| [测试与 CI](docs/zh-CN/testing.md)                 | 浏览器断言、回归测试、真实更新验收、报告和工作流 |
+| [部署与交付](docs/zh-CN/deployment.md)             | 网站托管、后台路由、环境输入和按实例扩展 ZIP     |
+| [依赖安全](docs/zh-CN/security.md)                 | 审计、安全补丁与定时检查                         |
+| [截图库](docs/zh-CN/previews.md)                   | 暗色与移动端预览、截图来源                       |
 
 每份指南都有[英文版本](docs/README.md)。单页正文统一使用一种语言；命令或行为变化时同步更新两种版本。产品界面标签、代码标识符和命令保留原拼写。
 

@@ -7,7 +7,7 @@
 
 A TypeScript monorepo starter for **Next.js web apps, React admin dashboards, and Chrome / Edge Manifest V3 extensions**. Build them together with shared shadcn/ui components, a permissioned extension communication SDK, and recoverable framework refreshes from official templates.
 
-[Quick start](#quick-start) · [Previews](#previews) · [Extension SDK](#extension-sdk) · [Applications](#applications) · [Reinit](#reinit) · [Documentation](#documentation)
+[Quick start](#quick-start) · [Previews](#previews) · [Browser Agent capability](#browser-agent-capability) · [Applications](#applications) · [Reinit](#reinit) · [Documentation](#documentation)
 
 ## Who this is for
 
@@ -23,6 +23,7 @@ Start with the clients you need. Authentication, business APIs, production hosti
 - **Shared UI:** shadcn preset **b0**, Base UI, bundled **Inter**, Lucide icons, and light / dark / system themes. UI text is English.
 - **Shared tooling:** pnpm workspaces and catalogs, Turborepo, TypeScript presets, ESLint 10, Oxlint, Prettier, and VS Code settings.
 - **Extension communication:** one dependency-free SDK for Web, popup, settings, and side panel; document-scoped grants, read-only website capabilities, subscriptions, and bounded reconnects.
+- **Browser Agent capability layer:** a stable, template-independent capability contract that lets Agent integrations target the same authorization and transport model without depending on the starter UI.
 - **Framework refreshes:** official Next.js / Vite scaffolds, compatible dependency solving, source preservation, and recoverable backups.
 - **Validation:** production builds, browser interactions, responsive layouts, extension HMR / CSP, and checks before reinit replacement.
 - **Delivery:** per-instance production ZIP packaging, deployment guidance, optional resource protection, and WCAG accessibility scans.
@@ -84,6 +85,17 @@ Admin is based on the official shadcn [login-05](https://ui.shadcn.com/blocks/lo
 
 The extension stores workspace preferences locally, synchronizes popup / settings changes, and handles read / write failures. Production output is **`apps/extension/dist`**; unified communication uses `storage`, `activeTab`, `scripting`, and `sidePanel`, with an explicit website allowlist, an isolated content agent, and strict CSP. See [communication and authorization](docs/extension-communication.md) and [development and production setup](docs/development.md#browser-extension).
 
+## Browser Agent capability
+
+This repository has two deliberately separate layers:
+
+- **Capability layer — `@browser-client/browser-agent`:** public protocol version, capability catalog, transport and authorization descriptors. Agent adapters and integrations can depend on this small contract without importing the template's React screens.
+- **Template implementation — `@browser-client/extension-sdk`:** the Chrome / Edge Manifest V3 implementation built on that contract. It supplies the native Port client, Service Worker broker, isolated page agent, exact-origin consent UI, and the template's workspace example.
+
+The template demonstrates the capability layer; it is not the capability definition itself. A product can replace the Web page, popup, and workspace storage while retaining the same Agent-facing contract. New capabilities must first be added to the public catalog with authorization, identity binding, limits, and tests.
+
+See the [Browser Agent integration guide](docs/browser-agent.md) for the integration boundary and the [communication guide](docs/extension-communication.md) for the Chrome implementation.
+
 ## Extension SDK
 
 `@browser-client/extension-sdk` connects Web, popup, options, and side panel through native Chrome Ports. The extension Service Worker validates sender identity, routes requests, and grants access to a specific origin, tab, and document. An isolated content agent handles approved page reads.
@@ -136,6 +148,7 @@ apps/
   extension/            Vite + React + CRXJS / Manifest V3
 packages/
   ui/                   Shared shadcn/ui, bundled fonts, and themes
+  browser-agent/        Template-independent Agent capability contract
   extension-sdk/        Runtime-validated protocol, clients, and authorization broker
   typescript-config/    TypeScript presets
   eslint-config/        Shared ESLint rules
@@ -175,6 +188,7 @@ Before the first browser test, run `pnpm exec playwright install chromium`; Linu
 | [Development](docs/development.md)                         | Templates, shared configuration, shadcn/ui, themes, editor setup, and extension workflow      |
 | [Application lifecycle](docs/applications.md)              | Registry, instance identity, adding, removing, restoring, and composing clients               |
 | [Extension communication](docs/extension-communication.md) | SDK usage, exact-origin trust, page approval, routing, recovery, and traffic limits           |
+| [Browser Agent capability](docs/browser-agent.md)          | Template-independent capability contract and integration boundary                             |
 | [Reinit and upgrades](docs/reinit.md)                      | Preservation contract, compatible dependencies, offline mode, timeouts, recovery, and cleanup |
 | [Testing and CI](docs/testing.md)                          | Browser assertions, regression suites, real reinit acceptance, reports, and workflows         |
 | [Deployment and delivery](docs/deployment.md)              | Web hosting, Admin routing, environment inputs and per-instance Extension ZIPs                |

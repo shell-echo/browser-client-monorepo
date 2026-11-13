@@ -3,7 +3,7 @@ import type { NextConfig } from "next"
 import { withVerificationResources } from "../../scripts/lib/verification-resources.mts"
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@browser-client/ui", "@browser-client/extension-sdk"],
+  transpilePackages: ["@browser-client/ui", "@browser-client/browser-agent", "@browser-client/extension-sdk"],
   /* config options here */
   turbopack: {
     root: resolve(process.cwd(), "../.."),

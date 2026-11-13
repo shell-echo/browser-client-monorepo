@@ -1,8 +1,11 @@
+import { browserAgentCapabilities } from "@browser-client/browser-agent"
+import type { BrowserAgentCapability } from "@browser-client/browser-agent"
+
 export const VERSION = 1
 export const PORT_NAME = "browser-client/v1"
 export const MAX_BYTES = 32_768
-export const capabilities = ["workspace.read", "page.read"] as const
-export type Capability = (typeof capabilities)[number]
+export const capabilities = browserAgentCapabilities
+export type Capability = BrowserAgentCapability
 export type Topic = "workspace" | "access"
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json }
 export interface Port {

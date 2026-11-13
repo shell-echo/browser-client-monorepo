@@ -15,6 +15,7 @@
     "@browser-client/ui": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "@browser-client/browser-agent": "workspace:*",
     "@browser-client/extension-sdk": "workspace:*"
   },
   "devDependencies": {

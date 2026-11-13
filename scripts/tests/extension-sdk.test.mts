@@ -4,8 +4,16 @@ import { setTimeout as delay } from "node:timers/promises"
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import { createClient } from "../../packages/extension-sdk/src/client.mts"
+import {
+  BrowserAgentToolError,
+  browserAgentDescriptor,
+  createLangChainBrowserAgentTools,
+  createMcpBrowserAgentTools,
+  createOpenAiBrowserAgentTools,
+  invokeBrowserAgentTool,
+} from "../../packages/browser-agent/src/index.mts"
 import { createBroker, identify } from "../../packages/extension-sdk/src/broker.mts"
 import { attachPageAgent, createPageAgent } from "../../packages/extension-sdk/src/agent.mts"
 import {
@@ -29,6 +37,62 @@ const web: Sender = {
   tab: { id: 7, incognito: false },
 }
 const ui: Sender = { id: extensionId, url: `chrome-extension://${extensionId}/options.html` }
+
+test("public Agent descriptor stays independent from the template UI", () => {
+  assert.deepEqual(browserAgentDescriptor, {
+    apiVersion: 1,
+    capabilities: ["workspace.read", "page.read"],
+    transports: ["chrome-port"],
+    authorization: "document-scoped",
+  })
+  assert.equal(Object.isFrozen(browserAgentDescriptor.capabilities), true)
+  assert.equal(Object.isFrozen(browserAgentDescriptor.transports), true)
+})
+
+test("public capability package keeps a stable workspace export boundary", async () => {
+  const root = fileURLToPath(new URL("../../packages/browser-agent/", import.meta.url))
+  const manifest = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as {
+    name?: string
+    exports?: Record<string, string>
+  }
+  assert.equal(manifest.name, "@browser-client/browser-agent")
+  assert.deepEqual(manifest.exports, {
+    ".": "./src/index.mts",
+    "./capabilities": "./src/capabilities.mts",
+    "./tools": "./src/tools.mts",
+  })
+  for (const file of ["src/index.mts", "src/capabilities.mts", "src/tools.mts"])
+    assert((await readFile(join(root, file))).length > 0)
+})
+
+test("Agent tool adapters share one bounded, read-only tool catalog", async () => {
+  const calls: string[] = []
+  const request = async (method: "bridge.info" | "workspace.get" | "page.read") => {
+    calls.push(method)
+    return { method }
+  }
+  assert.deepEqual(
+    createMcpBrowserAgentTools().map((tool) => tool.name),
+    ["browser_bridge_info", "browser_workspace_get", "browser_page_read"],
+  )
+  assert.deepEqual(
+    createOpenAiBrowserAgentTools().map((tool) => tool.function.name),
+    ["browser_bridge_info", "browser_workspace_get", "browser_page_read"],
+  )
+  const langChainTools = createLangChainBrowserAgentTools(request)
+  assert.deepEqual(await langChainTools[2].invoke({}), { method: "page.read" })
+  assert.deepEqual(await invokeBrowserAgentTool(request, "browser_workspace_get"), { method: "workspace.get" })
+  await assert.rejects(
+    invokeBrowserAgentTool(request, "browser_page_read", { tabId: 1 }),
+    (error: unknown) => error instanceof BrowserAgentToolError && error.code === "INVALID_INPUT",
+  )
+  await assert.rejects(
+    invokeBrowserAgentTool(request, "browser_unknown"),
+    (error: unknown) => error instanceof BrowserAgentToolError && error.code === "UNKNOWN_TOOL",
+  )
+  assert.deepEqual(calls, ["page.read", "workspace.get"])
+})
+
 function pair() {
   let stopped = false
   const messages = [new Set<(value: unknown) => void>(), new Set<(value: unknown) => void>()]
