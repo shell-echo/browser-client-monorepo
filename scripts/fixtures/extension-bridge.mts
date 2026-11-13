@@ -46,7 +46,15 @@ const server = createServer((request, response) => {
       return
     }
     if (["/sdk/client.mts", "/sdk/protocol.mts"].includes(path)) {
-      const source = await readFile(new URL(`../../packages/extension-sdk/src/${path.slice(5)}`, import.meta.url), "utf8")
+      let source = await readFile(new URL(`../../packages/extension-sdk/src/${path.slice(5)}`, import.meta.url), "utf8")
+      if (path === "/sdk/protocol.mts")
+        source = source.replaceAll('"@browser-client/browser-agent"', '"/sdk/browser-agent.mts"')
+      response.setHeader("Content-Type", "text/javascript; charset=utf-8")
+      response.end(stripTypeScriptTypes(source, { mode: "strip" }))
+      return
+    }
+    if (path === "/sdk/browser-agent.mts") {
+      const source = await readFile(new URL("../../packages/browser-agent/src/capabilities.mts", import.meta.url), "utf8")
       response.setHeader("Content-Type", "text/javascript; charset=utf-8")
       response.end(stripTypeScriptTypes(source, { mode: "strip" }))
       return

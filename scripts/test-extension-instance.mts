@@ -329,7 +329,14 @@ try {
       await phase("Production unified SDK communication and worker recovery", () =>
         config.extension.verifyConnections!({ context: context!, ...production, until, fixtureOrigin: fixtureUrl.origin }),
       )
-      const allowedFixturePaths = ["/", "/fixture.js", "/sdk/client.mts", "/sdk/protocol.mts", "/favicon.ico"]
+      const allowedFixturePaths = [
+        "/",
+        "/fixture.js",
+        "/sdk/client.mts",
+        "/sdk/protocol.mts",
+        "/sdk/browser-agent.mts",
+        "/favicon.ico",
+      ]
       assert(
         network.every((value) => {
           const url = new URL(value)
