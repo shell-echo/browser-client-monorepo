@@ -18,10 +18,16 @@ The capability package is intentionally small. It does not import React, Chrome 
 
 - `workspace.read`: read the extension's bounded workspace value;
 - `page.read`: read title, URL and the current selection from the approved top-level document;
+- `page.observe`: read viewport geometry, scroll position and a bounded compressed screenshot when no sensitive fields are detected;
+- `page.click`: click a viewport coordinate after document and origin checks;
+- `page.scroll`: scroll by a bounded delta;
+- `page.type`: type into the focused non-sensitive text control;
+- `page.keypress`: dispatch a bounded key to the focused control;
+- `page.navigate`: navigate an allowed tab only with explicit confirmation;
 - `chrome-port`: the default control transport;
 - `document-scoped`: grants are bound to exact origin, tab and document identity.
 
-The catalog is deliberately conservative. The template does not advertise arbitrary script execution, debugger access, cookies, network proxying, screenshots, downloads or durable write jobs. A future capability must be added to the catalog and implemented in the template runtime only after its permission, identity binding, limits, audit and browser coverage are defined.
+The catalog is deliberately conservative. The template does not advertise arbitrary script execution, debugger access, cookies, network proxying, downloads or durable write jobs. Screenshots are viewport-only, compressed and never persisted by the SDK; pages with password/payment-like fields or any iframe suppress the image because the top-frame agent cannot inspect another origin. Screenshot dimensions are device pixels and include `pixelRatio`; action coordinates are CSS viewport pixels. Submit, send, purchase, delete and similar controls require `confirm: true`, and Web navigation stays on the approved origin. A future capability must be added to the catalog and implemented in the template runtime only after its permission, identity binding, limits, audit and browser coverage are defined.
 
 ## Agent integration boundary
 
@@ -47,7 +53,7 @@ The capability package includes dependency-free schemas for three common Agent i
 - `createOpenAiBrowserAgentTools()` returns OpenAI-compatible function tool definitions;
 - `createLangChainBrowserAgentTools(request)` returns tool objects with a JSON schema and `invoke` method that can be wrapped by a LangChain `StructuredTool` without adding LangChain to the extension runtime.
 
-All three adapters use the same read-only catalog. `invokeBrowserAgentTool` performs the name and empty-input checks before calling the SDK request function. The adapter does not grant access, retry commands, or bypass the extension's consent and quota checks.
+All three adapters use the same catalog. `invokeBrowserAgentTool` validates each action's bounded input before calling the SDK request function. The adapter does not grant access, retry commands, or bypass the extension's consent, document binding, sensitive-field checks or quota checks.
 
 ## Minimal connection
 
@@ -62,13 +68,16 @@ const browser = createClient({
 })
 
 await browser.request("access.request", {
-  capabilities: ["workspace.read", "page.read"],
+  capabilities: ["page.observe", "page.click", "page.scroll", "page.type", "page.keypress"],
 })
-const page = await browser.request("page.read", {})
+const observation = await browser.request("page.observe", { includeScreenshot: true })
+// Feed observation.screenshot?.dataUrl to the multimodal model, then execute
+// one bounded action and observe again. Never infer a coordinate from stale UI.
+await browser.request("page.click", { x: 640, y: 420, confirm: false })
 browser.close()
 ```
 
-The Web example must be approved in the packaged extension UI before a document can read. A tool adapter should surface `NOT_AUTHORIZED`, `DISCONNECTED`, `CANCELLED`, `TIMEOUT`, and `BUSY` as structured tool errors rather than retrying writes.
+The Web example must be approved in the packaged extension UI before a document can observe or act. A tool adapter should surface `NOT_AUTHORIZED`, `CONFIRMATION_REQUIRED`, `SENSITIVE_FIELD`, `DISCONNECTED`, `CANCELLED`, `TIMEOUT`, and `BUSY` as structured tool errors rather than retrying actions. The normal model loop is observe → choose one action → observe again; the SDK does not run an autonomous model or replay an ambiguous action.
 
 ## Template contribution rules
 

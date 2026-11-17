@@ -17,13 +17,14 @@ import {
 import { createBroker, identify } from "../../packages/extension-sdk/src/broker.mts"
 import { attachPageAgent, createPageAgent } from "../../packages/extension-sdk/src/agent.mts"
 import {
+  BridgeError,
   boundedJson,
   decodeIncoming,
   decodeResult,
   decodeSnapshot,
   PORT_NAME,
 } from "../../packages/extension-sdk/src/protocol.mts"
-import type { Port } from "../../packages/extension-sdk/src/protocol.mts"
+import type { Capability, Port } from "../../packages/extension-sdk/src/protocol.mts"
 import type { BrokerOptions, Sender } from "../../packages/extension-sdk/src/broker.mts"
 
 const extensionId = "a".repeat(32)
@@ -41,7 +42,16 @@ const ui: Sender = { id: extensionId, url: `chrome-extension://${extensionId}/op
 test("public Agent descriptor stays independent from the template UI", () => {
   assert.deepEqual(browserAgentDescriptor, {
     apiVersion: 1,
-    capabilities: ["workspace.read", "page.read"],
+    capabilities: [
+      "workspace.read",
+      "page.read",
+      "page.observe",
+      "page.click",
+      "page.scroll",
+      "page.type",
+      "page.keypress",
+      "page.navigate",
+    ],
     transports: ["chrome-port"],
     authorization: "document-scoped",
   })
@@ -65,23 +75,45 @@ test("public capability package keeps a stable workspace export boundary", async
     assert((await readFile(join(root, file))).length > 0)
 })
 
-test("Agent tool adapters share one bounded, read-only tool catalog", async () => {
+test("Agent tool adapters share one bounded browser control catalog", async () => {
   const calls: string[] = []
-  const request = async (method: "bridge.info" | "workspace.get" | "page.read") => {
+  const request = async (
+    method: Parameters<import("../../packages/browser-agent/src/tools.mts").BrowserAgentRequest>[0],
+    params: Record<string, unknown>,
+  ) => {
     calls.push(method)
-    return { method }
+    return { method, params }
   }
+  const names = [
+    "browser_bridge_info",
+    "browser_workspace_get",
+    "browser_page_read",
+    "browser_page_observe",
+    "browser_page_click",
+    "browser_page_scroll",
+    "browser_page_type",
+    "browser_page_keypress",
+    "browser_page_navigate",
+  ]
   assert.deepEqual(
     createMcpBrowserAgentTools().map((tool) => tool.name),
-    ["browser_bridge_info", "browser_workspace_get", "browser_page_read"],
+    names,
   )
   assert.deepEqual(
     createOpenAiBrowserAgentTools().map((tool) => tool.function.name),
-    ["browser_bridge_info", "browser_workspace_get", "browser_page_read"],
+    names,
   )
   const langChainTools = createLangChainBrowserAgentTools(request)
-  assert.deepEqual(await langChainTools[2].invoke({}), { method: "page.read" })
-  assert.deepEqual(await invokeBrowserAgentTool(request, "browser_workspace_get"), { method: "workspace.get" })
+  assert.deepEqual(await langChainTools[2].invoke({}), { method: "page.read", params: {} })
+  assert.deepEqual(await invokeBrowserAgentTool(request, "browser_workspace_get"), { method: "workspace.get", params: {} })
+  assert.deepEqual(await invokeBrowserAgentTool(request, "browser_page_scroll", { deltaX: 0, deltaY: 400 }), {
+    method: "page.scroll",
+    params: { deltaX: 0, deltaY: 400 },
+  })
+  assert.deepEqual(await invokeBrowserAgentTool(request, "browser_page_observe", { includeScreenshot: undefined }), {
+    method: "page.observe",
+    params: {},
+  })
   await assert.rejects(
     invokeBrowserAgentTool(request, "browser_page_read", { tabId: 1 }),
     (error: unknown) => error instanceof BrowserAgentToolError && error.code === "INVALID_INPUT",
@@ -90,7 +122,7 @@ test("Agent tool adapters share one bounded, read-only tool catalog", async () =
     invokeBrowserAgentTool(request, "browser_unknown"),
     (error: unknown) => error instanceof BrowserAgentToolError && error.code === "UNKNOWN_TOOL",
   )
-  assert.deepEqual(calls, ["page.read", "workspace.get"])
+  assert.deepEqual(calls, ["page.read", "workspace.get", "page.scroll", "page.observe"])
 })
 
 function pair() {
@@ -174,10 +206,7 @@ function fixture(t: import("node:test").TestContext, overrides: Partial<BrokerOp
     return sdk
   }
   const admin = client(ui, false)
-  async function approve(
-    sdk: ReturnType<typeof createClient>,
-    requested: ("workspace.read" | "page.read")[] = ["workspace.read", "page.read"],
-  ) {
+  async function approve(sdk: ReturnType<typeof createClient>, requested: Capability[] = ["workspace.read", "page.read"]) {
     const request = await sdk.request("access.request", { capabilities: requested })
     await admin.request("access.decide", { id: request.id, allow: true })
   }
@@ -195,7 +224,7 @@ test("protocol rejects extra authority fields, unknown methods, non-JSON and ove
   ])
     assert.throws(() => decodeIncoming(invalid))
   assert.equal(boundedJson({ function: () => 1 }), false)
-  assert.equal(boundedJson({ value: "x".repeat(33_000) }), false)
+  assert.equal(boundedJson({ value: "x".repeat(133_000) }), false)
   let deep: unknown = null
   for (let depth = 0; depth < 20; depth++) deep = { child: deep }
   assert.equal(boundedJson(deep), false)
@@ -205,6 +234,15 @@ test("protocol rejects extra authority fields, unknown methods, non-JSON and ove
   assert.throws(() => decodeResult("workspace.get", { name: 1 }))
   assert.throws(() => decodeResult("access.grants", { grants: [{ id: "forged" }] }))
   assert.throws(() => decodeSnapshot("access", { capabilities: ["debugger"] }))
+  for (const [method, params] of [
+    ["page.observe", { includeScreenshot: undefined }],
+    ["page.click", { x: 1, y: 2, extra: true }],
+    ["page.scroll", { deltaX: 0, deltaY: 0 }],
+    ["page.type", { text: "x", text2: "y" }],
+    ["page.keypress", { key: "Enter", confirm: "yes" }],
+    ["page.navigate", { url: "https://user:password@example.com/", confirm: true }],
+  ] as const)
+    assert.throws(() => decodeIncoming({ ...request, method, params }))
 })
 
 test("Chrome sender identity rejects iframe, opaque, stale, cross-extension and mismatched origins", () => {
@@ -260,6 +298,113 @@ test("page replies are routed only from the authorized document agent", async (t
   assert.equal(broker.counts().reads, 0)
   const next = client({ ...web, documentId: "document-three" })
   await assert.rejects(next.request("workspace.get", {}), { code: "NOT_AUTHORIZED" })
+})
+
+test("visual observation and bounded page actions use the authorized document agent", async (t) => {
+  const actions: unknown[] = []
+  let captured = 0
+  let navigated = ""
+  const { client, approve, broker } = fixture(t, {
+    capturePage: async () => {
+      captured++
+      return { dataUrl: "data:image/jpeg;base64,YWJj", mimeType: "image/jpeg" as const }
+    },
+    navigatePage: async (_tabId, url) => {
+      navigated = url
+    },
+  })
+  const site = client()
+  await approve(site, ["page.observe", "page.click", "page.scroll", "page.type", "page.keypress", "page.navigate"])
+  const connection = pair()
+  broker.attach(connection.server, { ...web, id: extensionId }, false)
+  const dispose = attachPageAgent(connection.client, {
+    read: () => ({ title: "Page", url: `${origin}/`, selection: "" }),
+    observe: () => ({
+      page: { title: "Visual page", url: `${origin}/`, selection: "" },
+      viewport: { width: 1280, height: 720, scrollX: 0, scrollY: 120, devicePixelRatio: 1 },
+      sensitiveFields: false,
+    }),
+    action: (action) => {
+      actions.push(action)
+      return { accepted: true, action: action.action }
+    },
+  })
+  t.after(dispose)
+  const observation = await site.request("page.observe", {})
+  assert.equal(observation.viewport.scrollY, 120)
+  assert.equal(observation.screenshot?.mimeType, "image/jpeg")
+  assert.equal(captured, 1)
+  assert.deepEqual(await site.request("page.click", { x: 10, y: 20 }), { accepted: true, action: "click" })
+  assert.deepEqual(await site.request("page.scroll", { deltaX: 0, deltaY: 400 }), { accepted: true, action: "scroll" })
+  assert.deepEqual(await site.request("page.type", { text: "hello" }), { accepted: true, action: "type" })
+  assert.deepEqual(await site.request("page.keypress", { key: "Enter" }), { accepted: true, action: "keypress" })
+  await assert.rejects(site.request("page.navigate", { url: `${origin}/next` }), { code: "CONFIRMATION_REQUIRED" })
+  assert.deepEqual(await site.request("page.navigate", { url: `${origin}/next`, confirm: true }), {
+    accepted: true,
+    action: "navigate",
+    url: `${origin}/next`,
+  })
+  assert.equal(navigated, `${origin}/next`)
+  assert.equal(actions.length, 4)
+})
+
+test("sensitive observations suppress screenshots and sensitive actions fail closed", async (t) => {
+  let captured = 0
+  const { client, approve, broker } = fixture(t, {
+    capturePage: async () => {
+      captured++
+      return { dataUrl: "data:image/jpeg;base64,YWJj", mimeType: "image/jpeg" as const }
+    },
+  })
+  const site = client()
+  await approve(site, ["page.observe", "page.type"])
+  const connection = pair()
+  broker.attach(connection.server, { ...web, id: extensionId }, false)
+  const dispose = attachPageAgent(connection.client, {
+    read: () => ({ title: "Page", url: `${origin}/`, selection: "" }),
+    observe: () => ({
+      page: { title: "Sensitive", url: `${origin}/`, selection: "" },
+      viewport: { width: 800, height: 600, scrollX: 0, scrollY: 0, devicePixelRatio: 1 },
+      sensitiveFields: true,
+    }),
+    action: () => {
+      throw new BridgeError("SENSITIVE_FIELD", "Sensitive fields cannot be controlled")
+    },
+  })
+  t.after(dispose)
+  const observation = await site.request("page.observe", {})
+  assert.equal(observation.screenshot, undefined)
+  assert.equal(observation.screenshotSuppressedReason, "sensitive-fields")
+  assert.equal(captured, 0)
+  await assert.rejects(site.request("page.type", { text: "secret" }), { code: "SENSITIVE_FIELD" })
+})
+
+test("cancelling an in-flight page action signals the isolated agent and does not replay it", async (t) => {
+  const { client, approve, broker } = fixture(t)
+  const site = client()
+  await approve(site, ["page.click"])
+  const connection = pair()
+  broker.attach(connection.server, { ...web, id: extensionId }, false)
+  let cancelled = false
+  const dispose = attachPageAgent(connection.client, {
+    read: () => ({ title: "Page", url: `${origin}/`, selection: "" }),
+    action: async (_action, signal) =>
+      await new Promise<never>((_resolve, reject) => {
+        signal?.addEventListener("abort", () => {
+          cancelled = true
+          reject(new BridgeError("CANCELLED", "Request cancelled"))
+        })
+      }),
+  })
+  t.after(dispose)
+  const abort = new AbortController()
+  const pending = site.request("page.click", { x: 1, y: 1 }, { signal: abort.signal })
+  await delay(10)
+  abort.abort()
+  await assert.rejects(pending, { code: "CANCELLED" })
+  await delay(10)
+  assert.equal(cancelled, true)
+  assert.equal(broker.counts().reads, 0)
 })
 
 test("grant receipts survive a worker restart but do not authorize new documents or instances", async (t) => {

@@ -22,7 +22,7 @@ Start with the clients you need. Authentication, business APIs, production hosti
 - **Three applications:** a responsive web starter, Admin login / dashboard templates, and Chrome / Edge Manifest V3 popup / settings pages.
 - **Shared UI:** shadcn preset **b0**, Base UI, bundled **Inter**, Lucide icons, and light / dark / system themes. UI text is English.
 - **Shared tooling:** pnpm workspaces and catalogs, Turborepo, TypeScript presets, ESLint 10, Oxlint, Prettier, and VS Code settings.
-- **Extension communication:** one dependency-free SDK for Web, popup, settings, and side panel; document-scoped grants, read-only website capabilities, subscriptions, and bounded reconnects.
+- **Extension communication:** one small SDK for Web, popup, settings, and side panel; document-scoped grants, multimodal viewport observation, bounded browser actions, subscriptions, and bounded reconnects.
 - **Browser Agent capability layer:** a stable, template-independent capability contract that lets Agent integrations target the same authorization and transport model without depending on the starter UI.
 - **Framework refreshes:** official Next.js / Vite scaffolds, compatible dependency solving, source preservation, and recoverable backups.
 - **Validation:** production builds, browser interactions, responsive layouts, extension HMR / CSP, and checks before reinit replacement.
@@ -72,7 +72,7 @@ For an ordinary browser preview of extension UI, stop the extension dev service 
 
 ## Live demo
 
-Open **http://127.0.0.1:3000/extension** after starting `pnpm dev` to run the real Browser Agent flow. The page connects to the unpacked MV3 extension, requests exact-origin access, invokes the shared `browser_page_read` tool, and lets you observe revocation and navigation boundaries. See the [demo recording guide](docs/demo.md) for the full sequence.
+Open **http://127.0.0.1:3000/extension** after starting `pnpm dev` to run the real Browser Agent flow. The page connects to the unpacked MV3 extension, requests exact-origin access, invokes the shared `browser_page_read` tool, and lets you observe revocation and navigation boundaries. The capability package also exposes an observe → action → observe loop with bounded screenshot, click, scroll, type, keypress and confirmed navigation tools for Agent integrations. See the [demo recording guide](docs/demo.md) and [capability contract](docs/browser-agent.md).
 
 ## Applications
 
@@ -106,7 +106,7 @@ See the [Browser Agent integration guide](docs/browser-agent.md) for the integra
 
 To try it, load the extension, open the Web app's `/extension` page, enter its Extension ID, request access, and approve that page in the extension's **Connections** UI. The Web example can read the workspace name and explicitly request its own selected text. Navigation or revocation ends that grant.
 
-Production origins and custom ports need an explicit allowlist entry and an extension rebuild. Websites receive read-only capabilities; arbitrary script execution, network proxies, screenshots, and downloads are outside this version. [Setup, SDK examples, permissions, and traffic limits](docs/extension-communication.md).
+Production origins and custom ports need an explicit allowlist entry and an extension rebuild. Browser actions remain document-scoped and bounded; arbitrary script execution, network proxies, downloads and durable jobs are outside this version. Screenshots are compressed viewport observations, suppressed for sensitive fields, and never persisted by the SDK. [Setup, SDK examples, permissions, and traffic limits](docs/extension-communication.md).
 
 ## Composable applications
 

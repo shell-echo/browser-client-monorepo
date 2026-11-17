@@ -11,7 +11,16 @@ import {
 } from "./protocol.mts"
 import type { Json, Method, Methods, Port, Topic } from "./protocol.mts"
 export { BridgeError } from "./protocol.mts"
-export type { AccessRequest, Capability, PageInfo } from "./protocol.mts"
+export type {
+  AccessRequest,
+  Capability,
+  PageAction,
+  PageActionResult,
+  PageInfo,
+  PageObservation,
+  PageScreenshot,
+  PageViewport,
+} from "./protocol.mts"
 
 export type ConnectionState = "disconnected" | "connecting" | "connected" | "closed"
 export interface ClientOptions {
@@ -161,7 +170,10 @@ export function createClient(options: ClientOptions) {
     if (signal?.aborted) return Promise.reject(new BridgeError("CANCELLED", "Request cancelled"))
     const id = `${prefix}_${++counter}`
     const timeout = Math.min(Math.max(options.timeoutMs ?? 10_000, 100), 30_000)
-    const message = { v: VERSION, kind: "request", id, method, params, deadline: Date.now() + timeout }
+    const normalizedParams = record(params)
+      ? Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined))
+      : params
+    const message = { v: VERSION, kind: "request", id, method, params: normalizedParams, deadline: Date.now() + timeout }
     if (!boundedJson(message)) return Promise.reject(new BridgeError("PROTOCOL", "Request exceeds the bridge limits"))
     return new Promise((resolve, reject) => {
       const cancel = (code: string) => {

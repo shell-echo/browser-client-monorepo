@@ -3,7 +3,11 @@ import type { BrowserAgentCapability } from "@browser-client/browser-agent"
 
 export const VERSION = 1
 export const PORT_NAME = "browser-client/v1"
-export const MAX_BYTES = 32_768
+// The bridge carries small JSON envelopes and an optional, compressed viewport
+// image.  Keep the cap finite so an Agent cannot turn a Port into an unbounded
+// memory queue.
+export const MAX_BYTES = 131_072
+export const MAX_SCREENSHOT_CHARS = 100_000
 export const capabilities = browserAgentCapabilities
 export type Capability = BrowserAgentCapability
 export type Topic = "workspace" | "access"
@@ -22,6 +26,39 @@ export interface PageInfo {
   url: string
   selection: string
 }
+export interface PageViewport {
+  width: number
+  height: number
+  scrollX: number
+  scrollY: number
+  devicePixelRatio: number
+}
+export interface PageScreenshot {
+  dataUrl: string
+  width: number
+  height: number
+  pixelRatio: number
+  mimeType: "image/jpeg" | "image/png"
+}
+export interface PageObservation {
+  page: PageInfo
+  viewport: PageViewport
+  sensitiveFields: boolean
+  screenshot?: PageScreenshot
+  screenshotSuppressedReason?: "sensitive-fields" | "unavailable" | "too-large"
+}
+export type PageAction =
+  | { action: "click"; x: number; y: number; confirm?: boolean }
+  | { action: "scroll"; deltaX: number; deltaY: number }
+  | { action: "type"; text: string; replace?: boolean }
+  | { action: "keypress"; key: string; confirm?: boolean }
+export interface PageActionResult {
+  accepted: true
+  action: PageAction["action"] | "navigate"
+  url?: string
+  scrollX?: number
+  scrollY?: number
+}
 export interface AccessRequest {
   id: string
   origin: string
@@ -38,6 +75,12 @@ export interface Methods {
   "workspace.get": { params: Record<string, never>; result: { name: string } }
   "workspace.set": { params: { name: string }; result: { name: string } }
   "page.read": { params: { tabId?: number }; result: PageInfo }
+  "page.observe": { params: { tabId?: number; includeScreenshot?: boolean }; result: PageObservation }
+  "page.click": { params: { x: number; y: number; confirm?: boolean }; result: PageActionResult }
+  "page.scroll": { params: { deltaX: number; deltaY: number }; result: PageActionResult }
+  "page.type": { params: { text: string; replace?: boolean }; result: PageActionResult }
+  "page.keypress": { params: { key: string; confirm?: boolean }; result: PageActionResult }
+  "page.navigate": { params: { url: string; confirm?: boolean }; result: PageActionResult }
   "access.request": { params: { capabilities: Capability[] }; result: { id: string; status: "pending" | "granted" } }
   "access.pending": { params: Record<string, never>; result: { requests: AccessRequest[] } }
   "access.decide": { params: { id: string; allow: boolean }; result: { accepted: boolean } }
@@ -52,8 +95,11 @@ export type Outgoing =
   | { v: 1; kind: "result"; id: string; value: Json }
   | { v: 1; kind: "error"; id: string; code: string; message: string }
   | { v: 1; kind: "event"; topic: Topic; epoch: string; revision: number; value: Json }
-  | { v: 1; kind: "agent.read"; id: string }
-  | { v: 1; kind: "agent.result"; id: string; value: PageInfo }
+  | { v: 1; kind: "agent.read" | "agent.observe"; id: string }
+  | { v: 1; kind: "agent.action"; id: string; action: PageAction }
+  | { v: 1; kind: "agent.cancel"; id: string }
+  | { v: 1; kind: "agent.result"; id: string; value: PageInfo | PageObservation | PageActionResult }
+  | { v: 1; kind: "agent.error"; id: string; code: string; message: string }
 
 export class BridgeError extends Error {
   readonly code: string
@@ -133,6 +179,63 @@ export function decodeIncoming(value: unknown): Incoming {
     case "page.read":
       valid = exact(p, ["tabId"]) && (p.tabId === undefined || (Number.isSafeInteger(p.tabId) && Number(p.tabId) >= 0))
       break
+    case "page.observe":
+      valid =
+        exact(p, ["tabId", "includeScreenshot"]) &&
+        (p.tabId === undefined || (Number.isSafeInteger(p.tabId) && Number(p.tabId) >= 0)) &&
+        (p.includeScreenshot === undefined || typeof p.includeScreenshot === "boolean")
+      break
+    case "page.click":
+      valid =
+        exact(p, ["x", "y", "confirm"]) &&
+        Number.isFinite(p.x) &&
+        Number.isFinite(p.y) &&
+        Number(p.x) >= 0 &&
+        Number(p.x) <= 32_768 &&
+        Number(p.y) >= 0 &&
+        Number(p.y) <= 32_768 &&
+        (p.confirm === undefined || typeof p.confirm === "boolean")
+      break
+    case "page.scroll":
+      valid =
+        exact(p, ["deltaX", "deltaY"]) &&
+        Number.isSafeInteger(p.deltaX) &&
+        Number.isSafeInteger(p.deltaY) &&
+        Math.abs(Number(p.deltaX)) <= 2_000 &&
+        Math.abs(Number(p.deltaY)) <= 2_000 &&
+        (Number(p.deltaX) !== 0 || Number(p.deltaY) !== 0)
+      break
+    case "page.type":
+      valid =
+        exact(p, ["text", "replace"]) &&
+        typeof p.text === "string" &&
+        p.text.length <= 4_096 &&
+        (p.replace === undefined || typeof p.replace === "boolean")
+      break
+    case "page.keypress":
+      valid =
+        exact(p, ["key", "confirm"]) &&
+        typeof p.key === "string" &&
+        p.key.length >= 1 &&
+        p.key.length <= 32 &&
+        /^[\p{L}\p{N}\p{P}\p{S} ]+$/u.test(p.key) &&
+        (p.confirm === undefined || typeof p.confirm === "boolean")
+      break
+    case "page.navigate":
+      valid =
+        exact(p, ["url", "confirm"]) &&
+        typeof p.url === "string" &&
+        p.url.length <= 2_048 &&
+        (p.confirm === undefined || typeof p.confirm === "boolean") &&
+        (() => {
+          try {
+            const url = new URL(p.url)
+            return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password
+          } catch {
+            return false
+          }
+        })()
+      break
     case "access.request":
       valid =
         exact(p, ["capabilities"]) &&
@@ -166,6 +269,130 @@ export function decodePage(value: unknown): PageInfo {
   )
     fail("PROTOCOL", "Invalid page response")
   return value as unknown as PageInfo
+}
+
+function decodeViewport(value: unknown): PageViewport {
+  if (
+    !record(value) ||
+    !exact(value, ["width", "height", "scrollX", "scrollY", "devicePixelRatio"]) ||
+    !Number.isSafeInteger(value.width) ||
+    !Number.isSafeInteger(value.height) ||
+    Number(value.width) < 1 ||
+    Number(value.width) > 8_192 ||
+    Number(value.height) < 1 ||
+    Number(value.height) > 8_192 ||
+    !Number.isFinite(value.scrollX) ||
+    !Number.isFinite(value.scrollY) ||
+    !Number.isFinite(value.devicePixelRatio) ||
+    Number(value.devicePixelRatio) <= 0 ||
+    Number(value.devicePixelRatio) > 8
+  )
+    fail("PROTOCOL", "Invalid viewport response")
+  return value as unknown as PageViewport
+}
+function decodeScreenshot(value: unknown): PageScreenshot {
+  if (
+    !record(value) ||
+    !exact(value, ["dataUrl", "width", "height", "pixelRatio", "mimeType"]) ||
+    typeof value.dataUrl !== "string" ||
+    value.dataUrl.length > MAX_SCREENSHOT_CHARS ||
+    !/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(value.dataUrl) ||
+    !Number.isSafeInteger(value.width) ||
+    !Number.isSafeInteger(value.height) ||
+    Number(value.width) < 1 ||
+    Number(value.width) > 8_192 ||
+    Number(value.height) < 1 ||
+    Number(value.height) > 8_192 ||
+    !Number.isFinite(value.pixelRatio) ||
+    Number(value.pixelRatio) <= 0 ||
+    Number(value.pixelRatio) > 8 ||
+    !["image/jpeg", "image/png"].includes(String(value.mimeType))
+  )
+    fail("PROTOCOL", "Invalid screenshot response")
+  return value as unknown as PageScreenshot
+}
+export function decodeObservation(value: unknown): PageObservation {
+  if (
+    !record(value) ||
+    !boundedJson(value) ||
+    !exact(value, ["page", "viewport", "sensitiveFields", "screenshot", "screenshotSuppressedReason"])
+  )
+    fail("PROTOCOL", "Invalid page observation")
+  const page = decodePage(value.page)
+  const viewport = decodeViewport(value.viewport)
+  if (typeof value.sensitiveFields !== "boolean") fail("PROTOCOL", "Invalid sensitive field marker")
+  if (value.screenshot !== undefined) decodeScreenshot(value.screenshot)
+  if (
+    value.screenshotSuppressedReason !== undefined &&
+    !["sensitive-fields", "unavailable", "too-large"].includes(String(value.screenshotSuppressedReason))
+  )
+    fail("PROTOCOL", "Invalid screenshot suppression reason")
+  return { ...value, page, viewport } as PageObservation
+}
+export function decodeAction(value: unknown): PageAction {
+  if (!record(value) || !boundedJson(value) || typeof value.action !== "string") fail("PROTOCOL", "Invalid page action")
+  switch (value.action) {
+    case "click":
+      if (
+        !exact(value, ["action", "x", "y", "confirm"]) ||
+        !Number.isFinite(value.x) ||
+        !Number.isFinite(value.y) ||
+        Number(value.x) < 0 ||
+        Number(value.x) > 32_768 ||
+        Number(value.y) < 0 ||
+        Number(value.y) > 32_768 ||
+        (value.confirm !== undefined && typeof value.confirm !== "boolean")
+      )
+        fail("PROTOCOL", "Invalid click action")
+      return value as PageAction
+    case "scroll":
+      if (
+        !exact(value, ["action", "deltaX", "deltaY"]) ||
+        !Number.isSafeInteger(value.deltaX) ||
+        !Number.isSafeInteger(value.deltaY) ||
+        Math.abs(Number(value.deltaX)) > 2_000 ||
+        Math.abs(Number(value.deltaY)) > 2_000 ||
+        (Number(value.deltaX) === 0 && Number(value.deltaY) === 0)
+      )
+        fail("PROTOCOL", "Invalid scroll action")
+      return value as PageAction
+    case "type":
+      if (
+        !exact(value, ["action", "text", "replace"]) ||
+        typeof value.text !== "string" ||
+        value.text.length > 4_096 ||
+        (value.replace !== undefined && typeof value.replace !== "boolean")
+      )
+        fail("PROTOCOL", "Invalid type action")
+      return value as PageAction
+    case "keypress":
+      if (
+        !exact(value, ["action", "key", "confirm"]) ||
+        typeof value.key !== "string" ||
+        value.key.length < 1 ||
+        value.key.length > 32 ||
+        !/^[\p{L}\p{N}\p{P}\p{S} ]+$/u.test(value.key) ||
+        (value.confirm !== undefined && typeof value.confirm !== "boolean")
+      )
+        fail("PROTOCOL", "Invalid keypress action")
+      return value as PageAction
+    default:
+      fail("PROTOCOL", "Unsupported page action")
+  }
+}
+export function decodeActionResult(value: unknown): PageActionResult {
+  if (
+    !record(value) ||
+    !boundedJson(value) ||
+    !exact(value, ["accepted", "action", "url", "scrollX", "scrollY"]) ||
+    value.accepted !== true ||
+    !["click", "scroll", "type", "keypress", "navigate"].includes(String(value.action)) ||
+    (value.url !== undefined && (typeof value.url !== "string" || value.url.length > 2_048)) ||
+    (value.scrollX !== undefined && !Number.isFinite(value.scrollX)) ||
+    (value.scrollY !== undefined && !Number.isFinite(value.scrollY))
+  )
+    fail("PROTOCOL", "Invalid action result")
+  return value as unknown as PageActionResult
 }
 
 function validCapabilities(value: unknown) {
@@ -216,6 +443,14 @@ export function decodeResult(method: Method, value: unknown): unknown {
       break
     case "page.read":
       return decodePage(value)
+    case "page.observe":
+      return decodeObservation(value)
+    case "page.click":
+    case "page.scroll":
+    case "page.type":
+    case "page.keypress":
+    case "page.navigate":
+      return decodeActionResult(value)
     case "access.request":
       valid = exact(value, ["id", "status"]) && identifier(value.id) && ["pending", "granted"].includes(String(value.status))
       break

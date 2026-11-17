@@ -2,15 +2,18 @@ import {
   boundedJson,
   BridgeError,
   capabilities,
+  decodeActionResult,
   decodeIncoming,
+  decodeObservation,
   decodePage,
   fail,
   identifier,
   PORT_NAME,
   record,
   VERSION,
+  MAX_SCREENSHOT_CHARS,
 } from "./protocol.mts"
-import type { AccessRequest, Capability, Incoming, Json, PageInfo, Port, Request, Topic } from "./protocol.mts"
+import type { AccessRequest, Capability, Incoming, Json, PageAction, Port, Request, Topic } from "./protocol.mts"
 
 export interface Sender {
   id?: string
@@ -100,13 +103,16 @@ export interface BrokerOptions {
   activeTab(): Promise<number>
   preparePage(tabId: number): Promise<string>
   authorizeOrigin(origin: string): Promise<boolean>
+  capturePage?(tabId: number): Promise<{ dataUrl: string; mimeType: "image/jpeg" | "image/png" }>
+  navigatePage?(tabId: number, url: string): Promise<void>
 }
 export function createBroker(options: BrokerOptions) {
   const epoch = crypto.randomUUID()
   const sessions = new Set<Session>()
   const approvals = new Map<string, { request: AccessRequest; session: Session }>()
   const agents = new Map<string, Session>()
-  const reads = new Map<string, { session: Session; resolve: (page: PageInfo) => void; reject: (error: Error) => void }>()
+  const agentCalls = new Map<string, { session: Session; resolve: (value: unknown) => void; reject: (error: Error) => void }>()
+  const actionTails = new Map<string, Promise<void>>()
   const buckets = new Map<string, { tokens: number; at: number }>()
   let grants: Grant[] = []
   let revision = 0
@@ -252,13 +258,13 @@ export function createBroker(options: BrokerOptions) {
   function agentKey(tabId: number, documentId: string) {
     return `${tabId}:${documentId}`
   }
-  async function pageRead(session: Session, params: Record<string, unknown>, signal: AbortSignal) {
-    requireCapability(session, "page.read")
+  async function pageTarget(session: Session, params: Record<string, unknown>, signal: AbortSignal) {
     let tabId = session.identity.tabId
     let documentId = session.identity.documentId
     if (session.identity.kind === "ui") {
       tabId = await options.activeTab()
-      if (params.tabId !== undefined && params.tabId !== tabId) fail("FORBIDDEN", "Only the selected active tab may be read")
+      if (params.tabId !== undefined && params.tabId !== tabId)
+        fail("FORBIDDEN", "Only the selected active tab may be controlled")
       documentId = await options.preparePage(tabId)
     } else if (params.tabId !== undefined) fail("FORBIDDEN", "Web access is limited to its own document")
     if (signal.aborted || !sessions.has(session)) fail("CANCELLED", "Request cancelled")
@@ -271,28 +277,143 @@ export function createBroker(options: BrokerOptions) {
       await new Promise((resolve) => setTimeout(resolve, 25))
     }
     const agent = agents.get(agentKey(tabId, documentId))
-    if (!agent || reads.size >= 32) fail("PAGE_UNAVAILABLE", "Page agent is unavailable; select a permitted page and try again")
+    if (!agent || agentCalls.size >= 32)
+      fail("PAGE_UNAVAILABLE", "Page agent is unavailable; select a permitted page and try again")
     if (signal.aborted || !sessions.has(session)) fail("CANCELLED", "Request cancelled")
-    requireCapability(session, "page.read")
     if (session.identity.kind === "web" && agent.identity.origin !== session.identity.origin)
       fail("FORBIDDEN", "Page origin changed")
-    const result = await new Promise<PageInfo>((resolve, reject) => {
-      const id = crypto.randomUUID()
-      const finish = (value?: PageInfo, reason?: Error) => {
+    return { tabId, documentId, agent }
+  }
+  async function requestAgent<T>(
+    agent: Session,
+    message:
+      | { v: 1; kind: "agent.read" | "agent.observe"; id: string }
+      | { v: 1; kind: "agent.action"; id: string; action: PageAction },
+    decode: (value: unknown) => T,
+    signal: AbortSignal,
+  ): Promise<T> {
+    const id = message.id
+    const result = await new Promise<unknown>((resolve, reject) => {
+      const finish = (value?: unknown, reason?: Error) => {
         clearTimeout(timer)
         signal.removeEventListener("abort", cancel)
-        reads.delete(id)
+        agentCalls.delete(id)
         if (reason) reject(reason)
-        else resolve(value!)
+        else resolve(value)
       }
-      const cancel = () => finish(undefined, new BridgeError("CANCELLED", "Request cancelled"))
-      const timer = setTimeout(() => finish(undefined, new BridgeError("TIMEOUT", "Page agent did not respond")), 4000)
-      reads.set(id, { session: agent, resolve: (value) => finish(value), reject: (reason) => finish(undefined, reason) })
+      const cancel = () => {
+        send(agent, { v: VERSION, kind: "agent.cancel", id })
+        finish(undefined, new BridgeError("CANCELLED", "Request cancelled"))
+      }
+      const timer = setTimeout(() => finish(undefined, new BridgeError("TIMEOUT", "Page agent did not respond")), 4_000)
+      agentCalls.set(id, { session: agent, resolve: (value) => finish(value), reject: (reason) => finish(undefined, reason) })
       signal.addEventListener("abort", cancel, { once: true })
-      send(agent, { v: VERSION, kind: "agent.read", id })
+      send(agent, message)
     })
+    return decode(result)
+  }
+  async function pageRead(session: Session, params: Record<string, unknown>, signal: AbortSignal) {
+    requireCapability(session, "page.read")
+    const { agent } = await pageTarget(session, params, signal)
+    const result = await requestAgent(agent, { v: VERSION, kind: "agent.read", id: crypto.randomUUID() }, decodePage, signal)
+    if (new URL(result.url).origin !== agent.identity.origin) fail("FORBIDDEN", "Page identity changed")
     requireCapability(session, "page.read")
     return result
+  }
+  async function pageObserve(session: Session, params: Record<string, unknown>, signal: AbortSignal) {
+    requireCapability(session, "page.observe")
+    const { tabId, agent } = await pageTarget(session, params, signal)
+    const observation = await requestAgent(
+      agent,
+      { v: VERSION, kind: "agent.observe", id: crypto.randomUUID() },
+      decodeObservation,
+      signal,
+    )
+    if (new URL(observation.page.url).origin !== agent.identity.origin) fail("FORBIDDEN", "Page identity changed")
+    requireCapability(session, "page.observe")
+    if (params.includeScreenshot === false) return observation
+    if (observation.sensitiveFields) return { ...observation, screenshotSuppressedReason: "sensitive-fields" as const }
+    if (!options.capturePage) return { ...observation, screenshotSuppressedReason: "unavailable" as const }
+    const beforeCapture = await requestAgent(
+      agent,
+      { v: VERSION, kind: "agent.observe", id: crypto.randomUUID() },
+      decodeObservation,
+      signal,
+    )
+    if (beforeCapture.sensitiveFields) return { ...beforeCapture, screenshotSuppressedReason: "sensitive-fields" as const }
+    if (agents.get(agentKey(tabId, agent.identity.documentId)) !== agent)
+      fail("FORBIDDEN", "The approved page navigated during observation")
+    try {
+      const screenshot = await options.capturePage(tabId)
+      if (agents.get(agentKey(tabId, agent.identity.documentId)) !== agent)
+        fail("FORBIDDEN", "The approved page navigated during screenshot capture")
+      if (screenshot.dataUrl.length > MAX_SCREENSHOT_CHARS)
+        throw new BridgeError("PAYLOAD_TOO_LARGE", "Viewport image exceeds bridge limits")
+      const afterCapture = await requestAgent(
+        agent,
+        { v: VERSION, kind: "agent.observe", id: crypto.randomUUID() },
+        decodeObservation,
+        signal,
+      )
+      if (afterCapture.sensitiveFields) return { ...afterCapture, screenshotSuppressedReason: "sensitive-fields" as const }
+      if (new URL(afterCapture.page.url).origin !== agent.identity.origin)
+        fail("FORBIDDEN", "Page identity changed during screenshot capture")
+      return decodeObservation({
+        ...afterCapture,
+        screenshot: {
+          ...screenshot,
+          width: Math.round(afterCapture.viewport.width * afterCapture.viewport.devicePixelRatio),
+          height: Math.round(afterCapture.viewport.height * afterCapture.viewport.devicePixelRatio),
+          pixelRatio: afterCapture.viewport.devicePixelRatio,
+        },
+      })
+    } catch (reason) {
+      if (reason instanceof BridgeError && reason.code === "PAYLOAD_TOO_LARGE")
+        return { ...observation, screenshotSuppressedReason: "too-large" as const }
+      if (reason instanceof BridgeError) throw reason
+      return { ...observation, screenshotSuppressedReason: "unavailable" as const }
+    }
+  }
+  async function pageAction(session: Session, capability: Capability, action: PageAction, signal: AbortSignal) {
+    requireCapability(session, capability)
+    const selectedTab = session.identity.kind === "ui" ? await options.activeTab() : undefined
+    const key = selectedTab !== undefined ? `tab:${selectedTab}` : agentKey(session.identity.tabId, session.identity.documentId)
+    const previous = actionTails.get(key) ?? Promise.resolve()
+    let release!: () => void
+    const turn = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const tail = previous.then(() => turn)
+    actionTails.set(key, tail)
+    try {
+      await previous
+      if (signal.aborted) fail("CANCELLED", "Request cancelled")
+      const { agent } = await pageTarget(session, selectedTab === undefined ? {} : { tabId: selectedTab }, signal)
+      const result = await requestAgent(
+        agent,
+        { v: VERSION, kind: "agent.action", id: crypto.randomUUID(), action },
+        decodeActionResult,
+        signal,
+      )
+      requireCapability(session, capability)
+      return result
+    } finally {
+      release()
+      if (actionTails.get(key) === tail) actionTails.delete(key)
+    }
+  }
+  async function pageNavigate(session: Session, params: Record<string, unknown>, signal: AbortSignal) {
+    requireCapability(session, "page.navigate")
+    if (params.confirm !== true) fail("CONFIRMATION_REQUIRED", "Navigation requires explicit confirmation")
+    const target = new URL(String(params.url))
+    if (session.identity.kind === "web" && target.origin !== session.identity.origin)
+      fail("FORBIDDEN", "Web navigation is limited to the approved origin")
+    if (!(await options.authorizeOrigin(target.origin))) fail("FORBIDDEN", "Navigation origin is not permitted")
+    if (!options.navigatePage) fail("UNSUPPORTED", "Navigation is unavailable in this extension build")
+    const { tabId } = await pageTarget(session, {}, signal)
+    if (signal.aborted || !sessions.has(session)) fail("CANCELLED", "Request cancelled")
+    await options.navigatePage(tabId, target.href)
+    return { accepted: true as const, action: "navigate" as const, url: target.href }
   }
   async function handle(session: Session, request: Request, signal: AbortSignal): Promise<unknown> {
     await ready
@@ -324,6 +445,51 @@ export function createBroker(options: BrokerOptions) {
         })
       case "page.read":
         return pageRead(session, params, signal)
+      case "page.observe":
+        return pageObserve(session, params, signal)
+      case "page.click":
+        return pageAction(
+          session,
+          "page.click",
+          {
+            action: "click",
+            x: Number(params.x),
+            y: Number(params.y),
+            ...(params.confirm === undefined ? {} : { confirm: params.confirm as boolean }),
+          },
+          signal,
+        )
+      case "page.scroll":
+        return pageAction(
+          session,
+          "page.scroll",
+          { action: "scroll", deltaX: Number(params.deltaX), deltaY: Number(params.deltaY) },
+          signal,
+        )
+      case "page.type":
+        return pageAction(
+          session,
+          "page.type",
+          {
+            action: "type",
+            text: String(params.text),
+            ...(params.replace === undefined ? {} : { replace: params.replace as boolean }),
+          },
+          signal,
+        )
+      case "page.keypress":
+        return pageAction(
+          session,
+          "page.keypress",
+          {
+            action: "keypress",
+            key: String(params.key),
+            ...(params.confirm === undefined ? {} : { confirm: params.confirm as boolean }),
+          },
+          signal,
+        )
+      case "page.navigate":
+        return pageNavigate(session, params, signal)
       case "access.request": {
         if (session.identity.kind !== "web") fail("FORBIDDEN", "Only a Web document requests access")
         const requested = params.capabilities as Capability[]
@@ -451,10 +617,10 @@ export function createBroker(options: BrokerOptions) {
       port.onMessage.removeListener(receive)
       port.onDisconnect.removeListener(dispose)
       for (const controller of session.pending.values()) controller.abort()
-      for (const [id, read] of reads)
-        if (read.session === session) {
-          read.reject(new BridgeError("DISCONNECTED", "Page navigated or disconnected"))
-          reads.delete(id)
+      for (const [id, call] of agentCalls)
+        if (call.session === session) {
+          call.reject(new BridgeError("DISCONNECTED", "Page navigated or disconnected"))
+          agentCalls.delete(id)
         }
       if (agents.get(agentKey(identity.tabId, identity.documentId)) === session)
         agents.delete(agentKey(identity.tabId, identity.documentId))
@@ -478,20 +644,23 @@ export function createBroker(options: BrokerOptions) {
       }
       if (identity.kind === "agent") {
         try {
-          if (
-            !record(value) ||
-            !boundedJson(value) ||
-            value.v !== VERSION ||
-            value.kind !== "agent.result" ||
-            !identifier(value.id)
-          )
+          if (!record(value) || !boundedJson(value) || value.v !== VERSION || !identifier(value.id))
             fail("PROTOCOL", "Invalid agent response")
-          const pending = reads.get(value.id)
+          if (value.kind !== "agent.result" && value.kind !== "agent.error") fail("PROTOCOL", "Invalid agent response")
+          const pending = agentCalls.get(value.id)
           if (!pending || pending.session !== session) return
-          const page = decodePage(value.value)
-          if (new URL(page.url).origin !== identity.origin) fail("FORBIDDEN", "Page identity changed")
-          pending.resolve(page)
-        } catch {
+          if (value.kind === "agent.error") {
+            if (typeof value.code !== "string" || typeof value.message !== "string") fail("PROTOCOL", "Invalid agent error")
+            pending.reject(new BridgeError(value.code, value.message))
+          } else if (value.kind === "agent.result") {
+            pending.resolve(value.value)
+          } else fail("PROTOCOL", "Invalid agent response")
+        } catch (reason) {
+          for (const [id, pending] of agentCalls)
+            if (pending.session === session) {
+              pending.reject(reason instanceof Error ? reason : new BridgeError("PROTOCOL", "Invalid agent response"))
+              agentCalls.delete(id)
+            }
           dispose()
         }
         return
@@ -595,6 +764,6 @@ export function createBroker(options: BrokerOptions) {
       for (const session of [...sessions]) session.dispose()
     },
     // Bounded counters aid tests/diagnostics without exposing document or payload data.
-    counts: () => ({ sessions: sessions.size, approvals: approvals.size, reads: reads.size, buckets: buckets.size }),
+    counts: () => ({ sessions: sessions.size, approvals: approvals.size, reads: agentCalls.size, buckets: buckets.size }),
   }
 }

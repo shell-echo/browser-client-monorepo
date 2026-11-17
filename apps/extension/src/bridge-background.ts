@@ -1,5 +1,5 @@
 import { createBroker } from "@browser-client/extension-sdk/broker"
-import { PORT_NAME } from "@browser-client/extension-sdk/protocol"
+import { BridgeError, MAX_SCREENSHOT_CHARS, PORT_NAME } from "@browser-client/extension-sdk/protocol"
 import { webOrigins } from "./bridge-policy"
 import { readWorkspaceName, validateWorkspaceName } from "./lib/settings"
 
@@ -18,6 +18,24 @@ const broker = createBroker({
   authorizeOrigin: async (origin) => {
     const url = new URL(origin)
     return chrome.permissions.contains({ origins: [`${url.protocol}//${url.hostname}/*`] })
+  },
+  capturePage: async (tabId) => {
+    const tab = await chrome.tabs.get(tabId)
+    const assertVisible = async () => {
+      const current = await chrome.tabs.query({ active: true, windowId: tab.windowId })
+      if (current[0]?.id !== tabId) throw new BridgeError("TAB_NOT_ACTIVE", "The selected tab is no longer visible")
+    }
+    await assertVisible()
+    const qualities = [40, 25, 15]
+    for (const quality of qualities) {
+      const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "jpeg", quality })
+      await assertVisible()
+      if (dataUrl.length <= MAX_SCREENSHOT_CHARS) return { dataUrl, mimeType: "image/jpeg" as const }
+    }
+    throw new BridgeError("PAYLOAD_TOO_LARGE", "Viewport image exceeds bridge limits")
+  },
+  navigatePage: async (tabId, url) => {
+    await chrome.tabs.update(tabId, { url })
   },
   activeTab: async () => {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true })

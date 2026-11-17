@@ -5,7 +5,16 @@
  * features, but it must not advertise a capability until the runtime has
  * authorization, identity binding, limits, and tests for it.
  */
-export const browserAgentCapabilities = Object.freeze(["workspace.read", "page.read"] as const)
+export const browserAgentCapabilities = Object.freeze([
+  "workspace.read",
+  "page.read",
+  "page.observe",
+  "page.click",
+  "page.scroll",
+  "page.type",
+  "page.keypress",
+  "page.navigate",
+] as const)
 
 export type BrowserAgentCapability = (typeof browserAgentCapabilities)[number]
 
