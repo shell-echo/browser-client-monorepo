@@ -5,9 +5,9 @@ import { ThemeSwitcher } from "@browser-client/ui/components/theme-switcher"
 import { ExtensionConnection } from "./connection"
 
 const demoSteps = [
-  ["01", "Ask", "The Agent requests only the read capabilities it needs."],
+  ["01", "Ask", "The Agent requests a real viewport and only the bounded actions it needs."],
   ["02", "Approve", "You approve this exact origin in the extension Connections screen."],
-  ["03", "Act", "The Agent reads the page through a bounded Chrome Native Port call."],
+  ["03", "Observe and act", "The Agent sees a Chrome screenshot, acts through the extension, then observes again."],
 ] as const
 
 export default function ExtensionPage() {
@@ -25,8 +25,8 @@ export default function ExtensionPage() {
           Give an Agent a safe browser handoff.
         </h1>
         <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
-          This page uses the real extension SDK. Connect your unpacked extension, approve this page, and run the same read-only
-          capability that MCP, OpenAI, and LangChain adapters expose.
+          This page uses the real extension SDK. Connect your unpacked extension, approve this page, and let the same bounded
+          viewport, click, scroll, and type tools that MCP, OpenAI, and LangChain adapters expose operate on this real tab.
         </p>
       </section>
       <section aria-labelledby="steps-title">
@@ -52,7 +52,8 @@ export default function ExtensionPage() {
         </h2>
         <ul className="mt-3 list-disc space-y-1 pl-5">
           <li>Consent is explicit and tied to this origin, tab, and document.</li>
-          <li>Page reads stay bounded and read-only; the extension remains the execution boundary.</li>
+          <li>Chrome returns the visible viewport and the extension executes bounded page actions.</li>
+          <li>The local fixture is safe demo content; it does not replace the real extension or browser.</li>
           <li>Revocation or navigation ends the grant without replaying an ambiguous write.</li>
         </ul>
       </section>

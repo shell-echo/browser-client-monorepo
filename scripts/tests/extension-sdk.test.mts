@@ -307,7 +307,7 @@ test("visual observation and bounded page actions use the authorized document ag
   const { client, approve, broker } = fixture(t, {
     capturePage: async () => {
       captured++
-      return { dataUrl: "data:image/jpeg;base64,YWJj", mimeType: "image/jpeg" as const }
+      return { dataUrl: "data:image/jpeg;base64,YWJj", mimeType: "image/jpeg" as const, width: 640, height: 360 }
     },
     navigatePage: async (_tabId, url) => {
       navigated = url
@@ -333,6 +333,9 @@ test("visual observation and bounded page actions use the authorized document ag
   const observation = await site.request("page.observe", {})
   assert.equal(observation.viewport.scrollY, 120)
   assert.equal(observation.screenshot?.mimeType, "image/jpeg")
+  assert.equal(observation.screenshot?.width, 640)
+  assert.equal(observation.screenshot?.height, 360)
+  assert.equal(observation.screenshot?.pixelRatio, 0.5)
   assert.equal(captured, 1)
   assert.deepEqual(await site.request("page.click", { x: 10, y: 20 }), { accepted: true, action: "click" })
   assert.deepEqual(await site.request("page.scroll", { deltaX: 0, deltaY: 400 }), { accepted: true, action: "scroll" })
@@ -347,6 +350,44 @@ test("visual observation and bounded page actions use the authorized document ag
   assert.equal(navigated, `${origin}/next`)
   assert.equal(actions.length, 4)
 })
+
+for (const change of ["legacy", "scroll", "resize"] as const) {
+  test(`screenshot geometry handles ${change} without misreporting image coordinates`, async (t) => {
+    let observations = 0
+    const { client, approve, broker } = fixture(t, {
+      capturePage: async () => ({ dataUrl: "data:image/jpeg;base64,YWJj", mimeType: "image/jpeg" }),
+    })
+    const site = client()
+    await approve(site, ["page.observe"])
+    const connection = pair()
+    broker.attach(connection.server, { ...web, id: extensionId }, false)
+    t.after(
+      attachPageAgent(connection.client, {
+        read: () => ({ title: "Page", url: `${origin}/`, selection: "" }),
+        observe: () => {
+          observations++
+          return {
+            page: { title: "Page", url: `${origin}/`, selection: "" },
+            viewport: {
+              width: change === "resize" && observations >= 3 ? 500 : 400,
+              height: 300,
+              scrollX: 0,
+              scrollY: change === "scroll" && observations >= 3 ? 100 : 0,
+              devicePixelRatio: 2,
+            },
+            sensitiveFields: false,
+          }
+        },
+      }),
+    )
+    if (change === "legacy") {
+      const { screenshot } = await site.request("page.observe", {})
+      assert.equal(screenshot?.width, 800)
+      assert.equal(screenshot?.height, 600)
+      assert.equal(screenshot?.pixelRatio, 2)
+    } else await assert.rejects(site.request("page.observe", {}), { code: "PAGE_CHANGED" })
+  })
+}
 
 test("sensitive observations suppress screenshots and sensitive actions fail closed", async (t) => {
   let captured = 0
@@ -378,6 +419,52 @@ test("sensitive observations suppress screenshots and sensitive actions fail clo
   assert.equal(captured, 0)
   await assert.rejects(site.request("page.type", { text: "secret" }), { code: "SENSITIVE_FIELD" })
 })
+
+for (const outcome of ["image", "capture-error", "queued"] as const) {
+  test(`observation revocation rejects a pending ${outcome} result before it reaches the SDK`, async (t) => {
+    let entered!: () => void
+    const capturing = new Promise<void>((resolve) => {
+      entered = resolve
+    })
+    let release!: () => void
+    const resume = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let nativeCaptures = 0
+    const { client, approve, broker, admin } = fixture(t, {
+      capturePage: async (_tabId, context) => {
+        entered()
+        await resume
+        if (outcome === "queued") context.assertAuthorized()
+        nativeCaptures++
+        if (outcome === "capture-error") throw new Error("Native capture unavailable")
+        return { dataUrl: "data:image/jpeg;base64,YWJj", mimeType: "image/jpeg" }
+      },
+    })
+    const site = client()
+    await approve(site, ["page.observe"])
+    const connection = pair()
+    broker.attach(connection.server, { ...web, id: extensionId }, false)
+    t.after(
+      attachPageAgent(connection.client, {
+        read: () => ({ title: "Page", url: `${origin}/`, selection: "" }),
+        observe: () => ({
+          page: { title: "Page", url: `${origin}/`, selection: "" },
+          viewport: { width: 800, height: 600, scrollX: 0, scrollY: 0, devicePixelRatio: 1 },
+          sensitiveFields: false,
+        }),
+      }),
+    )
+    const pending = site.request("page.observe", {})
+    const rejected = assert.rejects(pending, { code: "NOT_AUTHORIZED" })
+    await capturing
+    const { grants } = await admin.request("access.grants", {})
+    await admin.request("access.revoke", { id: grants[0].id })
+    release()
+    await rejected
+    assert.equal(nativeCaptures, outcome === "queued" ? 0 : 1)
+  })
+}
 
 test("cancelling an in-flight page action signals the isolated agent and does not replay it", async (t) => {
   const { client, approve, broker } = fixture(t)

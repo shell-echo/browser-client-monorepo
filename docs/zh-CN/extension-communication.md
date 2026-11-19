@@ -11,7 +11,7 @@
 3. 在扩展中核对来源、标签页和能力，选择 **Allow this page**。网站随后可以按次请求视口观察，并执行一个有界动作；文本不会自动持续上传。
 4. 修改工作区设置可看到订阅更新。在扩展中撤销、导航该文档或关闭标签页都会结束授权。**Disconnect** 仅关闭 SDK 连接，不等于撤销文档授权。
 
-弹出页的 **Open side panel** 在所选标签页旁打开同样的控制界面。**Read selected page** 需要用户主动触发，并依赖 Chrome `activeTab`；受限制的浏览器页面无法读取。控制层通过 `page.observe` 暴露视口元数据和压缩的可见标签页截图，并提供有界点击、滚动、输入、按键和确认后导航。不提供页面 HTML、cookie、任意脚本、调试器命令、网络代理或下载。检测到密码/支付类字段或 iframe 时抑制截图，SDK 不会持久化截图。动作坐标使用 CSS 视口像素，截图的 `pixelRatio` 说明设备像素缩放。
+弹出页的 **Open side panel** 在所选标签页旁打开同样的控制界面。**Read selected page** 需要用户主动触发，并依赖 Chrome `activeTab`；受限制的浏览器页面无法读取。控制层通过 `page.observe` 暴露视口元数据和压缩的可见标签页截图，并提供有界点击、滚动、输入、按键和确认后导航。不提供页面 HTML、cookie、任意脚本、调试器命令、网络代理或下载。检测到密码/支付类字段或 iframe 时抑制截图，SDK 不会持久化截图。动作坐标使用 CSS 视口像素。截图长边最多 1280 像素，并保留 100,000 字符的图片上限。返回的宽高是编码后图片尺寸，`pixelRatio` 是图片宽度与 CSS 视口宽度之比；图片坐标通过 `x * viewport.width / screenshot.width` 和 `y * viewport.height / screenshot.height` 换算。
 
 ## 工作区设置
 

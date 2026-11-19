@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Launchpad · release workspace</title>
+    <link rel="stylesheet" href="/theme.css" />
+    <link rel="stylesheet" href="/demo.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/"><span>b.</span> Launchpad</a><span class="profile">FICTIONAL LOCAL WORKSPACE</span>
+    </header>
+    <main>
+      <div class="eyebrow">RELEASE WORKSPACE / NOVEMBER</div>
+      <h1>A release worth<br /><span>getting right.</span></h1>
+      <p class="intro">Review the candidates. Prepare a draft. Verify the activity.</p>
+      <section aria-label="Release candidates" class="candidates">
+        <article class="candidate">
+          <div class="candidate-top"><span class="tag ready">Ready</span><span class="version">v0.2.0</span></div>
+          <h2>Chrome bridge</h2>
+          <p>Viewport observation and bounded browser actions.</p>
+          <div class="checks"><b>41 checks passed</b><span>0 failures</span></div>
+        </article>
+        <article class="candidate">
+          <div class="candidate-top"><span class="tag review">Needs review</span><span class="version">v0.1.3</span></div>
+          <h2>Workspace sync</h2>
+          <p>Settings and workspace subscriptions.</p>
+          <div class="checks"><b>18 checks passed</b><span>2 failures</span></div>
+        </article>
+      </section>
+      <section class="draft" aria-labelledby="draft-title">
+        <div class="eyebrow">LOCAL DRAFT · NO EXTERNAL SUBMISSION</div>
+        <h2 id="draft-title">Prepare the release note</h2>
+        <label for="draft">Release summary</label
+        ><input id="draft" placeholder="Product · version · checks passed" autocomplete="off" />
+        <div class="actions">
+          <p id="input-state">Waiting for a release summary.</p>
+          <button type="button" id="create">Save local draft <span>↗</span></button>
+        </div>
+        <div id="draft-result" class="result" role="status">
+          <span>○</span>
+          <div>
+            <b>No saved draft</b>
+            <p>A saved draft also appears in the activity below.</p>
+          </div>
+        </div>
+      </section>
+      <div class="scroll-hint">↓ <span>Activity and the saved release note are below the fold</span></div>
+      <section class="activity">
+        <div class="eyebrow">ACTIVITY / SAVED DRAFTS</div>
+        <h2>Check what actually changed.</h2>
+        <p class="intro">A fresh observation confirms the visible result.</p>
+        <article class="activity-card">
+          <span class="tick">✓</span>
+          <div>
+            <div class="eyebrow">LATEST LOCAL DRAFT</div>
+            <h3 id="activity-result">No activity yet</h3>
+            <p id="activity-detail">Nothing has been saved.</p>
+          </div>
+        </article>
+        <div class="security">
+          <b>Approved page. Bounded actions.</b>
+          <p>This workspace contains fictional data. No accounts or personal browser content.</p>
+        </div>
+      </section>
+      <footer><span>browser-client / example business UI</span><span id="bridge-status">Extension not connected</span></footer>
+    </main>
+    <script type="module" src="/demo.js"></script>
+  </body>
+</html>

@@ -10,6 +10,7 @@ export default [
       "scripts/test-web-admin.mts",
       "scripts/test-extension-instance.mts",
       "scripts/test-page.mts",
+      "scripts/record-browser-agent-demo.mts",
       "scripts/lib/theme-verification.mts",
       "scripts/lib/client-page-verification.mts",
       "scripts/lib/admin-verification.mts",
@@ -23,5 +24,10 @@ export default [
     languageOptions: {
       globals: { chrome: "readonly", window: "readonly", document: "readonly", getComputedStyle: "readonly" },
     },
+  },
+  {
+    files: ["scripts/fixtures/browser-agent-demo.js", "scripts/fixtures/browser-agent-console.js"],
+    rules: { "no-restricted-globals": "off" },
+    languageOptions: { globals: { window: "readonly", document: "readonly" } },
   },
 ]

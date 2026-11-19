@@ -35,8 +35,10 @@ export interface PageViewport {
 }
 export interface PageScreenshot {
   dataUrl: string
+  // Encoded image dimensions; the Chrome adapter may downscale a native frame.
   width: number
   height: number
+  // Encoded image width divided by the CSS viewport width, not necessarily DPR.
   pixelRatio: number
   mimeType: "image/jpeg" | "image/png"
 }

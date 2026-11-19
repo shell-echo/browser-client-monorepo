@@ -103,7 +103,10 @@ export interface BrokerOptions {
   activeTab(): Promise<number>
   preparePage(tabId: number): Promise<string>
   authorizeOrigin(origin: string): Promise<boolean>
-  capturePage?(tabId: number): Promise<{ dataUrl: string; mimeType: "image/jpeg" | "image/png" }>
+  capturePage?(
+    tabId: number,
+    context: { signal: AbortSignal; assertAuthorized(): void },
+  ): Promise<{ dataUrl: string; mimeType: "image/jpeg" | "image/png"; width?: number; height?: number }>
   navigatePage?(tabId: number, url: string): Promise<void>
 }
 export function createBroker(options: BrokerOptions) {
@@ -323,6 +326,13 @@ export function createBroker(options: BrokerOptions) {
   async function pageObserve(session: Session, params: Record<string, unknown>, signal: AbortSignal) {
     requireCapability(session, "page.observe")
     const { tabId, agent } = await pageTarget(session, params, signal)
+    const assertAuthorized = () => {
+      if (signal.aborted) fail("CANCELLED", "Observation cancelled")
+      if (!sessions.has(session)) fail("DISCONNECTED", "The requesting document disconnected")
+      requireCapability(session, "page.observe")
+      if (agents.get(agentKey(tabId, agent.identity.documentId)) !== agent)
+        fail("FORBIDDEN", "The approved page navigated during observation")
+    }
     const observation = await requestAgent(
       agent,
       { v: VERSION, kind: "agent.observe", id: crypto.randomUUID() },
@@ -330,7 +340,7 @@ export function createBroker(options: BrokerOptions) {
       signal,
     )
     if (new URL(observation.page.url).origin !== agent.identity.origin) fail("FORBIDDEN", "Page identity changed")
-    requireCapability(session, "page.observe")
+    assertAuthorized()
     if (params.includeScreenshot === false) return observation
     if (observation.sensitiveFields) return { ...observation, screenshotSuppressedReason: "sensitive-fields" as const }
     if (!options.capturePage) return { ...observation, screenshotSuppressedReason: "unavailable" as const }
@@ -340,11 +350,13 @@ export function createBroker(options: BrokerOptions) {
       decodeObservation,
       signal,
     )
+    assertAuthorized()
     if (beforeCapture.sensitiveFields) return { ...beforeCapture, screenshotSuppressedReason: "sensitive-fields" as const }
     if (agents.get(agentKey(tabId, agent.identity.documentId)) !== agent)
       fail("FORBIDDEN", "The approved page navigated during observation")
     try {
-      const screenshot = await options.capturePage(tabId)
+      const screenshot = await options.capturePage(tabId, { signal, assertAuthorized })
+      assertAuthorized()
       if (agents.get(agentKey(tabId, agent.identity.documentId)) !== agent)
         fail("FORBIDDEN", "The approved page navigated during screenshot capture")
       if (screenshot.dataUrl.length > MAX_SCREENSHOT_CHARS)
@@ -355,19 +367,29 @@ export function createBroker(options: BrokerOptions) {
         decodeObservation,
         signal,
       )
+      assertAuthorized()
       if (afterCapture.sensitiveFields) return { ...afterCapture, screenshotSuppressedReason: "sensitive-fields" as const }
       if (new URL(afterCapture.page.url).origin !== agent.identity.origin)
         fail("FORBIDDEN", "Page identity changed during screenshot capture")
+      for (const key of ["width", "height", "scrollX", "scrollY", "devicePixelRatio"] as const)
+        if (beforeCapture.viewport[key] !== afterCapture.viewport[key])
+          fail("PAGE_CHANGED", "The viewport changed during screenshot capture; observe again")
+      if ((screenshot.width === undefined) !== (screenshot.height === undefined))
+        fail("PROTOCOL", "Screenshot dimensions must be provided together")
       return decodeObservation({
         ...afterCapture,
         screenshot: {
           ...screenshot,
-          width: Math.round(afterCapture.viewport.width * afterCapture.viewport.devicePixelRatio),
-          height: Math.round(afterCapture.viewport.height * afterCapture.viewport.devicePixelRatio),
-          pixelRatio: afterCapture.viewport.devicePixelRatio,
+          width: screenshot.width ?? Math.round(afterCapture.viewport.width * afterCapture.viewport.devicePixelRatio),
+          height: screenshot.height ?? Math.round(afterCapture.viewport.height * afterCapture.viewport.devicePixelRatio),
+          pixelRatio:
+            screenshot.width === undefined
+              ? afterCapture.viewport.devicePixelRatio
+              : screenshot.width / afterCapture.viewport.width,
         },
       })
     } catch (reason) {
+      assertAuthorized()
       if (reason instanceof BridgeError && reason.code === "PAYLOAD_TOO_LARGE")
         return { ...observation, screenshotSuppressedReason: "too-large" as const }
       if (reason instanceof BridgeError) throw reason

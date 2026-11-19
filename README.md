@@ -72,7 +72,9 @@ For an ordinary browser preview of extension UI, stop the extension dev service 
 
 ## Live demo
 
-Open **http://127.0.0.1:3000/extension** after starting `pnpm dev` to run the real Browser Agent flow. The page connects to the unpacked MV3 extension, requests exact-origin access, invokes the shared `browser_page_read` tool, and lets you observe revocation and navigation boundaries. The capability package also exposes an observe → action → observe loop with bounded screenshot, click, scroll, type, keypress and confirmed navigation tools for Agent integrations. See the [demo recording guide](docs/demo.md) and [capability contract](docs/browser-agent.md).
+[![Image-driven Agent using the real Chrome extension](docs/browser-agent-demo-poster.png)](docs/demo.md)
+
+Open **http://127.0.0.1:3000/extension** after starting `pnpm dev` to run the real Browser Agent flow. The page connects to the unpacked MV3 extension, requests exact-origin access, receives a visible-tab screenshot through `browser_page_observe`, executes bounded click/scroll/type actions in Chrome, and lets you observe revocation and navigation boundaries. The capability package also exposes the same observe → action → observe loop, plus keypress and confirmed navigation tools, for Agent integrations. See the [real extension video and demo guide](docs/demo.md) and [capability contract](docs/browser-agent.md).
 
 ## Applications
 
@@ -193,7 +195,7 @@ Before the first browser test, run `pnpm exec playwright install chromium`; Linu
 | [Application lifecycle](docs/applications.md)              | Registry, instance identity, adding, removing, restoring, and composing clients               |
 | [Extension communication](docs/extension-communication.md) | SDK usage, exact-origin trust, page approval, routing, recovery, and traffic limits           |
 | [Browser Agent capability](docs/browser-agent.md)          | Template-independent capability contract and integration boundary                             |
-| [Browser Agent demo](docs/demo.md)                         | Live extension connection flow and recording checklist                                        |
+| [Browser Agent demo](docs/demo.md)                         | Real extension video, SDK integration, and reproducible recording                             |
 | [Reinit and upgrades](docs/reinit.md)                      | Preservation contract, compatible dependencies, offline mode, timeouts, recovery, and cleanup |
 | [Testing and CI](docs/testing.md)                          | Browser assertions, regression suites, real reinit acceptance, reports, and workflows         |
 | [Deployment and delivery](docs/deployment.md)              | Web hosting, Admin routing, environment inputs and per-instance Extension ZIPs                |
