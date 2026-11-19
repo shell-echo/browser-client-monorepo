@@ -39,20 +39,20 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - "@types/chrome@0.3.5"
-  - "@next/env@16.4.1"
-  - "@next/eslint-plugin-next@16.4.1"
-  - "@next/swc-darwin-arm64@16.4.1"
-  - "@next/swc-darwin-x64@16.4.1"
-  - "@next/swc-linux-arm64-gnu@16.4.1"
-  - "@next/swc-linux-arm64-musl@16.4.1"
-  - "@next/swc-linux-x64-gnu@16.4.1"
-  - "@next/swc-linux-x64-musl@16.4.1"
-  - "@next/swc-win32-arm64-msvc@16.4.1"
-  - "@next/swc-win32-x64-msvc@16.4.1"
+  - "@next/env@16.4.5"
+  - "@next/eslint-plugin-next@16.4.5"
+  - "@next/swc-darwin-arm64@16.4.5"
+  - "@next/swc-darwin-x64@16.4.5"
+  - "@next/swc-linux-arm64-gnu@16.4.5"
+  - "@next/swc-linux-arm64-musl@16.4.5"
+  - "@next/swc-linux-x64-gnu@16.4.5"
+  - "@next/swc-linux-x64-musl@16.4.5"
+  - "@next/swc-win32-arm64-msvc@16.4.5"
+  - "@next/swc-win32-x64-msvc@16.4.5"
   - "@shadcn/registry@0.1.4"
-  - eslint-config-next@16.4.1
+  - eslint-config-next@16.4.5
   - lucide-react@1.57.0
-  - next@16.4.1
+  - next@16.4.5
   - playwright-core@1.64.1
   - playwright@1.64.1
   - react-dom@19.3.1
@@ -72,7 +72,7 @@ overrides:
   hono: 4.13.16
   "minimatch@^10.2.4": 11.0.1
 
-# Next 16.4.1 adapts legacy rule contexts for ESLint 10. Keep exceptions scoped
+# Next 16.4.5 adapts legacy rule contexts for ESLint 10. Keep exceptions scoped
 # to tested plugin versions; scripts/tests/eslint.test.mts exercises their rules.
 peerDependencyRules:
   allowedVersions:

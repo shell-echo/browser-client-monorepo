@@ -7,7 +7,7 @@
       "legacy": true,
       "integrationVersion": 1,
       "generator": "create-next-app",
-      "version": "16.4.1",
+      "version": "16.4.5",
       "generatedAt": "2026-10-15T07:12:39.414Z"
     },
     "admin": {
@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "policy": "stable-compatible-v1",
-    "resolvedAt": "2026-10-25T02:41:05.143Z",
+    "resolvedAt": "2026-11-19T09:43:36.000Z",
     "entries": [
       {
         "id": "catalog:default:react",
@@ -620,7 +620,7 @@
         "id": "apps/web:dependencies:next",
         "name": "next",
         "previous": "16.4.1",
-        "current": "16.4.1",
+        "current": "16.4.5",
         "location": {
           "path": "apps/web",
           "field": "dependencies",
@@ -628,8 +628,8 @@
         },
         "required": [],
         "strictLatest": true,
-        "latest": "16.4.1",
-        "version": "16.4.1",
+        "latest": "16.4.5",
+        "version": "16.4.5",
         "reasons": []
       },
       {
@@ -657,7 +657,7 @@
         "id": "apps/web:devDependencies:eslint-config-next",
         "name": "eslint-config-next",
         "previous": "16.4.1",
-        "current": "16.4.1",
+        "current": "16.4.5",
         "location": {
           "path": "apps/web",
           "field": "devDependencies",
@@ -665,8 +665,8 @@
         },
         "required": [],
         "strictLatest": true,
-        "latest": "16.4.1",
-        "version": "16.4.1",
+        "latest": "16.4.5",
+        "version": "16.4.5",
         "reasons": []
       },
       {
